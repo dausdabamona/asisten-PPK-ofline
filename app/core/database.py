@@ -1966,6 +1966,65 @@ class DatabaseManager:
             row = cursor.fetchone()
             return dict(row) if row else SATKER_DEFAULT
 
+    def save_satker(self, data: Dict) -> int:
+        """Save or update satker data"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if data.get('id'):
+                # Update existing
+                cursor.execute("""
+                    UPDATE satker SET
+                        kode = ?, nama = ?, nama_pendek = ?, alamat = ?, kota = ?,
+                        kode_pos = ?, provinsi = ?, telepon = ?, fax = ?, email = ?,
+                        website = ?, kementerian = ?, eselon1 = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (
+                    data.get('kode'), data.get('nama'), data.get('nama_pendek'),
+                    data.get('alamat'), data.get('kota'), data.get('kode_pos'),
+                    data.get('provinsi'), data.get('telepon'), data.get('fax'),
+                    data.get('email'), data.get('website'), data.get('kementerian'),
+                    data.get('eselon1'), data['id']
+                ))
+                conn.commit()
+                return data['id']
+            else:
+                # Insert new
+                cursor.execute("""
+                    INSERT INTO satker (
+                        kode, nama, nama_pendek, alamat, kota, kode_pos,
+                        provinsi, telepon, fax, email, website, kementerian, eselon1
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    data.get('kode'), data.get('nama'), data.get('nama_pendek'),
+                    data.get('alamat'), data.get('kota'), data.get('kode_pos'),
+                    data.get('provinsi'), data.get('telepon'), data.get('fax'),
+                    data.get('email'), data.get('website'), data.get('kementerian'),
+                    data.get('eselon1')
+                ))
+                conn.commit()
+                return cursor.lastrowid
+
+    def get_penyedia(self, penyedia_id: int) -> Optional[Dict]:
+        """Get single penyedia by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM penyedia WHERE id = ?", (penyedia_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def delete_penyedia(self, penyedia_id: int) -> bool:
+        """Soft delete penyedia"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE penyedia SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (penyedia_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
 
 # ============================================================================
 # SINGLETON

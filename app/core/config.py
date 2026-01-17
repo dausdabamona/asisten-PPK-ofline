@@ -560,6 +560,28 @@ DOCUMENT_TEMPLATES = {
         'template': 'spmk.docx',
         'placeholders': ['paket', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia'],
     },
+    # === SURAT PESANAN (untuk Barang) & SPMK per Jenis Pengadaan ===
+    'SURAT_PESANAN': {
+        'name': 'Surat Pesanan',
+        'type': 'word',
+        'template': 'surat_pesanan.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia'],
+        'jenis_pengadaan': 'BARANG',
+    },
+    'SPMK_JASA_LAINNYA': {
+        'name': 'SPMK Jasa Lainnya',
+        'type': 'word',
+        'template': 'spmk_jasa_lainnya.docx',
+        'placeholders': ['paket', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia'],
+        'jenis_pengadaan': 'JASA_LAINNYA',
+    },
+    'SPMK_KONSTRUKSI': {
+        'name': 'SPMK Konstruksi',
+        'type': 'word',
+        'template': 'spmk_konstruksi.docx',
+        'placeholders': ['paket', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia'],
+        'jenis_pengadaan': 'KONSTRUKSI',
+    },
     'BAHP': {
         'name': 'Berita Acara Hasil Pemeriksaan',
         'type': 'word',
@@ -860,6 +882,10 @@ NUMBERING_PREFIXES = {
     'SPK_BARANG': 'SPK-B',
     'SPK_JASA_LAINNYA': 'SPK-J',
     'SPK_KONSTRUKSI': 'SPK-K',
+    # Surat Pesanan (Barang) & SPMK per jenis pengadaan
+    'SURAT_PESANAN': 'SP-B',
+    'SPMK_JASA_LAINNYA': 'SPMK-J',
+    'SPMK_KONSTRUKSI': 'SPMK-K',
     # Surat Perjanjian per jenis pengadaan
     'PERJANJIAN_BARANG': 'KTR-B',
     'PERJANJIAN_JASA_LAINNYA': 'KTR-J',

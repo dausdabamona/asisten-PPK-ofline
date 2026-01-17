@@ -1786,11 +1786,22 @@ class DashboardWindow(QMainWindow):
     
     def open_penyedia_manager(self):
         """Open Master Data Penyedia"""
-        QMessageBox.information(self, "Info", "Fitur Master Data Penyedia sedang dikembangkan.")
-    
+        try:
+            from .penyedia_manager import PenyediaManager
+            dialog = PenyediaManager(self)
+            dialog.penyedia_changed.connect(self.load_paket_list)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
     def open_satker_manager(self):
         """Open Master Data Satker"""
-        QMessageBox.information(self, "Info", "Fitur Master Data Satker sedang dikembangkan.")
+        try:
+            from .satker_manager import SatkerManager
+            dialog = SatkerManager(self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
     
     def import_pegawai_csv(self):
         """Import pegawai from CSV file"""

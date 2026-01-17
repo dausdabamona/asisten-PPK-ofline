@@ -1,0 +1,719 @@
+"""
+PPK DOCUMENT FACTORY v3.0 - Configuration & Placeholder Dictionary
+===================================================================
+Template-Driven Procurement Workflow System
+"""
+
+import os
+from datetime import datetime
+from typing import Dict, List
+
+# ============================================================================
+# PATH CONFIGURATION
+# ============================================================================
+
+# APP_DIR points to 'app/' folder
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# ROOT_DIR points to main application folder (parent of 'app/')
+ROOT_DIR = os.path.dirname(APP_DIR)
+
+# Data and output in root folder
+DATA_DIR = os.path.join(ROOT_DIR, "data")
+OUTPUT_DIR = os.path.join(ROOT_DIR, "output")
+
+# Templates in root folder (not in app/)
+TEMPLATES_DIR = os.path.join(ROOT_DIR, "templates")
+WORD_TEMPLATES_DIR = os.path.join(TEMPLATES_DIR, "word")
+EXCEL_TEMPLATES_DIR = os.path.join(TEMPLATES_DIR, "excel")
+BACKUP_TEMPLATES_DIR = os.path.join(TEMPLATES_DIR, "backup")
+
+# Assets in root folder
+ASSETS_DIR = os.path.join(ROOT_DIR, "assets")
+SIGNATURES_DIR = os.path.join(ASSETS_DIR, "signatures")
+
+# Ensure directories exist
+for d in [DATA_DIR, OUTPUT_DIR, WORD_TEMPLATES_DIR, EXCEL_TEMPLATES_DIR, 
+          BACKUP_TEMPLATES_DIR, ASSETS_DIR, SIGNATURES_DIR]:
+    os.makedirs(d, exist_ok=True)
+
+DATABASE_PATH = os.path.join(DATA_DIR, "ppk_workflow.db")
+
+# ============================================================================
+# TAHUN ANGGARAN
+# ============================================================================
+
+TAHUN_ANGGARAN = datetime.now().year
+
+# ============================================================================
+# METODE PERHITUNGAN HPS
+# ============================================================================
+
+METODE_HPS = {
+    'RATA': 'Rata-rata',
+    'TERTINGGI': 'Harga Tertinggi',
+    'TERENDAH': 'Harga Terendah'
+}
+
+def hitung_harga_hps(survey1: float, survey2: float, survey3: float, metode: str = 'RATA') -> float:
+    """
+    Hitung harga HPS berdasarkan metode yang dipilih
+    
+    Args:
+        survey1: Harga survey toko 1
+        survey2: Harga survey toko 2
+        survey3: Harga survey toko 3
+        metode: 'RATA', 'TERTINGGI', atau 'TERENDAH'
+    
+    Returns:
+        Harga HPS hasil perhitungan
+    """
+    # Filter valid prices (> 0)
+    prices = [p for p in [survey1, survey2, survey3] if p and p > 0]
+    
+    if not prices:
+        return 0
+    
+    if metode == 'TERTINGGI':
+        return max(prices)
+    elif metode == 'TERENDAH':
+        return min(prices)
+    else:  # RATA (default)
+        return sum(prices) / len(prices)
+
+# ============================================================================
+# SATKER DEFAULT
+# ============================================================================
+
+SATKER_DEFAULT = {
+    'kode': '427266',
+    'nama': 'POLITEKNIK KELAUTAN DAN PERIKANAN SORONG',
+    'nama_pendek': 'Politeknik KP Sorong',
+    'alamat': 'Jl. Kapitan Pattimura, Klademak II, Distrik Sorong Manoi',
+    'kota': 'Sorong',
+    'kode_pos': '98417',
+    'provinsi': 'Papua Barat Daya',
+    'telepon': '(0951) 321456',
+    'fax': '(0951) 321456',
+    'email': 'poltek.sorong@kkp.go.id',
+    'website': 'www.polsorong.ac.id',
+    'kementerian': 'KEMENTERIAN KELAUTAN DAN PERIKANAN',
+    'eselon1': 'BADAN PENYULUHAN DAN PENGEMBANGAN SDM KP',
+}
+
+# ============================================================================
+# PROCUREMENT WORKFLOW STAGES
+# ============================================================================
+
+WORKFLOW_STAGES = [
+    {
+        'id': 1,
+        'code': 'SPESIFIKASI',
+        'name': 'Spesifikasi Teknis',
+        'description': 'Dokumen spesifikasi teknis barang/jasa',
+        'template_type': 'word',
+        'template_file': 'spesifikasi_teknis.docx',
+        'required': True,
+        'outputs': ['SPESIFIKASI'],
+    },
+    {
+        'id': 2,
+        'code': 'SURVEY',
+        'name': 'Survey Harga',
+        'description': 'Survey harga pasar dari minimal 3 sumber',
+        'template_type': 'excel',
+        'template_file': 'survey_harga.xlsx',
+        'required': True,
+        'outputs': ['SURVEY_HARGA', 'BA_SURVEY_HARGA'],
+    },
+    {
+        'id': 3,
+        'code': 'HPS',
+        'name': 'Penetapan HPS',
+        'description': 'Harga Perkiraan Sendiri',
+        'template_type': 'excel',
+        'template_file': 'hps.xlsx',
+        'required': True,
+        'outputs': ['HPS'],
+    },
+    {
+        'id': 4,
+        'code': 'KAK',
+        'name': 'Kerangka Acuan Kerja',
+        'description': 'KAK / Terms of Reference',
+        'template_type': 'word',
+        'template_file': 'kak.docx',
+        'required': True,
+        'outputs': ['KAK'],
+    },
+    {
+        'id': 5,
+        'code': 'NOTA_DINAS_PP',
+        'name': 'Nota Dinas ke Pejabat Pengadaan',
+        'description': 'Permintaan pelaksanaan pengadaan (akhir persiapan)',
+        'template_type': 'word',
+        'template_file': 'nota_dinas_pp.docx',
+        'required': True,
+        'outputs': ['NOTA_DINAS_PP', 'SURAT_PERMINTAAN'],
+    },
+    {
+        'id': 6,
+        'code': 'SPK',
+        'name': 'Surat Perintah Kerja',
+        'description': 'Kontrak / Surat Perintah Kerja',
+        'template_type': 'word',
+        'template_file': 'spk.docx',
+        'required': True,
+        'outputs': ['SPK'],
+    },
+    {
+        'id': 7,
+        'code': 'SPMK',
+        'name': 'Surat Perintah Mulai Kerja',
+        'description': 'Perintah untuk memulai pekerjaan',
+        'template_type': 'word',
+        'template_file': 'spmk.docx',
+        'required': True,
+        'outputs': ['SPMK'],
+    },
+    {
+        'id': 8,
+        'code': 'BAHP',
+        'name': 'Berita Acara Hasil Pemeriksaan',
+        'description': 'Hasil pemeriksaan pekerjaan oleh PPHP',
+        'template_type': 'word',
+        'template_file': 'bahp.docx',
+        'required': True,
+        'outputs': ['BAHP'],
+    },
+    {
+        'id': 9,
+        'code': 'BAST',
+        'name': 'Berita Acara Serah Terima',
+        'description': 'Serah terima hasil pekerjaan',
+        'template_type': 'word',
+        'template_file': 'bast.docx',
+        'required': True,
+        'outputs': ['BAST'],
+    },
+    {
+        'id': 10,
+        'code': 'SPP',
+        'name': 'Surat Permintaan Pembayaran',
+        'description': 'SPP-LS, DRPP, Kuitansi',
+        'template_type': 'word',
+        'template_file': 'spp_ls.docx',
+        'required': True,
+        'outputs': ['SPP_LS', 'DRPP', 'KUITANSI'],
+    },
+    {
+        'id': 11,
+        'code': 'SSP',
+        'name': 'Surat Setoran Pajak',
+        'description': 'SSP PPN dan PPh',
+        'template_type': 'excel',
+        'template_file': 'ssp.xlsx',
+        'required': True,
+        'outputs': ['SSP_PPN', 'SSP_PPH'],
+    },
+]
+
+# Stage code to ID mapping
+STAGE_CODE_MAP = {s['code']: s['id'] for s in WORKFLOW_STAGES}
+STAGE_ID_MAP = {s['id']: s for s in WORKFLOW_STAGES}
+
+# ============================================================================
+# PLACEHOLDER DICTIONARY
+# ============================================================================
+
+PLACEHOLDERS = {
+    # -------------------------------------------------------------------------
+    # PAKET / PEKERJAAN
+    # -------------------------------------------------------------------------
+    'paket': {
+        'nama_paket': {'label': 'Nama Paket Pekerjaan', 'type': 'text', 'required': True},
+        'kode_paket': {'label': 'Kode Paket', 'type': 'text', 'required': False},
+        'lokasi_pekerjaan': {'label': 'Lokasi Pekerjaan', 'type': 'text', 'required': True},
+        'jenis_pengadaan': {'label': 'Jenis Pengadaan', 'type': 'select', 
+                           'options': ['Barang', 'Jasa Lainnya', 'Jasa Konsultansi', 'Pekerjaan Konstruksi'],
+                           'required': True},
+        'metode_pengadaan': {'label': 'Metode Pengadaan', 'type': 'select',
+                            'options': ['Pengadaan Langsung', 'Penunjukan Langsung', 'Tender', 'Seleksi'],
+                            'required': True},
+        'sumber_dana': {'label': 'Sumber Dana', 'type': 'text', 'required': True},
+        'kode_akun': {'label': 'Kode Akun/MAK', 'type': 'text', 'required': True},
+        'tahun_anggaran': {'label': 'Tahun Anggaran', 'type': 'number', 'required': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # NILAI / HARGA
+    # -------------------------------------------------------------------------
+    'nilai': {
+        'nilai_pagu': {'label': 'Nilai Pagu Anggaran', 'type': 'currency', 'required': True},
+        'nilai_hps': {'label': 'Nilai HPS', 'type': 'currency', 'required': True},
+        'nilai_hps_terbilang': {'label': 'HPS Terbilang', 'type': 'text', 'auto': True},
+        'nilai_kontrak': {'label': 'Nilai Kontrak (sebelum PPN)', 'type': 'currency', 'required': True},
+        'nilai_kontrak_terbilang': {'label': 'Kontrak Terbilang', 'type': 'text', 'auto': True},
+        'nilai_ppn': {'label': 'PPN 11%', 'type': 'currency', 'auto': True},
+        'nilai_pph': {'label': 'PPh', 'type': 'currency', 'auto': True},
+        'jenis_pph': {'label': 'Jenis PPh', 'type': 'select', 
+                     'options': ['PPh 21', 'PPh 22', 'PPh 23', 'PPh 4(2)'], 'required': True},
+        'tarif_pph': {'label': 'Tarif PPh (%)', 'type': 'percent', 'required': True},
+        'nilai_bruto': {'label': 'Nilai Bruto (DPP + PPN)', 'type': 'currency', 'auto': True},
+        'nilai_bersih': {'label': 'Nilai Bersih', 'type': 'currency', 'auto': True},
+        'nilai_bersih_terbilang': {'label': 'Nilai Bersih Terbilang', 'type': 'text', 'auto': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # WAKTU / TANGGAL
+    # -------------------------------------------------------------------------
+    'waktu': {
+        'tanggal_spesifikasi': {'label': 'Tanggal Spesifikasi', 'type': 'date', 'required': False},
+        'tanggal_hps': {'label': 'Tanggal HPS', 'type': 'date', 'required': True},
+        'tanggal_kak': {'label': 'Tanggal KAK', 'type': 'date', 'required': False},
+        'tanggal_spk': {'label': 'Tanggal SPK', 'type': 'date', 'required': True},
+        'tanggal_spmk': {'label': 'Tanggal SPMK', 'type': 'date', 'required': True},
+        'tanggal_mulai': {'label': 'Tanggal Mulai Kerja', 'type': 'date', 'required': True},
+        'tanggal_selesai': {'label': 'Tanggal Selesai', 'type': 'date', 'required': True},
+        'tanggal_bahp': {'label': 'Tanggal BAHP', 'type': 'date', 'required': True},
+        'tanggal_bast': {'label': 'Tanggal BAST', 'type': 'date', 'required': True},
+        'tanggal_spp': {'label': 'Tanggal SPP', 'type': 'date', 'required': True},
+        'jangka_waktu': {'label': 'Jangka Waktu (hari)', 'type': 'number', 'required': True},
+        'masa_pemeliharaan': {'label': 'Masa Pemeliharaan (hari)', 'type': 'number', 'required': False},
+    },
+    
+    # -------------------------------------------------------------------------
+    # NOMOR DOKUMEN
+    # -------------------------------------------------------------------------
+    'nomor': {
+        'nomor_spesifikasi': {'label': 'Nomor Spesifikasi', 'type': 'text', 'auto': True},
+        'nomor_hps': {'label': 'Nomor HPS', 'type': 'text', 'auto': True},
+        'nomor_kak': {'label': 'Nomor KAK', 'type': 'text', 'auto': True},
+        'nomor_spk': {'label': 'Nomor SPK/Kontrak', 'type': 'text', 'auto': True},
+        'nomor_spmk': {'label': 'Nomor SPMK', 'type': 'text', 'auto': True},
+        'nomor_bahp': {'label': 'Nomor BAHP', 'type': 'text', 'auto': True},
+        'nomor_bast': {'label': 'Nomor BAST', 'type': 'text', 'auto': True},
+        'nomor_spp': {'label': 'Nomor SPP', 'type': 'text', 'auto': True},
+        'nomor_kuitansi': {'label': 'Nomor Kuitansi', 'type': 'text', 'auto': True},
+        'nomor_ssp_ppn': {'label': 'Nomor SSP PPN', 'type': 'text', 'auto': True},
+        'nomor_ssp_pph': {'label': 'Nomor SSP PPh', 'type': 'text', 'auto': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # SATKER
+    # -------------------------------------------------------------------------
+    'satker': {
+        'satker_kode': {'label': 'Kode Satker', 'type': 'text', 'required': True},
+        'satker_nama': {'label': 'Nama Satker', 'type': 'text', 'required': True},
+        'satker_alamat': {'label': 'Alamat Satker', 'type': 'text', 'required': True},
+        'satker_kota': {'label': 'Kota', 'type': 'text', 'required': True},
+        'satker_provinsi': {'label': 'Provinsi', 'type': 'text', 'required': True},
+        'satker_telepon': {'label': 'Telepon', 'type': 'text', 'required': False},
+        'satker_email': {'label': 'Email', 'type': 'text', 'required': False},
+        'kementerian': {'label': 'Kementerian', 'type': 'text', 'required': True},
+        'eselon1': {'label': 'Eselon 1', 'type': 'text', 'required': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # PPK
+    # -------------------------------------------------------------------------
+    'ppk': {
+        'ppk_nama': {'label': 'Nama PPK', 'type': 'text', 'required': True},
+        'ppk_nip': {'label': 'NIP PPK', 'type': 'text', 'required': True},
+        'ppk_pangkat': {'label': 'Pangkat PPK', 'type': 'text', 'required': False},
+        'ppk_golongan': {'label': 'Golongan PPK', 'type': 'text', 'required': False},
+        'ppk_jabatan': {'label': 'Jabatan PPK', 'type': 'text', 'required': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # PPSPM
+    # -------------------------------------------------------------------------
+    'ppspm': {
+        'ppspm_nama': {'label': 'Nama PPSPM', 'type': 'text', 'required': True},
+        'ppspm_nip': {'label': 'NIP PPSPM', 'type': 'text', 'required': True},
+        'ppspm_jabatan': {'label': 'Jabatan PPSPM', 'type': 'text', 'required': False},
+    },
+    
+    # -------------------------------------------------------------------------
+    # BENDAHARA
+    # -------------------------------------------------------------------------
+    'bendahara': {
+        'bendahara_nama': {'label': 'Nama Bendahara', 'type': 'text', 'required': True},
+        'bendahara_nip': {'label': 'NIP Bendahara', 'type': 'text', 'required': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # PENYEDIA
+    # -------------------------------------------------------------------------
+    'penyedia': {
+        'penyedia_nama': {'label': 'Nama Perusahaan', 'type': 'text', 'required': True},
+        'penyedia_alamat': {'label': 'Alamat Perusahaan', 'type': 'text', 'required': True},
+        'penyedia_kota': {'label': 'Kota', 'type': 'text', 'required': False},
+        'penyedia_npwp': {'label': 'NPWP Perusahaan', 'type': 'text', 'required': True},
+        'penyedia_rekening': {'label': 'No. Rekening', 'type': 'text', 'required': True},
+        'penyedia_bank': {'label': 'Nama Bank', 'type': 'text', 'required': True},
+        'penyedia_nama_rekening': {'label': 'Nama Pemilik Rekening', 'type': 'text', 'required': True},
+        'penyedia_telepon': {'label': 'Telepon', 'type': 'text', 'required': False},
+        'penyedia_email': {'label': 'Email', 'type': 'text', 'required': False},
+        'penyedia_is_pkp': {'label': 'PKP (Kena PPN)', 'type': 'boolean', 'required': True},
+        'direktur_nama': {'label': 'Nama Direktur', 'type': 'text', 'required': True},
+        'direktur_jabatan': {'label': 'Jabatan Direktur', 'type': 'text', 'required': False},
+    },
+    
+    # -------------------------------------------------------------------------
+    # PEMERIKSA (PPHP)
+    # -------------------------------------------------------------------------
+    'pemeriksa': {
+        'pemeriksa1_nama': {'label': 'Nama Pemeriksa 1', 'type': 'text', 'required': True},
+        'pemeriksa1_nip': {'label': 'NIP Pemeriksa 1', 'type': 'text', 'required': True},
+        'pemeriksa1_jabatan': {'label': 'Jabatan Pemeriksa 1', 'type': 'text', 'required': False},
+        'pemeriksa2_nama': {'label': 'Nama Pemeriksa 2', 'type': 'text', 'required': False},
+        'pemeriksa2_nip': {'label': 'NIP Pemeriksa 2', 'type': 'text', 'required': False},
+        'pemeriksa2_jabatan': {'label': 'Jabatan Pemeriksa 2', 'type': 'text', 'required': False},
+        'pemeriksa3_nama': {'label': 'Nama Pemeriksa 3', 'type': 'text', 'required': False},
+        'pemeriksa3_nip': {'label': 'NIP Pemeriksa 3', 'type': 'text', 'required': False},
+        'pemeriksa3_jabatan': {'label': 'Jabatan Pemeriksa 3', 'type': 'text', 'required': False},
+    },
+    
+    # -------------------------------------------------------------------------
+    # HASIL PEMERIKSAAN
+    # -------------------------------------------------------------------------
+    'pemeriksaan': {
+        'hasil_pemeriksaan': {'label': 'Hasil Pemeriksaan', 'type': 'textarea', 'required': True},
+        'kesimpulan': {'label': 'Kesimpulan', 'type': 'select', 
+                      'options': ['Sesuai', 'Tidak Sesuai'], 'required': True},
+        'catatan_pemeriksaan': {'label': 'Catatan', 'type': 'textarea', 'required': False},
+        'volume_serah_terima': {'label': 'Volume yang Diserahkan', 'type': 'text', 'required': True},
+        'kondisi_barang': {'label': 'Kondisi Barang/Pekerjaan', 'type': 'text', 'required': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # SURVEY HARGA (untuk HPS Excel)
+    # -------------------------------------------------------------------------
+    'survey': {
+        'survey1_toko': {'label': 'Nama Toko 1', 'type': 'text', 'required': True},
+        'survey1_alamat': {'label': 'Alamat Toko 1', 'type': 'text', 'required': False},
+        'survey1_tanggal': {'label': 'Tanggal Survey 1', 'type': 'date', 'required': True},
+        'survey2_toko': {'label': 'Nama Toko 2', 'type': 'text', 'required': True},
+        'survey2_alamat': {'label': 'Alamat Toko 2', 'type': 'text', 'required': False},
+        'survey2_tanggal': {'label': 'Tanggal Survey 2', 'type': 'date', 'required': True},
+        'survey3_toko': {'label': 'Nama Toko 3', 'type': 'text', 'required': True},
+        'survey3_alamat': {'label': 'Alamat Toko 3', 'type': 'text', 'required': False},
+        'survey3_tanggal': {'label': 'Tanggal Survey 3', 'type': 'date', 'required': True},
+    },
+    
+    # -------------------------------------------------------------------------
+    # SPESIFIKASI TEKNIS
+    # -------------------------------------------------------------------------
+    'spesifikasi': {
+        'latar_belakang': {'label': 'Latar Belakang', 'type': 'textarea', 'required': True},
+        'maksud_tujuan': {'label': 'Maksud dan Tujuan', 'type': 'textarea', 'required': True},
+        'ruang_lingkup': {'label': 'Ruang Lingkup', 'type': 'textarea', 'required': True},
+        'spesifikasi_teknis': {'label': 'Spesifikasi Teknis', 'type': 'textarea', 'required': True},
+        'volume_pekerjaan': {'label': 'Volume Pekerjaan', 'type': 'text', 'required': True},
+        'syarat_penyedia': {'label': 'Persyaratan Penyedia', 'type': 'textarea', 'required': False},
+    },
+}
+
+# Flatten placeholders for easy lookup
+ALL_PLACEHOLDERS: Dict[str, dict] = {}
+for category, items in PLACEHOLDERS.items():
+    for key, value in items.items():
+        ALL_PLACEHOLDERS[key] = {**value, 'category': category}
+
+# ============================================================================
+# DOCUMENT TYPE TEMPLATES MAPPING
+# ============================================================================
+
+DOCUMENT_TEMPLATES = {
+    'SPESIFIKASI': {
+        'name': 'Spesifikasi Teknis',
+        'type': 'word',
+        'template': 'spesifikasi_teknis.docx',
+        'placeholders': ['paket', 'waktu', 'satker', 'ppk', 'spesifikasi'],
+    },
+    'SURVEY_HARGA': {
+        'name': 'Survey Harga',
+        'type': 'excel',
+        'template': 'survey_harga.xlsx',
+        'placeholders': ['paket', 'survey'],
+    },
+    'HPS': {
+        'name': 'Harga Perkiraan Sendiri',
+        'type': 'excel',
+        'template': 'hps.xlsx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk'],
+    },
+    'KAK': {
+        'name': 'Kerangka Acuan Kerja',
+        'type': 'word',
+        'template': 'kak.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'spesifikasi'],
+    },
+    # === PROSES PEMILIHAN PENGADAAN LANGSUNG ===
+    'UNDANGAN_PL': {
+        'name': 'Surat Undangan Pengadaan Langsung',
+        'type': 'word',
+        'template': 'undangan_pl.docx',
+        'placeholders': ['paket', 'nilai', 'satker', 'pp', 'penyedia'],
+    },
+    'BAHPL': {
+        'name': 'Berita Acara Hasil Pengadaan Langsung',
+        'type': 'word',
+        'template': 'bahpl.docx',
+        'placeholders': ['paket', 'nilai', 'satker', 'pp', 'penyedia', 'negosiasi'],
+    },
+    # === KONTRAK ===
+    'SPK': {
+        'name': 'Surat Perintah Kerja',
+        'type': 'word',
+        'template': 'spk.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia'],
+    },
+    'SPMK': {
+        'name': 'Surat Perintah Mulai Kerja',
+        'type': 'word',
+        'template': 'spmk.docx',
+        'placeholders': ['paket', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia'],
+    },
+    'BAHP': {
+        'name': 'Berita Acara Hasil Pemeriksaan',
+        'type': 'word',
+        'template': 'bahp.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'penyedia', 'pemeriksa', 'pemeriksaan'],
+    },
+    'BAST': {
+        'name': 'Berita Acara Serah Terima',
+        'type': 'word',
+        'template': 'bast.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'penyedia', 'pemeriksaan'],
+    },
+    'SPP_LS': {
+        'name': 'SPP Langsung',
+        'type': 'word',
+        'template': 'spp_ls.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'ppspm', 'penyedia'],
+    },
+    'DRPP': {
+        'name': 'Daftar Rincian Permintaan Pembayaran',
+        'type': 'word',
+        'template': 'drpp.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'ppk'],
+    },
+    'KUITANSI': {
+        'name': 'Kuitansi',
+        'type': 'word',
+        'template': 'kuitansi.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'bendahara', 'penyedia'],
+    },
+    'SSP_PPN': {
+        'name': 'SSP PPN',
+        'type': 'excel',
+        'template': 'ssp.xlsx',
+        'sheet': 'PPN',
+        'placeholders': ['nilai', 'waktu', 'penyedia'],
+    },
+    'SSP_PPH': {
+        'name': 'SSP PPh',
+        'type': 'excel',
+        'template': 'ssp.xlsx',
+        'sheet': 'PPh',
+        'placeholders': ['nilai', 'waktu', 'penyedia'],
+    },
+    'NOTA_DINAS_PP': {
+        'name': 'Nota Dinas ke Pejabat Pengadaan',
+        'type': 'word',
+        'template': 'nota_dinas_pp.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'pejabat_pengadaan'],
+    },
+    'SURAT_PERMINTAAN': {
+        'name': 'Surat Permintaan Pelaksanaan Pengadaan',
+        'type': 'word',
+        'template': 'surat_permintaan_pengadaan.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk'],
+    },
+    'BA_SURVEY_HARGA': {
+        'name': 'Berita Acara Survey Harga',
+        'type': 'word',
+        'template': 'ba_survey_harga.docx',
+        'placeholders': ['paket', 'waktu', 'satker', 'ppk', 'survey'],
+    },
+    # === RANCANGAN KONTRAK - SPK ===
+    'SPK_BARANG': {
+        'name': 'SPK Pengadaan Barang',
+        'type': 'word',
+        'template': 'spk_barang.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia'],
+        'jenis_pengadaan': 'BARANG',
+    },
+    'SPK_JASA_LAINNYA': {
+        'name': 'SPK Jasa Lainnya',
+        'type': 'word',
+        'template': 'spk_jasa_lainnya.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'kak'],
+        'jenis_pengadaan': 'JASA_LAINNYA',
+    },
+    'SPK_KONSTRUKSI': {
+        'name': 'SPK Konstruksi',
+        'type': 'word',
+        'template': 'spk_konstruksi.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'jaminan', 'retensi'],
+        'jenis_pengadaan': 'KONSTRUKSI',
+    },
+    # === RANCANGAN KONTRAK - SURAT PERJANJIAN ===
+    'PERJANJIAN_BARANG': {
+        'name': 'Surat Perjanjian Pengadaan Barang',
+        'type': 'word',
+        'template': 'surat_perjanjian_barang.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'garansi'],
+        'jenis_pengadaan': 'BARANG',
+    },
+    'PERJANJIAN_JASA_LAINNYA': {
+        'name': 'Surat Perjanjian Jasa Lainnya',
+        'type': 'word',
+        'template': 'surat_perjanjian_jasa_lainnya.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'kak', 'hki'],
+        'jenis_pengadaan': 'JASA_LAINNYA',
+    },
+    'PERJANJIAN_KONSTRUKSI': {
+        'name': 'Surat Perjanjian Konstruksi',
+        'type': 'word',
+        'template': 'surat_perjanjian_konstruksi.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'jaminan', 'retensi', 'pemeliharaan', 'k3'],
+        'jenis_pengadaan': 'KONSTRUKSI',
+    },
+    # === BERITA ACARA PEMERIKSAAN (BAHP) ===
+    'BAHP_BARANG': {
+        'name': 'BA Pemeriksaan Barang',
+        'type': 'word',
+        'template': 'bahp_barang.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'items'],
+        'jenis_pengadaan': 'BARANG',
+    },
+    'BAHP_JASA_LAINNYA': {
+        'name': 'BA Pemeriksaan Jasa Lainnya',
+        'type': 'word',
+        'template': 'bahp_jasa_lainnya.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'output'],
+        'jenis_pengadaan': 'JASA_LAINNYA',
+    },
+    'BAHP_KONSTRUKSI': {
+        'name': 'BA Pemeriksaan Konstruksi',
+        'type': 'word',
+        'template': 'bahp_konstruksi.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'konsultan', 'progres', 'mutu'],
+        'jenis_pengadaan': 'KONSTRUKSI',
+    },
+    # === BERITA ACARA SERAH TERIMA (BAST) ===
+    'BAST_BARANG': {
+        'name': 'BA Serah Terima Barang',
+        'type': 'word',
+        'template': 'bast_barang.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'garansi', 'items'],
+        'jenis_pengadaan': 'BARANG',
+    },
+    'BAST_JASA_LAINNYA': {
+        'name': 'BA Serah Terima Jasa Lainnya',
+        'type': 'word',
+        'template': 'bast_jasa_lainnya.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'output'],
+        'jenis_pengadaan': 'JASA_LAINNYA',
+    },
+    'BAST_KONSTRUKSI_PHO': {
+        'name': 'BA Serah Terima Pertama (PHO)',
+        'type': 'word',
+        'template': 'bast_konstruksi_pho.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'pemeliharaan', 'retensi', 'progres'],
+        'jenis_pengadaan': 'KONSTRUKSI',
+    },
+    'BAST_KONSTRUKSI_FHO': {
+        'name': 'BA Serah Terima Akhir (FHO)',
+        'type': 'word',
+        'template': 'bast_konstruksi_fho.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pphp', 'retensi'],
+        'jenis_pengadaan': 'KONSTRUKSI',
+    },
+    # === BERITA ACARA PEMBAYARAN (BAP) ===
+    'BAP_SEKALIGUS': {
+        'name': 'BA Pembayaran Sekaligus',
+        'type': 'word',
+        'template': 'bap_sekaligus.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'pajak', 'rekening'],
+        'cara_bayar': 'SEKALIGUS',
+    },
+    'BAP_TERMIN': {
+        'name': 'BA Pembayaran Termin',
+        'type': 'word',
+        'template': 'bap_termin.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'termin', 'progres', 'retensi', 'pajak', 'rekening'],
+        'cara_bayar': 'TERMIN',
+    },
+}
+
+# ============================================================================
+# TAX CONFIGURATION
+# ============================================================================
+
+TAX_RATES = {
+    'PPN': 0.11,
+    'PPH_21_NPWP': 0.05,
+    'PPH_21_NON_NPWP': 0.06,
+    'PPH_22': 0.015,
+    'PPH_23': 0.02,
+    'PPH_4_2_KONSTRUKSI': 0.025,
+}
+
+# ============================================================================
+# NUMBERING PREFIXES
+# ============================================================================
+
+NUMBERING_PREFIXES = {
+    'SPESIFIKASI': 'SPEC',
+    'HPS': 'HPS',
+    'KAK': 'KAK',
+    'SPK': 'SPK',
+    'SPMK': 'SPMK',
+    'BAHP': 'BAHP',
+    'BAST': 'BAST',
+    'SPP_LS': 'SPP-LS',
+    'DRPP': 'DRPP',
+    'KUITANSI': 'KWT',
+    'SSP_PPN': 'SSP-PPN',
+    'SSP_PPH': 'SSP-PPH',
+    'NOTA_DINAS_PP': 'ND',
+    'SURAT_PERMINTAAN': 'SP',
+    'BA_SURVEY_HARGA': 'BA-SH',
+    # Proses Pemilihan Pengadaan Langsung
+    'UNDANGAN_PL': 'UND.PL',
+    'BAHPL': 'BA.HPL',
+    # SPK per jenis pengadaan
+    'SPK_BARANG': 'SPK-B',
+    'SPK_JASA_LAINNYA': 'SPK-J',
+    'SPK_KONSTRUKSI': 'SPK-K',
+    # Surat Perjanjian per jenis pengadaan
+    'PERJANJIAN_BARANG': 'KTR-B',
+    'PERJANJIAN_JASA_LAINNYA': 'KTR-J',
+    'PERJANJIAN_KONSTRUKSI': 'KTR-K',
+    # BAHP per jenis pengadaan
+    'BAHP_BARANG': 'BAHP-B',
+    'BAHP_JASA_LAINNYA': 'BAHP-J',
+    'BAHP_KONSTRUKSI': 'BAHP-K',
+    # BAST per jenis pengadaan
+    'BAST_BARANG': 'BAST-B',
+    'BAST_JASA_LAINNYA': 'BAST-J',
+    'BAST_KONSTRUKSI_PHO': 'PHO',
+    'BAST_KONSTRUKSI_FHO': 'FHO',
+    # BAP per cara bayar
+    'BAP_SEKALIGUS': 'BAP',
+    'BAP_TERMIN': 'BAP-T',
+}
+
+# ============================================================================
+# BULAN INDONESIA
+# ============================================================================
+
+BULAN_INDONESIA = [
+    '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
+
+HARI_INDONESIA = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']

@@ -412,6 +412,91 @@ PLACEHOLDERS = {
         'volume_pekerjaan': {'label': 'Volume Pekerjaan', 'type': 'text', 'required': True},
         'syarat_penyedia': {'label': 'Persyaratan Penyedia', 'type': 'textarea', 'required': False},
     },
+
+    # -------------------------------------------------------------------------
+    # PERJALANAN DINAS
+    # -------------------------------------------------------------------------
+    'perjalanan_dinas': {
+        'pelaksana_nama': {'label': 'Nama Pelaksana', 'type': 'text', 'required': True},
+        'pelaksana_nip': {'label': 'NIP Pelaksana', 'type': 'text', 'required': True},
+        'pelaksana_pangkat': {'label': 'Pangkat/Golongan', 'type': 'text', 'required': True},
+        'pelaksana_jabatan': {'label': 'Jabatan Pelaksana', 'type': 'text', 'required': True},
+        'maksud_perjalanan': {'label': 'Maksud Perjalanan', 'type': 'textarea', 'required': True},
+        'kota_asal': {'label': 'Kota Asal', 'type': 'text', 'required': True},
+        'kota_tujuan': {'label': 'Kota Tujuan', 'type': 'text', 'required': True},
+        'provinsi_tujuan': {'label': 'Provinsi Tujuan', 'type': 'text', 'required': False},
+        'tanggal_berangkat': {'label': 'Tanggal Berangkat', 'type': 'date', 'required': True},
+        'tanggal_kembali': {'label': 'Tanggal Kembali', 'type': 'date', 'required': True},
+        'lama_perjalanan': {'label': 'Lama Perjalanan (hari)', 'type': 'number', 'required': True},
+        'alat_angkut': {'label': 'Alat Angkutan', 'type': 'select',
+                       'options': ['Pesawat Udara', 'Kendaraan Dinas', 'Kendaraan Umum', 'Kapal Laut'],
+                       'required': True},
+        'tingkat_biaya': {'label': 'Tingkat Biaya Perjalanan', 'type': 'select',
+                         'options': ['A', 'B', 'C', 'D'], 'required': True},
+        'instansi_tujuan': {'label': 'Instansi Tujuan', 'type': 'text', 'required': False},
+        # Komponen Biaya
+        'biaya_transport': {'label': 'Biaya Transportasi', 'type': 'currency', 'required': True},
+        'biaya_uang_harian': {'label': 'Uang Harian', 'type': 'currency', 'required': True},
+        'biaya_penginapan': {'label': 'Biaya Penginapan', 'type': 'currency', 'required': False},
+        'biaya_representasi': {'label': 'Uang Representasi', 'type': 'currency', 'required': False},
+        'biaya_lain_lain': {'label': 'Biaya Lain-lain', 'type': 'currency', 'required': False},
+        'total_biaya': {'label': 'Total Biaya', 'type': 'currency', 'auto': True},
+        'total_biaya_terbilang': {'label': 'Total Biaya Terbilang', 'type': 'text', 'auto': True},
+        # Uang Muka
+        'uang_muka': {'label': 'Uang Muka Diterima', 'type': 'currency', 'required': False},
+        'uang_muka_terbilang': {'label': 'Uang Muka Terbilang', 'type': 'text', 'auto': True},
+        # Rampung
+        'kelebihan_bayar': {'label': 'Kelebihan Bayar', 'type': 'currency', 'auto': True},
+        'kekurangan_bayar': {'label': 'Kekurangan Bayar', 'type': 'currency', 'auto': True},
+        'sisa_terbilang': {'label': 'Sisa Terbilang', 'type': 'text', 'auto': True},
+        # Nomor Dokumen
+        'nomor_surat_tugas': {'label': 'Nomor Surat Tugas', 'type': 'text', 'auto': True},
+        'tanggal_surat_tugas': {'label': 'Tanggal Surat Tugas', 'type': 'date', 'required': True},
+        'nomor_sppd': {'label': 'Nomor SPPD', 'type': 'text', 'auto': True},
+        # Atasan
+        'atasan_nama': {'label': 'Nama Atasan Langsung', 'type': 'text', 'required': True},
+        'atasan_nip': {'label': 'NIP Atasan', 'type': 'text', 'required': True},
+        'atasan_jabatan': {'label': 'Jabatan Atasan', 'type': 'text', 'required': True},
+    },
+
+    # -------------------------------------------------------------------------
+    # SWAKELOLA
+    # -------------------------------------------------------------------------
+    'swakelola': {
+        'nama_kegiatan': {'label': 'Nama Kegiatan Swakelola', 'type': 'text', 'required': True},
+        'tipe_swakelola': {'label': 'Tipe Swakelola', 'type': 'select',
+                          'options': ['Tipe I', 'Tipe II', 'Tipe III', 'Tipe IV'], 'required': True},
+        'penyelenggara': {'label': 'Penyelenggara Swakelola', 'type': 'text', 'required': True},
+        'latar_belakang_swakelola': {'label': 'Latar Belakang', 'type': 'textarea', 'required': True},
+        'tujuan_swakelola': {'label': 'Tujuan Kegiatan', 'type': 'textarea', 'required': True},
+        'sasaran_swakelola': {'label': 'Sasaran Kegiatan', 'type': 'textarea', 'required': True},
+        'ruang_lingkup_swakelola': {'label': 'Ruang Lingkup', 'type': 'textarea', 'required': True},
+        'output_swakelola': {'label': 'Output/Keluaran', 'type': 'textarea', 'required': True},
+        'waktu_pelaksanaan': {'label': 'Waktu Pelaksanaan', 'type': 'text', 'required': True},
+        'lokasi_kegiatan': {'label': 'Lokasi Kegiatan', 'type': 'text', 'required': True},
+        'pagu_swakelola': {'label': 'Pagu Swakelola', 'type': 'currency', 'required': True},
+        'pagu_swakelola_terbilang': {'label': 'Pagu Terbilang', 'type': 'text', 'auto': True},
+        # Tim Swakelola
+        'ketua_tim_nama': {'label': 'Nama Ketua Tim', 'type': 'text', 'required': True},
+        'ketua_tim_nip': {'label': 'NIP Ketua Tim', 'type': 'text', 'required': True},
+        'ketua_tim_jabatan': {'label': 'Jabatan Ketua Tim', 'type': 'text', 'required': True},
+        'sekretaris_nama': {'label': 'Nama Sekretaris', 'type': 'text', 'required': False},
+        'sekretaris_nip': {'label': 'NIP Sekretaris', 'type': 'text', 'required': False},
+        'anggota1_nama': {'label': 'Nama Anggota 1', 'type': 'text', 'required': False},
+        'anggota1_nip': {'label': 'NIP Anggota 1', 'type': 'text', 'required': False},
+        'anggota2_nama': {'label': 'Nama Anggota 2', 'type': 'text', 'required': False},
+        'anggota2_nip': {'label': 'NIP Anggota 2', 'type': 'text', 'required': False},
+        'anggota3_nama': {'label': 'Nama Anggota 3', 'type': 'text', 'required': False},
+        'anggota3_nip': {'label': 'NIP Anggota 3', 'type': 'text', 'required': False},
+        # Progres & Realisasi
+        'nomor_sk_tim': {'label': 'Nomor SK Tim', 'type': 'text', 'auto': True},
+        'tanggal_sk_tim': {'label': 'Tanggal SK Tim', 'type': 'date', 'required': True},
+        'progres_persen': {'label': 'Progres (%)', 'type': 'percent', 'required': False},
+        'realisasi_biaya': {'label': 'Realisasi Biaya', 'type': 'currency', 'required': False},
+        'realisasi_biaya_terbilang': {'label': 'Realisasi Terbilang', 'type': 'text', 'auto': True},
+        'sisa_anggaran': {'label': 'Sisa Anggaran', 'type': 'currency', 'auto': True},
+        'keterangan_progres': {'label': 'Keterangan Progres', 'type': 'textarea', 'required': False},
+    },
 }
 
 # Flatten placeholders for easy lookup
@@ -647,6 +732,92 @@ DOCUMENT_TEMPLATES = {
         'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk', 'penyedia', 'termin', 'progres', 'retensi', 'pajak', 'rekening'],
         'cara_bayar': 'TERMIN',
     },
+
+    # ========================================================================
+    # PERJALANAN DINAS
+    # ========================================================================
+    'SURAT_TUGAS': {
+        'name': 'Surat Tugas',
+        'type': 'word',
+        'template': 'surat_tugas.docx',
+        'placeholders': ['satker', 'ppk', 'perjalanan_dinas'],
+    },
+    'SPPD': {
+        'name': 'Surat Perintah Perjalanan Dinas',
+        'type': 'word',
+        'template': 'sppd.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
+    },
+    'KUITANSI_UM': {
+        'name': 'Kuitansi Uang Muka Perjalanan Dinas',
+        'type': 'word',
+        'template': 'kuitansi_uang_muka.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
+    },
+    'RINCIAN_BIAYA_PD': {
+        'name': 'Rincian Biaya Perjalanan Dinas',
+        'type': 'word',
+        'template': 'rincian_biaya_pd.docx',
+        'placeholders': ['satker', 'ppk', 'perjalanan_dinas'],
+    },
+    'LAPORAN_PD': {
+        'name': 'Laporan Perjalanan Dinas',
+        'type': 'word',
+        'template': 'laporan_perjalanan_dinas.docx',
+        'placeholders': ['satker', 'ppk', 'perjalanan_dinas'],
+    },
+    'KUITANSI_RAMPUNG': {
+        'name': 'Kuitansi Rampung Perjalanan Dinas',
+        'type': 'word',
+        'template': 'kuitansi_rampung.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
+    },
+    'DAFTAR_PENGELUARAN_RIIL': {
+        'name': 'Daftar Pengeluaran Riil',
+        'type': 'word',
+        'template': 'daftar_pengeluaran_riil.docx',
+        'placeholders': ['satker', 'ppk', 'perjalanan_dinas'],
+    },
+
+    # ========================================================================
+    # SWAKELOLA
+    # ========================================================================
+    'KAK_SWAKELOLA': {
+        'name': 'KAK Swakelola',
+        'type': 'word',
+        'template': 'kak_swakelola.docx',
+        'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
+    'RAB_SWAKELOLA': {
+        'name': 'RAB Swakelola',
+        'type': 'excel',
+        'template': 'rab_swakelola.xlsx',
+        'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
+    'SK_TIM_SWAKELOLA': {
+        'name': 'SK Tim Pelaksana Swakelola',
+        'type': 'word',
+        'template': 'sk_tim_swakelola.docx',
+        'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
+    'BAP_SWAKELOLA': {
+        'name': 'Berita Acara Pembayaran Swakelola',
+        'type': 'word',
+        'template': 'bap_swakelola.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara', 'swakelola'],
+    },
+    'LAPORAN_KEMAJUAN': {
+        'name': 'Laporan Kemajuan Swakelola',
+        'type': 'word',
+        'template': 'laporan_kemajuan.docx',
+        'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
+    'BAST_SWAKELOLA': {
+        'name': 'BA Serah Terima Swakelola',
+        'type': 'word',
+        'template': 'bast_swakelola.docx',
+        'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
 }
 
 # ============================================================================
@@ -705,6 +876,21 @@ NUMBERING_PREFIXES = {
     # BAP per cara bayar
     'BAP_SEKALIGUS': 'BAP',
     'BAP_TERMIN': 'BAP-T',
+    # Perjalanan Dinas
+    'SURAT_TUGAS': 'ST',
+    'SPPD': 'SPPD',
+    'KUITANSI_UM': 'KWT-UM',
+    'RINCIAN_BIAYA_PD': 'RBPD',
+    'LAPORAN_PD': 'LPD',
+    'KUITANSI_RAMPUNG': 'KWT-R',
+    'DAFTAR_PENGELUARAN_RIIL': 'DPR',
+    # Swakelola
+    'KAK_SWAKELOLA': 'KAK-SW',
+    'RAB_SWAKELOLA': 'RAB-SW',
+    'SK_TIM_SWAKELOLA': 'SK-TIM',
+    'BAP_SWAKELOLA': 'BAP-SW',
+    'LAPORAN_KEMAJUAN': 'LK-SW',
+    'BAST_SWAKELOLA': 'BAST-SW',
 }
 
 # ============================================================================

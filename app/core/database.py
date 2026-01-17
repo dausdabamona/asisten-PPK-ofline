@@ -297,6 +297,29 @@ CREATE TABLE IF NOT EXISTS dokumen (
 );
 
 -- ============================================================================
+-- CHECKLIST SPJ (Pertanggungjawaban)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS checklist_spj (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paket_id INTEGER NOT NULL,
+    doc_type TEXT NOT NULL,           -- Kode dokumen (SPESIFIKASI, HPS, SPK, dll)
+    status TEXT DEFAULT 'BELUM',      -- BELUM, DRAFT, SIGNED, UPLOADED, ARCHIVED
+    filepath_signed TEXT,             -- Path file yang sudah ditandatangani
+    catatan TEXT,                     -- Catatan/keterangan
+    uploaded_at TIMESTAMP,            -- Waktu upload
+    uploaded_by TEXT,                 -- User yang upload
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (paket_id) REFERENCES paket(id) ON DELETE CASCADE,
+    UNIQUE(paket_id, doc_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_spj_paket ON checklist_spj(paket_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_spj_status ON checklist_spj(status);
+
+-- ============================================================================
 -- TEMPLATE MANAGEMENT
 -- ============================================================================
 

@@ -180,7 +180,84 @@ class ExcelTemplateGenerator:
         
         wb.save(filepath)
         return filepath
-    
+
+    @staticmethod
+    def create_spesifikasi_template(filepath: str, paket_nama: str = ""):
+        """Create Excel template for Spesifikasi Teknis (without prices)"""
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Spesifikasi Teknis"
+
+        # Styles
+        header_font = Font(bold=True, size=11, color="FFFFFF")
+        header_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        unlocked = Protection(locked=False)
+
+        # Title
+        ws.merge_cells('A1:G1')
+        ws['A1'] = 'TEMPLATE SPESIFIKASI TEKNIS'
+        ws['A1'].font = Font(bold=True, size=14)
+        ws['A1'].alignment = center
+
+        ws.merge_cells('A2:G2')
+        ws['A2'] = f'Paket: {paket_nama}' if paket_nama else 'Paket: [Nama Paket]'
+        ws['A2'].alignment = center
+
+        # Instructions
+        ws.merge_cells('A4:G4')
+        ws['A4'] = '📌 PETUNJUK: Isi data mulai baris 7. Harga diisi terpisah di tahap Survey Harga.'
+        ws['A4'].font = Font(italic=True, color="C00000")
+
+        # Headers (row 6) - Without prices
+        headers = [
+            ('No', 5),
+            ('Kategori', 12),
+            ('Uraian Barang/Jasa *', 40),
+            ('Spesifikasi Teknis', 40),
+            ('Satuan *', 10),
+            ('Volume *', 12),
+            ('Keterangan', 25)
+        ]
+
+        for col, (header, width) in enumerate(headers, 1):
+            cell = ws.cell(row=6, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+            cell.alignment = center
+            ws.column_dimensions[get_column_letter(col)].width = width
+
+        # Sample data rows (row 7-9)
+        sample_data = [
+            [1, 'A - Bahan', 'Pakan Ikan Floating', 'Protein min 30%, ukuran 3mm, kemasan 25kg', 'Kg', 100, 'Untuk budidaya ikan nila'],
+            [2, 'B - Peralatan', 'Jaring Ikan', 'PE nylon, mesh 2 inch, ukuran 10x5 meter', 'Lembar', 5, ''],
+            [3, 'C - Jasa', 'Tenaga Ahli Perikanan', 'S1 Perikanan, pengalaman min 3 tahun', 'OB', 2, 'Full time selama kegiatan'],
+        ]
+
+        for row_idx, row_data in enumerate(sample_data, 7):
+            for col_idx, value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.border = border
+                cell.protection = unlocked
+
+        # Add empty rows with borders
+        for row_idx in range(10, 110):
+            ws.cell(row=row_idx, column=1, value=row_idx - 6)  # Auto number
+            for col_idx in range(1, 8):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.border = border
+                cell.protection = unlocked
+
+        wb.save(filepath)
+        return filepath
+
     @staticmethod
     def parse_upload_file(filepath: str) -> tuple:
         """
@@ -253,13 +330,12 @@ class ExcelTemplateGenerator:
                         row_errors.append("Uraian wajib diisi")
                     if volume <= 0:
                         row_errors.append("Volume harus > 0")
+                    # Harga boleh 0 untuk tahap Spesifikasi Teknis
                     if harga_dasar <= 0:
-                        # Try to use average of survey prices
+                        # Try to use average of survey prices if available
                         survey_prices = [p for p in [harga_survey1, harga_survey2, harga_survey3] if p > 0]
                         if survey_prices:
                             harga_dasar = sum(survey_prices) / len(survey_prices)
-                        else:
-                            row_errors.append("Harga Satuan harus > 0")
                     
                     if row_errors:
                         errors.append(f"Baris {row_idx}: {', '.join(row_errors)}")
@@ -359,7 +435,7 @@ class ItemBarangDialog(QDialog):
         layout.addLayout(form_layout)
         
         # Harga Section
-        harga_group = QGroupBox("Harga Survey & HPS")
+        harga_group = QGroupBox("Harga Survey & HPS (Opsional - diisi setelah survey)")
         harga_layout = QGridLayout()
         
         # Harga Survey
@@ -537,22 +613,20 @@ class ItemBarangDialog(QDialog):
     def save(self):
         """Validate and save"""
         data = self.get_data()
-        
+
         if not data['uraian']:
             QMessageBox.warning(self, "Validasi", "Uraian barang/jasa wajib diisi!")
             self.txt_uraian.setFocus()
             return
-        
+
         if data['volume'] <= 0:
             QMessageBox.warning(self, "Validasi", "Volume harus lebih dari 0!")
             self.spn_volume.setFocus()
             return
-        
-        if data['harga_dasar'] <= 0:
-            QMessageBox.warning(self, "Validasi", "Harga satuan harus lebih dari 0!")
-            self.spn_harga_dasar.setFocus()
-            return
-        
+
+        # Harga boleh 0 untuk tahap Spesifikasi Teknis
+        # Harga diisi nanti pada tahap Survey Harga
+
         try:
             if self.item_data:
                 # Update
@@ -560,7 +634,7 @@ class ItemBarangDialog(QDialog):
             else:
                 # Insert
                 self.db.add_item_barang(self.paket_id, data)
-            
+
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal menyimpan: {str(e)}")
@@ -597,9 +671,14 @@ class ItemBarangManager(QDialog):
         
         header.addStretch()
         
-        # Download template button
-        btn_download = QPushButton("📥 Download Template")
-        btn_download.setToolTip("Download template Excel untuk input item")
+        # Download template buttons
+        btn_download_spec = QPushButton("📥 Template Spesifikasi")
+        btn_download_spec.setToolTip("Download template Spesifikasi Teknis (tanpa harga)")
+        btn_download_spec.clicked.connect(self.download_template_spesifikasi)
+        header.addWidget(btn_download_spec)
+
+        btn_download = QPushButton("📥 Template Lengkap")
+        btn_download.setToolTip("Download template lengkap dengan harga survey")
         btn_download.clicked.connect(self.download_template)
         header.addWidget(btn_download)
         
@@ -982,6 +1061,45 @@ class ItemBarangManager(QDialog):
             QMessageBox.information(self, "Sukses", "Nilai paket berhasil diupdate!")
             self.items_changed.emit()
     
+    def download_template_spesifikasi(self):
+        """Download simplified template for Spesifikasi Teknis (without prices)"""
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Simpan Template Spesifikasi Teknis",
+            f"Template_Spesifikasi_{self.paket.get('kode', 'Paket')}.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+
+        if not filepath:
+            return
+
+        try:
+            ExcelTemplateGenerator.create_spesifikasi_template(
+                filepath,
+                self.paket.get('nama', '')
+            )
+
+            QMessageBox.information(
+                self, "Sukses",
+                f"Template Spesifikasi Teknis berhasil disimpan!\n\n"
+                f"File: {filepath}\n\n"
+                f"Catatan:\n"
+                f"• Template ini untuk input spesifikasi barang/jasa\n"
+                f"• Harga TIDAK perlu diisi\n"
+                f"• Harga diisi terpisah pada tahap Survey Harga"
+            )
+
+            # Open file location
+            import subprocess
+            import sys
+            if sys.platform == 'win32':
+                subprocess.Popen(f'explorer /select,"{filepath}"')
+            elif sys.platform == 'darwin':
+                subprocess.Popen(['open', '-R', filepath])
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal membuat template:\n{str(e)}")
+
     def download_template(self):
         """Download Excel template for item input"""
         filepath, _ = QFileDialog.getSaveFileName(

@@ -1432,12 +1432,32 @@ class DashboardWindow(QMainWindow):
         btn_survey.setToolTip("Data Toko/Sumber Survey Harga")
         btn_survey.clicked.connect(self.open_survey_toko_manager)
         paket_info_layout.addWidget(btn_survey, 4, 2)
-        
-        # Action buttons row 2
-        btn_batch = QPushButton("🚀 Generate Semua")
+
+        # Checklist SPJ button
+        btn_checklist = QPushButton("📋 Checklist SPJ")
+        btn_checklist.setToolTip("Checklist Kelengkapan Dokumen Pertanggungjawaban")
+        btn_checklist.setStyleSheet("background-color: #27ae60;")
+        btn_checklist.clicked.connect(self.open_checklist_spj)
+        paket_info_layout.addWidget(btn_checklist, 5, 0)
+
+        # Foto Dokumentasi button
+        btn_foto = QPushButton("📷 Foto BAHP")
+        btn_foto.setToolTip("Upload Foto Dokumentasi dengan GPS Tagging")
+        btn_foto.setStyleSheet("background-color: #9b59b6;")
+        btn_foto.clicked.connect(lambda: self.open_foto_dokumentasi('BAHP'))
+        paket_info_layout.addWidget(btn_foto, 5, 1)
+
+        # Open folder button
+        btn_folder = QPushButton("📁 Folder")
+        btn_folder.setToolTip("Buka folder output paket")
+        btn_folder.clicked.connect(self.open_paket_folder)
+        paket_info_layout.addWidget(btn_folder, 5, 2)
+
+        # Action buttons row 3 - Generate All
+        btn_batch = QPushButton("🚀 Generate Semua Dokumen")
         btn_batch.setObjectName("btnSuccess")
         btn_batch.clicked.connect(self.generate_all_pending)
-        paket_info_layout.addWidget(btn_batch, 5, 0, 1, 4)
+        paket_info_layout.addWidget(btn_batch, 6, 0, 1, 3)
         
         self.paket_info_group.setLayout(paket_info_layout)
         right_layout.addWidget(self.paket_info_group)
@@ -1667,7 +1687,7 @@ class DashboardWindow(QMainWindow):
         if not self.current_paket_id:
             QMessageBox.warning(self, "Peringatan", "Pilih paket terlebih dahulu!")
             return
-        
+
         try:
             from app.ui.survey_toko_manager import SurveyTokoManager
             dialog = SurveyTokoManager(self.current_paket_id, self)
@@ -1675,7 +1695,33 @@ class DashboardWindow(QMainWindow):
             dialog.exec()
         except ImportError as e:
             QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
-    
+
+    def open_checklist_spj(self):
+        """Open Checklist SPJ / Kelengkapan Dokumen Manager"""
+        if not self.current_paket_id:
+            QMessageBox.warning(self, "Peringatan", "Pilih paket terlebih dahulu!")
+            return
+
+        try:
+            from app.ui.checklist_spj_manager import ChecklistDialog
+            dialog = ChecklistDialog(self.current_paket_id, self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def open_foto_dokumentasi(self, jenis: str = 'BAHP'):
+        """Open Foto Dokumentasi Manager untuk BAHP/BAST"""
+        if not self.current_paket_id:
+            QMessageBox.warning(self, "Peringatan", "Pilih paket terlebih dahulu!")
+            return
+
+        try:
+            from app.ui.foto_dokumentasi_manager import FotoDokumentasiDialog
+            dialog = FotoDokumentasiDialog(self.current_paket_id, jenis, self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
     def open_paket_folder(self):
         if not self.current_paket_id:
             return

@@ -297,6 +297,68 @@ CREATE TABLE IF NOT EXISTS dokumen (
 );
 
 -- ============================================================================
+-- CHECKLIST SPJ (Pertanggungjawaban)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS checklist_spj (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paket_id INTEGER NOT NULL,
+    doc_type TEXT NOT NULL,           -- Kode dokumen (SPESIFIKASI, HPS, SPK, dll)
+    status TEXT DEFAULT 'BELUM',      -- BELUM, DRAFT, SIGNED, UPLOADED, ARCHIVED
+    filepath_signed TEXT,             -- Path file yang sudah ditandatangani
+    catatan TEXT,                     -- Catatan/keterangan
+    uploaded_at TIMESTAMP,            -- Waktu upload
+    uploaded_by TEXT,                 -- User yang upload
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (paket_id) REFERENCES paket(id) ON DELETE CASCADE,
+    UNIQUE(paket_id, doc_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_spj_paket ON checklist_spj(paket_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_spj_status ON checklist_spj(status);
+
+-- ============================================================================
+-- FOTO DOKUMENTASI (untuk BAHP/BAST dengan GPS tagging)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS foto_dokumentasi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paket_id INTEGER NOT NULL,
+    jenis TEXT NOT NULL,              -- BAHP, BAST, PROGRESS, SURVEY, dll
+    kategori TEXT DEFAULT 'LAINNYA',  -- PROGRESS_0, PROGRESS_50, PROGRESS_100, BEFORE, DURING, AFTER, dll
+    filepath TEXT NOT NULL,           -- Path file foto
+    filename TEXT,                    -- Nama file asli
+
+    keterangan TEXT,                  -- Deskripsi/caption foto
+
+    -- Metadata EXIF
+    waktu_foto TIMESTAMP,             -- Waktu pengambilan foto (dari EXIF)
+    latitude REAL,                    -- GPS Latitude
+    longitude REAL,                   -- GPS Longitude
+    altitude REAL,                    -- GPS Altitude
+    camera_make TEXT,                 -- Merk kamera
+    camera_model TEXT,                -- Model kamera
+
+    -- Dimensi foto
+    width INTEGER,
+    height INTEGER,
+
+    -- Tracking
+    urutan INTEGER DEFAULT 0,         -- Urutan tampilan
+    is_cover INTEGER DEFAULT 0,       -- 1 jika foto utama/cover
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    uploaded_by TEXT,
+
+    FOREIGN KEY (paket_id) REFERENCES paket(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_foto_paket ON foto_dokumentasi(paket_id);
+CREATE INDEX IF NOT EXISTS idx_foto_jenis ON foto_dokumentasi(jenis);
+CREATE INDEX IF NOT EXISTS idx_foto_kategori ON foto_dokumentasi(kategori);
+
+-- ============================================================================
 -- TEMPLATE MANAGEMENT
 -- ============================================================================
 

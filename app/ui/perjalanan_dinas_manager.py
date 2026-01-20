@@ -938,24 +938,38 @@ class GeneratePDDocumentDialog(QDialog):
 
     def generate(self):
         """Generate selected documents"""
-        from app.templates.engine import get_template_engine
+        import traceback
         from app.core.config import WORD_TEMPLATES_DIR
 
-        engine = get_template_engine()
         generated = []
         errors = []
 
+        try:
+            from app.templates.engine import get_template_engine
+            engine = get_template_engine()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal load template engine:\n{str(e)}\n\n{traceback.format_exc()}")
+            return
+
         # Prepare placeholders
-        placeholders = self._prepare_placeholders()
+        try:
+            placeholders = self._prepare_placeholders()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal menyiapkan data:\n{str(e)}\n\n{traceback.format_exc()}")
+            return
 
         # Output folder
-        output_folder = os.path.join(
-            OUTPUT_DIR,
-            str(TAHUN_ANGGARAN),
-            "Perjalanan_Dinas",
-            f"PD_{self.pd_data['id']}_{self.pd_data.get('pelaksana_nama', 'unknown')[:20]}"
-        )
-        os.makedirs(output_folder, exist_ok=True)
+        try:
+            output_folder = os.path.join(
+                OUTPUT_DIR,
+                str(TAHUN_ANGGARAN),
+                "Perjalanan_Dinas",
+                f"PD_{self.pd_data['id']}_{self.pd_data.get('pelaksana_nama', 'unknown')[:20]}"
+            )
+            os.makedirs(output_folder, exist_ok=True)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal membuat folder output:\n{str(e)}")
+            return
 
         # Generate each selected document
         docs_to_generate = []
@@ -974,10 +988,20 @@ class GeneratePDDocumentDialog(QDialog):
         if self.chk_laporan.isChecked():
             docs_to_generate.append(('laporan_perjalanan_dinas', 'Laporan_Perjalanan_Dinas'))
 
+        if not docs_to_generate:
+            QMessageBox.warning(self, "Peringatan", "Pilih minimal satu dokumen untuk di-generate!")
+            return
+
         for template_name, output_name in docs_to_generate:
             try:
                 template_path = os.path.join(WORD_TEMPLATES_DIR, f"{template_name}.docx")
                 output_path = os.path.join(output_folder, f"{output_name}.docx")
+
+                # Check if template exists
+                if not os.path.exists(template_path):
+                    errors.append(f"{output_name}: Template tidak ditemukan di {template_path}")
+                    continue
+
                 engine.merge_word(
                     template_path=template_path,
                     data=placeholders,
@@ -985,7 +1009,7 @@ class GeneratePDDocumentDialog(QDialog):
                 )
                 generated.append(output_name)
             except Exception as e:
-                errors.append(f"{output_name}: {str(e)}")
+                errors.append(f"{output_name}: {str(e)}\n{traceback.format_exc()}")
 
         # Show result
         if generated:
@@ -1008,7 +1032,10 @@ class GeneratePDDocumentDialog(QDialog):
 
             self.accept()
         else:
-            QMessageBox.warning(self, "Error", "Tidak ada dokumen yang berhasil di-generate.\n\n" + "\n".join(errors))
+            error_msg = "Tidak ada dokumen yang berhasil di-generate."
+            if errors:
+                error_msg += "\n\n" + "\n".join(errors)
+            QMessageBox.warning(self, "Error", error_msg)
 
     def _prepare_placeholders(self) -> dict:
         """Prepare placeholders from perjalanan dinas data"""

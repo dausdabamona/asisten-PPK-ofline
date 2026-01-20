@@ -66,6 +66,8 @@ jobs:
     - name: Create ZIP archive
       run: |
         $version = "${{ github.event.inputs.version || github.ref_name || 'dev' }}"
+        # Sanitize version: replace / with - for valid Windows filename
+        $version = $version -replace '/', '-'
         Compress-Archive -Path "dist/PPK_Document_Factory" -DestinationPath "PPK_Document_Factory_${version}_windows.zip"
 
     - name: Upload artifact

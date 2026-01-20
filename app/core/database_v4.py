@@ -1047,7 +1047,344 @@ class DatabaseManagerV4:
             conn.commit()
         
         return imported, updated, errors
-    
+
+    # =========================================================================
+    # PENYEDIA (VENDOR) OPERATIONS
+    # =========================================================================
+
+    def get_all_penyedia(self, active_only: bool = True) -> List[Dict]:
+        """Get all penyedia/vendor"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if active_only:
+                cursor.execute("SELECT * FROM penyedia WHERE is_active = 1 ORDER BY nama")
+            else:
+                cursor.execute("SELECT * FROM penyedia ORDER BY nama")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_penyedia(self, penyedia_id: int) -> Optional[Dict]:
+        """Get single penyedia by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM penyedia WHERE id = ?", (penyedia_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def create_penyedia(self, data: Dict) -> int:
+        """Create new penyedia"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO penyedia (
+                    nama, nama_direktur, jabatan_direktur, alamat, kota,
+                    npwp, no_rekening, nama_bank, nama_rekening,
+                    telepon, email, is_pkp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('nama'),
+                data.get('nama_direktur'),
+                data.get('jabatan_direktur', 'Direktur'),
+                data.get('alamat'),
+                data.get('kota'),
+                data.get('npwp'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('nama_rekening'),
+                data.get('telepon'),
+                data.get('email'),
+                1 if data.get('is_pkp', True) else 0
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_penyedia(self, penyedia_id: int, data: Dict) -> bool:
+        """Update penyedia"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE penyedia SET
+                    nama = ?, nama_direktur = ?, jabatan_direktur = ?,
+                    alamat = ?, kota = ?, npwp = ?, no_rekening = ?,
+                    nama_bank = ?, nama_rekening = ?, telepon = ?, email = ?,
+                    is_pkp = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama'),
+                data.get('nama_direktur'),
+                data.get('jabatan_direktur', 'Direktur'),
+                data.get('alamat'),
+                data.get('kota'),
+                data.get('npwp'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('nama_rekening'),
+                data.get('telepon'),
+                data.get('email'),
+                1 if data.get('is_pkp', True) else 0,
+                penyedia_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def deactivate_penyedia(self, penyedia_id: int) -> bool:
+        """Deactivate penyedia (soft delete)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE penyedia SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (penyedia_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def import_penyedia(self, filepath: str, format_type: str = 'excel') -> Tuple[int, int, List[str]]:
+        """
+        Import penyedia from Excel/JSON file
+        Returns: (success_count, error_count, error_messages)
+        """
+        success = 0
+        errors_count = 0
+        errors = []
+
+        try:
+            if format_type == 'excel':
+                from openpyxl import load_workbook
+                wb = load_workbook(filepath)
+                ws = wb.active
+
+                # Get headers from first row
+                headers = []
+                for cell in ws[1]:
+                    headers.append(str(cell.value).lower().strip() if cell.value else '')
+
+                # Map column indices
+                col_map = {}
+                for idx, h in enumerate(headers):
+                    h_lower = h.lower().replace(' ', '_').replace('.', '')
+                    if h_lower in ['no', 'nomor']:
+                        continue  # Skip row number
+                    elif h_lower in ['nama_perusahaan', 'nama', 'perusahaan', 'company']:
+                        col_map['nama'] = idx
+                    elif h_lower in ['nama_direktur', 'direktur', 'pimpinan', 'nama_pimpinan']:
+                        col_map['nama_direktur'] = idx
+                    elif h_lower in ['jabatan_direktur', 'jabatan_pimpinan', 'jabatan']:
+                        col_map['jabatan_direktur'] = idx
+                    elif h_lower in ['alamat', 'address']:
+                        col_map['alamat'] = idx
+                    elif h_lower in ['kota', 'city', 'kabupaten']:
+                        col_map['kota'] = idx
+                    elif h_lower in ['npwp']:
+                        col_map['npwp'] = idx
+                    elif h_lower in ['no_rekening', 'norekening', 'rekening', 'account']:
+                        col_map['no_rekening'] = idx
+                    elif h_lower in ['bank', 'nama_bank']:
+                        col_map['nama_bank'] = idx
+                    elif h_lower in ['nama_rekening', 'namarekening', 'atas_nama']:
+                        col_map['nama_rekening'] = idx
+                    elif h_lower in ['telepon', 'telp', 'phone', 'hp']:
+                        col_map['telepon'] = idx
+                    elif h_lower in ['email', 'e-mail']:
+                        col_map['email'] = idx
+                    elif h_lower in ['pkp', 'is_pkp']:
+                        col_map['is_pkp'] = idx
+
+                # Read data rows
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+
+                    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                        if not row or all(v is None for v in row):
+                            continue
+
+                        try:
+                            data = {}
+                            for field, col_idx in col_map.items():
+                                if col_idx < len(row):
+                                    val = row[col_idx]
+                                    data[field] = str(val).strip() if val else ''
+
+                            # Skip if nama is empty
+                            if not data.get('nama'):
+                                continue
+
+                            # Check PKP column
+                            pkp_val = data.get('is_pkp', '').lower()
+                            is_pkp = 1 if pkp_val in ['ya', 'yes', '1', 'true', 'pkp', 'v', 'x'] else 0
+
+                            # Check if exists by NPWP
+                            npwp = data.get('npwp', '').strip()
+                            existing = None
+                            if npwp:
+                                cursor.execute("SELECT id FROM penyedia WHERE npwp = ?", (npwp,))
+                                existing = cursor.fetchone()
+
+                            if existing:
+                                # Update existing
+                                cursor.execute("""
+                                    UPDATE penyedia SET
+                                        nama = ?, nama_direktur = ?, jabatan_direktur = ?,
+                                        alamat = ?, kota = ?, no_rekening = ?,
+                                        nama_bank = ?, nama_rekening = ?, telepon = ?, email = ?,
+                                        is_pkp = ?, is_active = 1, updated_at = CURRENT_TIMESTAMP
+                                    WHERE npwp = ?
+                                """, (
+                                    data.get('nama'),
+                                    data.get('nama_direktur'),
+                                    data.get('jabatan_direktur', 'Direktur'),
+                                    data.get('alamat'),
+                                    data.get('kota'),
+                                    data.get('no_rekening'),
+                                    data.get('nama_bank'),
+                                    data.get('nama_rekening'),
+                                    data.get('telepon'),
+                                    data.get('email'),
+                                    is_pkp,
+                                    npwp
+                                ))
+                            else:
+                                # Insert new
+                                cursor.execute("""
+                                    INSERT INTO penyedia (
+                                        nama, nama_direktur, jabatan_direktur, alamat, kota,
+                                        npwp, no_rekening, nama_bank, nama_rekening,
+                                        telepon, email, is_pkp
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    data.get('nama'),
+                                    data.get('nama_direktur'),
+                                    data.get('jabatan_direktur', 'Direktur'),
+                                    data.get('alamat'),
+                                    data.get('kota'),
+                                    npwp or None,
+                                    data.get('no_rekening'),
+                                    data.get('nama_bank'),
+                                    data.get('nama_rekening'),
+                                    data.get('telepon'),
+                                    data.get('email'),
+                                    is_pkp
+                                ))
+                            success += 1
+
+                        except Exception as e:
+                            errors_count += 1
+                            errors.append(f"Baris {row_idx}: {str(e)}")
+
+                    conn.commit()
+
+            else:  # JSON format
+                import json
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data_list = json.load(f)
+
+                if isinstance(data_list, dict):
+                    data_list = data_list.get('penyedia', [])
+
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+
+                    for i, data in enumerate(data_list):
+                        try:
+                            if not data.get('nama'):
+                                continue
+
+                            npwp = data.get('npwp', '').strip()
+                            existing = None
+                            if npwp:
+                                cursor.execute("SELECT id FROM penyedia WHERE npwp = ?", (npwp,))
+                                existing = cursor.fetchone()
+
+                            if existing:
+                                self.update_penyedia(existing[0], data)
+                            else:
+                                self.create_penyedia(data)
+                            success += 1
+
+                        except Exception as e:
+                            errors_count += 1
+                            errors.append(f"Data {i+1}: {str(e)}")
+
+                    conn.commit()
+
+        except Exception as e:
+            errors.append(f"Error membaca file: {str(e)}")
+
+        return success, errors_count, errors
+
+    def export_penyedia(self, filepath: str, format_type: str = 'excel') -> bool:
+        """Export penyedia to Excel/JSON file"""
+        try:
+            penyedia_list = self.get_all_penyedia(active_only=False)
+
+            if format_type == 'excel':
+                from openpyxl import Workbook
+                from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Data Penyedia"
+
+                # Headers
+                headers = ['Nama Perusahaan', 'Nama Direktur', 'Jabatan', 'Alamat', 'Kota',
+                          'NPWP', 'No Rekening', 'Bank', 'Nama Rekening', 'Telepon', 'Email', 'PKP', 'Status']
+
+                header_font = Font(bold=True, color="FFFFFF")
+                header_fill = PatternFill(start_color="27ae60", end_color="27ae60", fill_type="solid")
+                border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+
+                for col, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col, value=header)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = border
+                    cell.alignment = Alignment(horizontal='center')
+
+                # Data
+                for row, p in enumerate(penyedia_list, 2):
+                    ws.cell(row=row, column=1, value=p.get('nama', '')).border = border
+                    ws.cell(row=row, column=2, value=p.get('nama_direktur', '')).border = border
+                    ws.cell(row=row, column=3, value=p.get('jabatan_direktur', '')).border = border
+                    ws.cell(row=row, column=4, value=p.get('alamat', '')).border = border
+                    ws.cell(row=row, column=5, value=p.get('kota', '')).border = border
+                    ws.cell(row=row, column=6, value=p.get('npwp', '')).border = border
+                    ws.cell(row=row, column=7, value=p.get('no_rekening', '')).border = border
+                    ws.cell(row=row, column=8, value=p.get('nama_bank', '')).border = border
+                    ws.cell(row=row, column=9, value=p.get('nama_rekening', '')).border = border
+                    ws.cell(row=row, column=10, value=p.get('telepon', '')).border = border
+                    ws.cell(row=row, column=11, value=p.get('email', '')).border = border
+                    ws.cell(row=row, column=12, value='Ya' if p.get('is_pkp') else 'Tidak').border = border
+                    ws.cell(row=row, column=13, value='Aktif' if p.get('is_active') else 'Non-aktif').border = border
+
+                # Auto-width columns
+                for col in ws.columns:
+                    max_length = 0
+                    column = col[0].column_letter
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    ws.column_dimensions[column].width = min(max_length + 2, 40)
+
+                wb.save(filepath)
+
+            else:  # JSON format
+                import json
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump({'penyedia': penyedia_list}, f, indent=2, default=str, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            print(f"Error exporting penyedia: {e}")
+            return False
+
     # =========================================================================
     # PAKET PEJABAT OPERATIONS
     # =========================================================================

@@ -408,37 +408,58 @@ class HonorariumDialog(QDialog):
         dana_group.setLayout(dana_form)
         scroll_layout.addWidget(dana_group)
 
-        # Pejabat - ambil dari master data
-        pejabat = self.db.get_satker_pejabat()
+        # Pejabat - Hybrid approach dengan ComboBox dan editable text
+        pejabat_default = self.db.get_satker_pejabat()
         pejabat_group = QGroupBox("Pejabat")
         pejabat_form = QFormLayout()
 
+        # KPA
+        self.cmb_kpa = QComboBox()
+        self.cmb_kpa.setEditable(True)
+        self._load_kpa_combo()
+        self.cmb_kpa.currentIndexChanged.connect(self._on_kpa_selected)
+        pejabat_form.addRow("Pilih KPA:", self.cmb_kpa)
+
         kpa_layout = QHBoxLayout()
         self.txt_kpa_nama = QLineEdit()
-        self.txt_kpa_nama.setText(pejabat.get('kpa_nama', ''))
+        self.txt_kpa_nama.setText(pejabat_default.get('kpa_nama', ''))
         kpa_layout.addWidget(self.txt_kpa_nama)
         self.txt_kpa_nip = QLineEdit()
-        self.txt_kpa_nip.setText(pejabat.get('kpa_nip', ''))
+        self.txt_kpa_nip.setText(pejabat_default.get('kpa_nip', ''))
         kpa_layout.addWidget(QLabel("NIP:"))
         kpa_layout.addWidget(self.txt_kpa_nip)
         pejabat_form.addRow("KPA:", kpa_layout)
 
+        # PPK
+        self.cmb_ppk = QComboBox()
+        self.cmb_ppk.setEditable(True)
+        self._load_ppk_combo()
+        self.cmb_ppk.currentIndexChanged.connect(self._on_ppk_selected)
+        pejabat_form.addRow("Pilih PPK:", self.cmb_ppk)
+
         ppk_layout = QHBoxLayout()
         self.txt_ppk_nama = QLineEdit()
-        self.txt_ppk_nama.setText(pejabat.get('ppk_nama', ''))
+        self.txt_ppk_nama.setText(pejabat_default.get('ppk_nama', ''))
         ppk_layout.addWidget(self.txt_ppk_nama)
         self.txt_ppk_nip = QLineEdit()
-        self.txt_ppk_nip.setText(pejabat.get('ppk_nip', ''))
+        self.txt_ppk_nip.setText(pejabat_default.get('ppk_nip', ''))
         ppk_layout.addWidget(QLabel("NIP:"))
         ppk_layout.addWidget(self.txt_ppk_nip)
         pejabat_form.addRow("PPK:", ppk_layout)
 
+        # Bendahara
+        self.cmb_bendahara = QComboBox()
+        self.cmb_bendahara.setEditable(True)
+        self._load_bendahara_combo()
+        self.cmb_bendahara.currentIndexChanged.connect(self._on_bendahara_selected)
+        pejabat_form.addRow("Pilih Bendahara:", self.cmb_bendahara)
+
         bend_layout = QHBoxLayout()
         self.txt_bendahara_nama = QLineEdit()
-        self.txt_bendahara_nama.setText(pejabat.get('bendahara_nama', ''))
+        self.txt_bendahara_nama.setText(pejabat_default.get('bendahara_nama', ''))
         bend_layout.addWidget(self.txt_bendahara_nama)
         self.txt_bendahara_nip = QLineEdit()
-        self.txt_bendahara_nip.setText(pejabat.get('bendahara_nip', ''))
+        self.txt_bendahara_nip.setText(pejabat_default.get('bendahara_nip', ''))
         bend_layout.addWidget(QLabel("NIP:"))
         bend_layout.addWidget(self.txt_bendahara_nip)
         pejabat_form.addRow("Bendahara:", bend_layout)
@@ -495,6 +516,79 @@ class HonorariumDialog(QDialog):
     def calc_netto(self):
         self.spn_total_netto.setValue(self.spn_total_bruto.value() - self.spn_total_pajak.value())
 
+    def _load_kpa_combo(self):
+        """Load KPA pegawai into combo box"""
+        self.cmb_kpa.clear()
+        self.cmb_kpa.addItem("-- Pilih KPA --", None)
+        try:
+            pegawai_list = self.db.get_pegawai_by_role('kpa')
+            for p in pegawai_list:
+                nama = self._format_nama(p)
+                self.cmb_kpa.addItem(nama, p)
+        except Exception as e:
+            print(f"Error loading KPA: {e}")
+
+    def _load_ppk_combo(self):
+        """Load PPK pegawai into combo box"""
+        self.cmb_ppk.clear()
+        self.cmb_ppk.addItem("-- Pilih PPK --", None)
+        try:
+            pegawai_list = self.db.get_pegawai_by_role('ppk')
+            for p in pegawai_list:
+                nama = self._format_nama(p)
+                self.cmb_ppk.addItem(nama, p)
+        except Exception as e:
+            print(f"Error loading PPK: {e}")
+
+    def _load_bendahara_combo(self):
+        """Load Bendahara pegawai into combo box"""
+        self.cmb_bendahara.clear()
+        self.cmb_bendahara.addItem("-- Pilih Bendahara --", None)
+        try:
+            pegawai_list = self.db.get_pegawai_by_role('bendahara')
+            for p in pegawai_list:
+                nama = self._format_nama(p)
+                self.cmb_bendahara.addItem(nama, p)
+        except Exception as e:
+            print(f"Error loading Bendahara: {e}")
+
+    def _format_nama(self, p: dict) -> str:
+        """Format nama pegawai dengan gelar"""
+        nama = p.get('nama', '')
+        if p.get('gelar_depan'):
+            nama = f"{p['gelar_depan']} {nama}"
+        if p.get('gelar_belakang'):
+            nama = f"{nama}, {p['gelar_belakang']}"
+        return nama
+
+    def _on_kpa_selected(self, index):
+        data = self.cmb_kpa.currentData()
+        if data and isinstance(data, dict):
+            self.txt_kpa_nama.setText(self._format_nama(data))
+            self.txt_kpa_nip.setText(data.get('nip', '') or '')
+
+    def _on_ppk_selected(self, index):
+        data = self.cmb_ppk.currentData()
+        if data and isinstance(data, dict):
+            self.txt_ppk_nama.setText(self._format_nama(data))
+            self.txt_ppk_nip.setText(data.get('nip', '') or '')
+
+    def _on_bendahara_selected(self, index):
+        data = self.cmb_bendahara.currentData()
+        if data and isinstance(data, dict):
+            self.txt_bendahara_nama.setText(self._format_nama(data))
+            self.txt_bendahara_nip.setText(data.get('nip', '') or '')
+
+    def _set_combo_by_id(self, combo: QComboBox, pegawai_id: int):
+        """Helper to set ComboBox selection by pegawai ID"""
+        if not pegawai_id:
+            return
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and isinstance(data, dict) and data.get('id') == pegawai_id:
+                combo.setCurrentIndex(i)
+                return
+
     def load_data(self):
         d = self.hon_data
         self.spn_tahun.setValue(d.get('tahun_anggaran', TAHUN_ANGGARAN))
@@ -527,10 +621,19 @@ class HonorariumDialog(QDialog):
         self.txt_kode_akun.setText(d.get('kode_akun', ''))
         self.txt_mak.setText(d.get('mak', ''))
 
+        # Set ComboBox first if _id exists, then text fields
+        if d.get('kpa_id'):
+            self._set_combo_by_id(self.cmb_kpa, d['kpa_id'])
         self.txt_kpa_nama.setText(d.get('kpa_nama', ''))
         self.txt_kpa_nip.setText(d.get('kpa_nip', ''))
+
+        if d.get('ppk_id'):
+            self._set_combo_by_id(self.cmb_ppk, d['ppk_id'])
         self.txt_ppk_nama.setText(d.get('ppk_nama', ''))
         self.txt_ppk_nip.setText(d.get('ppk_nip', ''))
+
+        if d.get('bendahara_id'):
+            self._set_combo_by_id(self.cmb_bendahara, d['bendahara_id'])
         self.txt_bendahara_nama.setText(d.get('bendahara_nama', ''))
         self.txt_bendahara_nip.setText(d.get('bendahara_nip', ''))
 
@@ -544,6 +647,11 @@ class HonorariumDialog(QDialog):
         if not self.txt_nama_kegiatan.text().strip():
             QMessageBox.warning(self, "Peringatan", "Nama kegiatan harus diisi!")
             return
+
+        # Get pegawai data from ComboBox selections
+        kpa_data = self.cmb_kpa.currentData()
+        ppk_data = self.cmb_ppk.currentData()
+        bendahara_data = self.cmb_bendahara.currentData()
 
         data = {
             'tahun_anggaran': self.spn_tahun.value(),
@@ -562,10 +670,14 @@ class HonorariumDialog(QDialog):
             'sumber_dana': self.cmb_sumber_dana.currentText(),
             'kode_akun': self.txt_kode_akun.text(),
             'mak': self.txt_mak.text(),
+            # Pejabat dengan foreign key _id
+            'kpa_id': kpa_data.get('id') if kpa_data and isinstance(kpa_data, dict) else None,
             'kpa_nama': self.txt_kpa_nama.text(),
             'kpa_nip': self.txt_kpa_nip.text(),
+            'ppk_id': ppk_data.get('id') if ppk_data and isinstance(ppk_data, dict) else None,
             'ppk_nama': self.txt_ppk_nama.text(),
             'ppk_nip': self.txt_ppk_nip.text(),
+            'bendahara_id': bendahara_data.get('id') if bendahara_data and isinstance(bendahara_data, dict) else None,
             'bendahara_nama': self.txt_bendahara_nama.text(),
             'bendahara_nip': self.txt_bendahara_nip.text(),
             'total_bruto': self.spn_total_bruto.value(),

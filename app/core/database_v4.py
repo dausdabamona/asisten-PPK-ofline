@@ -1365,6 +1365,22 @@ class DatabaseManagerV4:
                 except:
                     pass
 
+        # Migration: Add foreign key columns to pjlp for normalization
+        cursor.execute("PRAGMA table_info(pjlp)")
+        pjlp_columns = [col[1] for col in cursor.fetchall()]
+
+        pjlp_migrations = [
+            ('ppk_id', "ALTER TABLE pjlp ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE pjlp ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in pjlp_migrations:
+            if col not in pjlp_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
         cursor.execute("""
@@ -2785,9 +2801,10 @@ class DatabaseManagerV4:
                     nama_pekerjaan, nama_pjlp, nik, npwp, alamat, telepon, email,
                     no_rekening, nama_bank, tanggal_mulai, tanggal_selesai,
                     jangka_waktu, honor_bulanan, total_nilai_kontrak,
-                    sumber_dana, kode_akun, ppk_nama, ppk_nip, ppk_jabatan,
-                    bendahara_nama, bendahara_nip, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    sumber_dana, kode_akun,
+                    ppk_id, ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_id, bendahara_nama, bendahara_nip, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran'),
                 data.get('nomor_kontrak'),
@@ -2808,9 +2825,11 @@ class DatabaseManagerV4:
                 data.get('total_nilai_kontrak', 0),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'aktif')
@@ -2829,8 +2848,9 @@ class DatabaseManagerV4:
                     alamat = ?, telepon = ?, email = ?, no_rekening = ?, nama_bank = ?,
                     tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
                     honor_bulanan = ?, total_nilai_kontrak = ?, sumber_dana = ?,
-                    kode_akun = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
-                    bendahara_nama = ?, bendahara_nip = ?, status = ?,
+                    kode_akun = ?,
+                    ppk_id = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?, status = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
@@ -2853,9 +2873,11 @@ class DatabaseManagerV4:
                 data.get('total_nilai_kontrak', 0),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'aktif'),
@@ -2865,10 +2887,21 @@ class DatabaseManagerV4:
             return cursor.rowcount > 0
 
     def get_pjlp(self, pjlp_id: int) -> Optional[Dict]:
-        """Get single PJLP by ID"""
+        """Get single PJLP by ID with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM pjlp WHERE id = ?", (pjlp_id,))
+            cursor.execute("""
+                SELECT p.*,
+                    COALESCE(ppk.nama, p.ppk_nama) as ppk_nama,
+                    COALESCE(ppk.nip, p.ppk_nip) as ppk_nip,
+                    COALESCE(ppk.jabatan, p.ppk_jabatan) as ppk_jabatan,
+                    COALESCE(bend.nama, p.bendahara_nama) as bendahara_nama,
+                    COALESCE(bend.nip, p.bendahara_nip) as bendahara_nip
+                FROM pjlp p
+                LEFT JOIN pegawai ppk ON p.ppk_id = ppk.id
+                LEFT JOIN pegawai bend ON p.bendahara_id = bend.id
+                WHERE p.id = ?
+            """, (pjlp_id,))
             row = cursor.fetchone()
             if row:
                 return dict(row)

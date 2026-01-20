@@ -727,43 +727,6 @@ class JamuanTamuDialog(QDialog):
         dana_group.setLayout(dana_form)
         scroll_layout.addWidget(dana_group)
 
-        # Pejabat
-        pejabat_group = QGroupBox("Pejabat")
-        pejabat_form = QFormLayout()
-
-        kpa_layout = QHBoxLayout()
-        self.txt_kpa_nama = QLineEdit()
-        self.txt_kpa_nama.setText(SATKER_DEFAULT.get('kpa_nama', ''))
-        kpa_layout.addWidget(self.txt_kpa_nama)
-        self.txt_kpa_nip = QLineEdit()
-        self.txt_kpa_nip.setText(SATKER_DEFAULT.get('kpa_nip', ''))
-        kpa_layout.addWidget(QLabel("NIP:"))
-        kpa_layout.addWidget(self.txt_kpa_nip)
-        pejabat_form.addRow("KPA:", kpa_layout)
-
-        ppk_layout = QHBoxLayout()
-        self.txt_ppk_nama = QLineEdit()
-        self.txt_ppk_nama.setText(SATKER_DEFAULT.get('ppk_nama', ''))
-        ppk_layout.addWidget(self.txt_ppk_nama)
-        self.txt_ppk_nip = QLineEdit()
-        self.txt_ppk_nip.setText(SATKER_DEFAULT.get('ppk_nip', ''))
-        ppk_layout.addWidget(QLabel("NIP:"))
-        ppk_layout.addWidget(self.txt_ppk_nip)
-        pejabat_form.addRow("PPK:", ppk_layout)
-
-        bend_layout = QHBoxLayout()
-        self.txt_bendahara_nama = QLineEdit()
-        self.txt_bendahara_nama.setText(SATKER_DEFAULT.get('bendahara_nama', ''))
-        bend_layout.addWidget(self.txt_bendahara_nama)
-        self.txt_bendahara_nip = QLineEdit()
-        self.txt_bendahara_nip.setText(SATKER_DEFAULT.get('bendahara_nip', ''))
-        bend_layout.addWidget(QLabel("NIP:"))
-        bend_layout.addWidget(self.txt_bendahara_nip)
-        pejabat_form.addRow("Bendahara:", bend_layout)
-
-        pejabat_group.setLayout(pejabat_form)
-        scroll_layout.addWidget(pejabat_group)
-
         # Biaya
         biaya_group = QGroupBox("Rincian Biaya")
         biaya_form = QFormLayout()
@@ -850,13 +813,6 @@ class JamuanTamuDialog(QDialog):
         self.txt_kode_akun.setText(d.get('kode_akun', ''))
         self.txt_mak.setText(d.get('mak', ''))
 
-        self.txt_kpa_nama.setText(d.get('kpa_nama', ''))
-        self.txt_kpa_nip.setText(d.get('kpa_nip', ''))
-        self.txt_ppk_nama.setText(d.get('ppk_nama', ''))
-        self.txt_ppk_nip.setText(d.get('ppk_nip', ''))
-        self.txt_bendahara_nama.setText(d.get('bendahara_nama', ''))
-        self.txt_bendahara_nip.setText(d.get('bendahara_nip', ''))
-
         self.spn_konsumsi.setValue(d.get('biaya_konsumsi', 0))
         self.spn_akomodasi.setValue(d.get('biaya_akomodasi', 0))
         self.spn_transportasi.setValue(d.get('biaya_transportasi', 0))
@@ -869,6 +825,9 @@ class JamuanTamuDialog(QDialog):
         if not self.txt_nama_kegiatan.text().strip():
             QMessageBox.warning(self, "Peringatan", "Nama kegiatan harus diisi!")
             return
+
+        # Get pejabat from satker settings
+        pejabat = self.db.get_satker_pejabat()
 
         data = {
             'tahun_anggaran': self.spn_tahun.value(),
@@ -889,12 +848,12 @@ class JamuanTamuDialog(QDialog):
             'sumber_dana': self.cmb_sumber_dana.currentText(),
             'kode_akun': self.txt_kode_akun.text(),
             'mak': self.txt_mak.text(),
-            'kpa_nama': self.txt_kpa_nama.text(),
-            'kpa_nip': self.txt_kpa_nip.text(),
-            'ppk_nama': self.txt_ppk_nama.text(),
-            'ppk_nip': self.txt_ppk_nip.text(),
-            'bendahara_nama': self.txt_bendahara_nama.text(),
-            'bendahara_nip': self.txt_bendahara_nip.text(),
+            'kpa_nama': pejabat.get('kpa_nama', ''),
+            'kpa_nip': pejabat.get('kpa_nip', ''),
+            'ppk_nama': pejabat.get('ppk_nama', ''),
+            'ppk_nip': pejabat.get('ppk_nip', ''),
+            'bendahara_nama': pejabat.get('bendahara_nama', ''),
+            'bendahara_nip': pejabat.get('bendahara_nip', ''),
             'biaya_konsumsi': self.spn_konsumsi.value(),
             'biaya_akomodasi': self.spn_akomodasi.value(),
             'biaya_transportasi': self.spn_transportasi.value(),

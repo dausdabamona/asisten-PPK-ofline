@@ -168,7 +168,9 @@ class PerjalananDinasDialog(QDialog):
         tujuan_form = QFormLayout()
 
         self.txt_kota_asal = QLineEdit()
-        self.txt_kota_asal.setText(SATKER_DEFAULT.get('kota', 'Kota Sorong'))
+        # Ambil kota dari master data satker
+        satker = self.db.get_satker()
+        self.txt_kota_asal.setText(satker.get('kota', ''))
         tujuan_form.addRow("Kota Asal:", self.txt_kota_asal)
 
         self.txt_kota_tujuan = QLineEdit()
@@ -1062,15 +1064,19 @@ class GeneratePDDocumentDialog(QDialog):
             from app.templates.engine import terbilang
             return terbilang(n)
 
+        # Get satker data from database
+        satker = self.db.get_satker()
+        pejabat = self.db.get_satker_pejabat()
+
         return {
-            # DIPA
-            'satker_kode': SATKER_DEFAULT.get('kode', ''),
-            'satker_nama': SATKER_DEFAULT.get('nama', ''),
-            'satker_alamat': SATKER_DEFAULT.get('alamat', ''),
-            'satker_kota': SATKER_DEFAULT.get('kota', ''),
-            'satker_provinsi': SATKER_DEFAULT.get('provinsi', ''),
-            'kementerian': SATKER_DEFAULT.get('kementerian', ''),
-            'eselon1': SATKER_DEFAULT.get('eselon1', ''),
+            # DIPA - dari master data satker
+            'satker_kode': satker.get('kode', ''),
+            'satker_nama': satker.get('nama', ''),
+            'satker_alamat': satker.get('alamat', ''),
+            'satker_kota': satker.get('kota', ''),
+            'satker_provinsi': satker.get('provinsi', ''),
+            'kementerian': satker.get('kementerian', ''),
+            'eselon1': satker.get('eselon1', ''),
             'tahun_anggaran': str(TAHUN_ANGGARAN),
             'sumber_dana': d.get('sumber_dana', 'DIPA'),
             'kode_akun': d.get('kode_akun', ''),
@@ -1115,12 +1121,14 @@ class GeneratePDDocumentDialog(QDialog):
             'kelebihan_bayar': fmt_rp(max(0, -selisih)),
             'sisa_terbilang': terbilang_rupiah(abs(selisih)),
 
-            # Pejabat
-            'ppk_nama': d.get('ppk_nama', ''),
-            'ppk_nip': d.get('ppk_nip', ''),
-            'ppk_jabatan': d.get('ppk_jabatan', 'Pejabat Pembuat Komitmen'),
-            'bendahara_nama': d.get('bendahara_nama', ''),
-            'bendahara_nip': d.get('bendahara_nip', ''),
+            # Pejabat - dari master data satker
+            'kpa_nama': pejabat.get('kpa_nama', ''),
+            'kpa_nip': pejabat.get('kpa_nip', ''),
+            'ppk_nama': d.get('ppk_nama', '') or pejabat.get('ppk_nama', ''),
+            'ppk_nip': d.get('ppk_nip', '') or pejabat.get('ppk_nip', ''),
+            'ppk_jabatan': d.get('ppk_jabatan', '') or 'Pejabat Pembuat Komitmen',
+            'bendahara_nama': d.get('bendahara_nama', '') or pejabat.get('bendahara_nama', ''),
+            'bendahara_nip': d.get('bendahara_nip', '') or pejabat.get('bendahara_nip', ''),
         }
 
 

@@ -971,6 +971,7 @@ class GenerateSWDocumentDialog(QDialog):
     def generate(self):
         """Generate selected documents"""
         from app.templates.engine import get_template_engine
+        from app.core.config import WORD_TEMPLATES_DIR, EXCEL_TEMPLATES_DIR
 
         engine = get_template_engine()
         generated = []
@@ -997,31 +998,33 @@ class GenerateSWDocumentDialog(QDialog):
         if self.chk_sk_tim.isChecked():
             docs_to_generate.append(('sk_tim_swakelola', 'SK_Tim_Pelaksana', 'word'))
         if self.chk_kuitansi_um.isChecked():
-            docs_to_generate.append(('kuitansi_uang_muka_swakelola', 'Kuitansi_Uang_Muka', 'word'))
+            docs_to_generate.append(('kuitansi_uang_muka', 'Kuitansi_Uang_Muka', 'word'))
         if self.chk_bap.isChecked():
             docs_to_generate.append(('bap_swakelola', 'BA_Pembayaran', 'word'))
         if self.chk_laporan.isChecked():
             docs_to_generate.append(('laporan_kemajuan', 'Laporan_Kemajuan', 'word'))
         if self.chk_kuitansi_rampung.isChecked():
-            docs_to_generate.append(('kuitansi_rampung_swakelola', 'Kuitansi_Rampung', 'word'))
+            docs_to_generate.append(('kuitansi_rampung', 'Kuitansi_Rampung', 'word'))
         if self.chk_bast.isChecked():
             docs_to_generate.append(('bast_swakelola', 'BAST_Swakelola', 'word'))
 
         for template_name, output_name, doc_type in docs_to_generate:
             try:
                 if doc_type == 'word':
+                    template_path = os.path.join(WORD_TEMPLATES_DIR, f"{template_name}.docx")
                     output_path = os.path.join(output_folder, f"{output_name}.docx")
-                    engine.generate_document(
-                        template_name=f"{template_name}.docx",
-                        output_path=output_path,
-                        placeholders=placeholders
+                    engine.merge_word(
+                        template_path=template_path,
+                        data=placeholders,
+                        output_path=output_path
                     )
                 elif doc_type == 'excel':
+                    template_path = os.path.join(EXCEL_TEMPLATES_DIR, f"{template_name}.xlsx")
                     output_path = os.path.join(output_folder, f"{output_name}.xlsx")
-                    engine.generate_excel_document(
-                        template_name=f"{template_name}.xlsx",
-                        output_path=output_path,
-                        placeholders=placeholders
+                    engine.merge_excel(
+                        template_path=template_path,
+                        data=placeholders,
+                        output_path=output_path
                     )
                 generated.append(output_name)
             except Exception as e:

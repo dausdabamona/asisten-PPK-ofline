@@ -939,6 +939,7 @@ class GeneratePDDocumentDialog(QDialog):
     def generate(self):
         """Generate selected documents"""
         from app.templates.engine import get_template_engine
+        from app.core.config import WORD_TEMPLATES_DIR
 
         engine = get_template_engine()
         generated = []
@@ -975,11 +976,12 @@ class GeneratePDDocumentDialog(QDialog):
 
         for template_name, output_name in docs_to_generate:
             try:
+                template_path = os.path.join(WORD_TEMPLATES_DIR, f"{template_name}.docx")
                 output_path = os.path.join(output_folder, f"{output_name}.docx")
-                engine.generate_document(
-                    template_name=f"{template_name}.docx",
-                    output_path=output_path,
-                    placeholders=placeholders
+                engine.merge_word(
+                    template_path=template_path,
+                    data=placeholders,
+                    output_path=output_path
                 )
                 generated.append(output_name)
             except Exception as e:

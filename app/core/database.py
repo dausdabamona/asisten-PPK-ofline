@@ -1860,7 +1860,7 @@ class DatabaseManager:
         """Get list of pegawai, optionally filtered by role"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            
+
             if role == 'ppk':
                 cursor.execute("SELECT * FROM pegawai WHERE is_ppk = 1 AND is_active = 1")
             elif role == 'ppspm':
@@ -1871,9 +1871,34 @@ class DatabaseManager:
                 cursor.execute("SELECT * FROM pegawai WHERE is_pemeriksa = 1 AND is_active = 1")
             else:
                 cursor.execute("SELECT * FROM pegawai WHERE is_active = 1 ORDER BY nama")
-            
+
             return [dict(row) for row in cursor.fetchall()]
-    
+
+    def get_all_pegawai(self, active_only: bool = True, search: str = None) -> List[Dict]:
+        """Get all pegawai with optional search filter"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            sql = "SELECT * FROM pegawai"
+            params = []
+            conditions = []
+
+            if active_only:
+                conditions.append("is_active = 1")
+
+            if search:
+                conditions.append("(nama LIKE ? OR nip LIKE ? OR jabatan LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
+
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+
+            sql += " ORDER BY nama"
+
+            cursor.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
+
     def save_pegawai(self, data: Dict) -> int:
         """Save pegawai data"""
         with self.get_connection() as conn:

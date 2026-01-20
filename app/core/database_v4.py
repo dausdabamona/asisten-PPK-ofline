@@ -556,6 +556,135 @@ CREATE TABLE IF NOT EXISTS doc_counter (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(doc_type, tahun)
 );
+
+-- ============================================================================
+-- PERJALANAN DINAS (Official Travel)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS perjalanan_dinas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info kegiatan
+    nama_kegiatan TEXT NOT NULL,
+    maksud_perjalanan TEXT,
+    nomor_surat_tugas TEXT,
+    nomor_sppd TEXT,
+
+    -- Pelaksana
+    pelaksana_nama TEXT NOT NULL,
+    pelaksana_nip TEXT,
+    pelaksana_pangkat TEXT,
+    pelaksana_golongan TEXT,
+    pelaksana_jabatan TEXT,
+
+    -- Tujuan
+    kota_asal TEXT,
+    kota_tujuan TEXT,
+    provinsi_tujuan TEXT,
+    alamat_tujuan TEXT,
+
+    -- Waktu
+    tanggal_surat_tugas DATE,
+    tanggal_berangkat DATE,
+    tanggal_kembali DATE,
+    lama_perjalanan INTEGER DEFAULT 1,
+
+    -- Anggaran DIPA
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+
+    -- Biaya
+    biaya_transport REAL DEFAULT 0,
+    biaya_uang_harian REAL DEFAULT 0,
+    biaya_penginapan REAL DEFAULT 0,
+    biaya_representasi REAL DEFAULT 0,
+    biaya_lain_lain REAL DEFAULT 0,
+    uang_muka REAL DEFAULT 0,
+
+    -- Pejabat
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    ppk_jabatan TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Status
+    status TEXT DEFAULT 'draft',
+    doc_count INTEGER DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pd_tahun ON perjalanan_dinas(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_pd_pelaksana ON perjalanan_dinas(pelaksana_nama);
+
+-- ============================================================================
+-- SWAKELOLA (Self-managed Procurement)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS swakelola (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info kegiatan
+    nama_kegiatan TEXT NOT NULL,
+    tipe_swakelola INTEGER DEFAULT 0,
+    tipe_swakelola_text TEXT,
+    deskripsi TEXT,
+    output_kegiatan TEXT,
+
+    -- Nomor dokumen
+    nomor_kak TEXT,
+    nomor_sk_tim TEXT,
+
+    -- Waktu
+    tanggal_sk_tim DATE,
+    tanggal_mulai DATE,
+    tanggal_selesai DATE,
+    jangka_waktu INTEGER DEFAULT 30,
+
+    -- Anggaran DIPA
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+    pagu_swakelola REAL DEFAULT 0,
+
+    -- Pemegang Uang Muka
+    pum_nama TEXT,
+    pum_nip TEXT,
+    pum_jabatan TEXT,
+    uang_muka REAL DEFAULT 0,
+    tanggal_uang_muka DATE,
+
+    -- Realisasi / Rampung
+    total_realisasi REAL DEFAULT 0,
+    tanggal_rampung DATE,
+
+    -- Tim Pelaksana
+    ketua_nama TEXT,
+    ketua_nip TEXT,
+    ketua_jabatan TEXT,
+    sekretaris_nama TEXT,
+    sekretaris_nip TEXT,
+    anggota_tim TEXT,
+
+    -- Pejabat
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    ppk_jabatan TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Status
+    status TEXT DEFAULT 'draft',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sw_tahun ON swakelola(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_sw_kegiatan ON swakelola(nama_kegiatan);
 """
 
 # ============================================================================
@@ -1319,6 +1448,304 @@ class DatabaseManagerV4:
                 notes
             ))
             conn.commit()
+
+    # =========================================================================
+    # PERJALANAN DINAS (Official Travel)
+    # =========================================================================
+
+    def create_perjalanan_dinas(self, data: Dict) -> int:
+        """Create new perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO perjalanan_dinas (
+                    tahun_anggaran, nama_kegiatan, maksud_perjalanan,
+                    nomor_surat_tugas, nomor_sppd,
+                    pelaksana_nama, pelaksana_nip, pelaksana_pangkat,
+                    pelaksana_golongan, pelaksana_jabatan,
+                    kota_asal, kota_tujuan, provinsi_tujuan, alamat_tujuan,
+                    tanggal_surat_tugas, tanggal_berangkat, tanggal_kembali, lama_perjalanan,
+                    sumber_dana, kode_akun,
+                    biaya_transport, biaya_uang_harian, biaya_penginapan,
+                    biaya_representasi, biaya_lain_lain, uang_muka,
+                    ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_nama, bendahara_nip,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran', TAHUN_ANGGARAN),
+                data.get('nama_kegiatan'),
+                data.get('maksud_perjalanan'),
+                data.get('nomor_surat_tugas'),
+                data.get('nomor_sppd'),
+                data.get('pelaksana_nama'),
+                data.get('pelaksana_nip'),
+                data.get('pelaksana_pangkat'),
+                data.get('pelaksana_golongan'),
+                data.get('pelaksana_jabatan'),
+                data.get('kota_asal'),
+                data.get('kota_tujuan'),
+                data.get('provinsi_tujuan'),
+                data.get('alamat_tujuan'),
+                data.get('tanggal_surat_tugas'),
+                data.get('tanggal_berangkat'),
+                data.get('tanggal_kembali'),
+                data.get('lama_perjalanan', 1),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('biaya_transport', 0),
+                data.get('biaya_uang_harian', 0),
+                data.get('biaya_penginapan', 0),
+                data.get('biaya_representasi', 0),
+                data.get('biaya_lain_lain', 0),
+                data.get('uang_muka', 0),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_perjalanan_dinas(self, pd_id: int, data: Dict) -> bool:
+        """Update perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE perjalanan_dinas SET
+                    nama_kegiatan = ?, maksud_perjalanan = ?,
+                    nomor_surat_tugas = ?, nomor_sppd = ?,
+                    pelaksana_nama = ?, pelaksana_nip = ?, pelaksana_pangkat = ?,
+                    pelaksana_golongan = ?, pelaksana_jabatan = ?,
+                    kota_asal = ?, kota_tujuan = ?, provinsi_tujuan = ?, alamat_tujuan = ?,
+                    tanggal_surat_tugas = ?, tanggal_berangkat = ?, tanggal_kembali = ?, lama_perjalanan = ?,
+                    sumber_dana = ?, kode_akun = ?,
+                    biaya_transport = ?, biaya_uang_harian = ?, biaya_penginapan = ?,
+                    biaya_representasi = ?, biaya_lain_lain = ?, uang_muka = ?,
+                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama_kegiatan'),
+                data.get('maksud_perjalanan'),
+                data.get('nomor_surat_tugas'),
+                data.get('nomor_sppd'),
+                data.get('pelaksana_nama'),
+                data.get('pelaksana_nip'),
+                data.get('pelaksana_pangkat'),
+                data.get('pelaksana_golongan'),
+                data.get('pelaksana_jabatan'),
+                data.get('kota_asal'),
+                data.get('kota_tujuan'),
+                data.get('provinsi_tujuan'),
+                data.get('alamat_tujuan'),
+                data.get('tanggal_surat_tugas'),
+                data.get('tanggal_berangkat'),
+                data.get('tanggal_kembali'),
+                data.get('lama_perjalanan', 1),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('biaya_transport', 0),
+                data.get('biaya_uang_harian', 0),
+                data.get('biaya_penginapan', 0),
+                data.get('biaya_representasi', 0),
+                data.get('biaya_lain_lain', 0),
+                data.get('uang_muka', 0),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft'),
+                pd_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_perjalanan_dinas(self, pd_id: int) -> Optional[Dict]:
+        """Get single perjalanan dinas by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM perjalanan_dinas WHERE id = ?", (pd_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def get_all_perjalanan_dinas(self, tahun: int = None) -> List[Dict]:
+        """Get all perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if tahun:
+                cursor.execute("""
+                    SELECT * FROM perjalanan_dinas
+                    WHERE tahun_anggaran = ?
+                    ORDER BY created_at DESC
+                """, (tahun,))
+            else:
+                cursor.execute("SELECT * FROM perjalanan_dinas ORDER BY created_at DESC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_perjalanan_dinas(self, pd_id: int) -> bool:
+        """Delete perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM perjalanan_dinas WHERE id = ?", (pd_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # =========================================================================
+    # SWAKELOLA (Self-managed Procurement)
+    # =========================================================================
+
+    def create_swakelola(self, data: Dict) -> int:
+        """Create new swakelola activity"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO swakelola (
+                    tahun_anggaran, nama_kegiatan, tipe_swakelola, tipe_swakelola_text,
+                    deskripsi, output_kegiatan, nomor_kak, nomor_sk_tim,
+                    tanggal_sk_tim, tanggal_mulai, tanggal_selesai, jangka_waktu,
+                    sumber_dana, kode_akun, pagu_swakelola,
+                    pum_nama, pum_nip, pum_jabatan, uang_muka, tanggal_uang_muka,
+                    total_realisasi, tanggal_rampung,
+                    ketua_nama, ketua_nip, ketua_jabatan,
+                    sekretaris_nama, sekretaris_nip, anggota_tim,
+                    ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_nama, bendahara_nip,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran', TAHUN_ANGGARAN),
+                data.get('nama_kegiatan'),
+                data.get('tipe_swakelola', 0),
+                data.get('tipe_swakelola_text'),
+                data.get('deskripsi'),
+                data.get('output_kegiatan'),
+                data.get('nomor_kak'),
+                data.get('nomor_sk_tim'),
+                data.get('tanggal_sk_tim'),
+                data.get('tanggal_mulai'),
+                data.get('tanggal_selesai'),
+                data.get('jangka_waktu', 30),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('pagu_swakelola', 0),
+                data.get('pum_nama'),
+                data.get('pum_nip'),
+                data.get('pum_jabatan'),
+                data.get('uang_muka', 0),
+                data.get('tanggal_uang_muka'),
+                data.get('total_realisasi', 0),
+                data.get('tanggal_rampung'),
+                data.get('ketua_nama'),
+                data.get('ketua_nip'),
+                data.get('ketua_jabatan'),
+                data.get('sekretaris_nama'),
+                data.get('sekretaris_nip'),
+                data.get('anggota_tim'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_swakelola(self, sw_id: int, data: Dict) -> bool:
+        """Update swakelola activity"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE swakelola SET
+                    nama_kegiatan = ?, tipe_swakelola = ?, tipe_swakelola_text = ?,
+                    deskripsi = ?, output_kegiatan = ?, nomor_kak = ?, nomor_sk_tim = ?,
+                    tanggal_sk_tim = ?, tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
+                    sumber_dana = ?, kode_akun = ?, pagu_swakelola = ?,
+                    pum_nama = ?, pum_nip = ?, pum_jabatan = ?, uang_muka = ?, tanggal_uang_muka = ?,
+                    total_realisasi = ?, tanggal_rampung = ?,
+                    ketua_nama = ?, ketua_nip = ?, ketua_jabatan = ?,
+                    sekretaris_nama = ?, sekretaris_nip = ?, anggota_tim = ?,
+                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama_kegiatan'),
+                data.get('tipe_swakelola', 0),
+                data.get('tipe_swakelola_text'),
+                data.get('deskripsi'),
+                data.get('output_kegiatan'),
+                data.get('nomor_kak'),
+                data.get('nomor_sk_tim'),
+                data.get('tanggal_sk_tim'),
+                data.get('tanggal_mulai'),
+                data.get('tanggal_selesai'),
+                data.get('jangka_waktu', 30),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('pagu_swakelola', 0),
+                data.get('pum_nama'),
+                data.get('pum_nip'),
+                data.get('pum_jabatan'),
+                data.get('uang_muka', 0),
+                data.get('tanggal_uang_muka'),
+                data.get('total_realisasi', 0),
+                data.get('tanggal_rampung'),
+                data.get('ketua_nama'),
+                data.get('ketua_nip'),
+                data.get('ketua_jabatan'),
+                data.get('sekretaris_nama'),
+                data.get('sekretaris_nip'),
+                data.get('anggota_tim'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft'),
+                sw_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_swakelola(self, sw_id: int) -> Optional[Dict]:
+        """Get single swakelola by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM swakelola WHERE id = ?", (sw_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def get_all_swakelola(self, tahun: int = None) -> List[Dict]:
+        """Get all swakelola activities"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if tahun:
+                cursor.execute("""
+                    SELECT * FROM swakelola
+                    WHERE tahun_anggaran = ?
+                    ORDER BY created_at DESC
+                """, (tahun,))
+            else:
+                cursor.execute("SELECT * FROM swakelola ORDER BY created_at DESC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_swakelola(self, sw_id: int) -> bool:
+        """Delete swakelola"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM swakelola WHERE id = ?", (sw_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
 
 # ============================================================================

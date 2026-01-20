@@ -1995,127 +1995,59 @@ class DashboardWindow(QMainWindow):
 
     def create_perjalanan_dinas(self):
         """Create new Perjalanan Dinas"""
-        QMessageBox.information(
-            self, "Perjalanan Dinas",
-            "Fitur Perjalanan Dinas Baru\n\n"
-            "Untuk membuat Perjalanan Dinas:\n"
-            "1. Buat paket baru dengan jenis 'Perjalanan Dinas'\n"
-            "2. Isi data pelaksana perjalanan dinas\n"
-            "3. Generate dokumen yang diperlukan\n\n"
-            "Dokumen yang tersedia:\n"
-            "• Surat Tugas\n"
-            "• SPPD\n"
-            "• Kuitansi Uang Muka\n"
-            "• Rincian Biaya\n"
-            "• Laporan Perjalanan Dinas\n"
-            "• Kuitansi Rampung\n"
-            "• Daftar Pengeluaran Riil"
-        )
+        try:
+            from .perjalanan_dinas_manager import PerjalananDinasDialog
+            dialog = PerjalananDinasDialog(parent=self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def list_perjalanan_dinas(self):
         """List all Perjalanan Dinas"""
-        QMessageBox.information(
-            self, "Daftar Perjalanan Dinas",
-            "Fitur daftar perjalanan dinas akan segera tersedia.\n\n"
-            "Saat ini, Anda dapat melihat paket dengan jenis\n"
-            "'Perjalanan Dinas' di daftar paket utama."
-        )
+        try:
+            from .perjalanan_dinas_manager import PerjalananDinasManager
+            dialog = PerjalananDinasManager(self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def generate_pd_doc(self, doc_type: str):
         """Generate Perjalanan Dinas document"""
-        doc_names = {
-            'SURAT_TUGAS': 'Surat Tugas',
-            'SPPD': 'SPPD',
-            'KUITANSI_UM': 'Kuitansi Uang Muka',
-            'RINCIAN_BIAYA_PD': 'Rincian Biaya Perjalanan Dinas',
-            'LAPORAN_PD': 'Laporan Perjalanan Dinas',
-            'KUITANSI_RAMPUNG': 'Kuitansi Rampung',
-            'DAFTAR_PENGELUARAN_RIIL': 'Daftar Pengeluaran Riil'
-        }
-
-        if not self.current_paket_id:
-            QMessageBox.warning(
-                self, "Peringatan",
-                f"Untuk mencetak {doc_names.get(doc_type, doc_type)}:\n\n"
-                "1. Pilih paket Perjalanan Dinas dari daftar\n"
-                "2. Atau buat paket baru terlebih dahulu"
-            )
-            return
-
-        # Try to generate the document
+        # Open manager to select and generate
         try:
-            from .generate_dialog import GenerateDocumentDialog
-            dialog = GenerateDocumentDialog(self.current_paket_id, 'PERJALANAN_DINAS', self)
+            from .perjalanan_dinas_manager import PerjalananDinasManager
+            dialog = PerjalananDinasManager(self)
             dialog.exec()
-        except Exception as e:
-            QMessageBox.information(
-                self, "Generate Dokumen",
-                f"Untuk generate {doc_names.get(doc_type, doc_type)}:\n\n"
-                f"Gunakan workflow standar dengan memilih paket\n"
-                f"dan klik tahapan yang sesuai.\n\n"
-                f"Template tersedia di: templates/word/{doc_type.lower()}.docx"
-            )
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def create_swakelola(self):
         """Create new Swakelola activity"""
-        QMessageBox.information(
-            self, "Swakelola",
-            "Fitur Swakelola Baru\n\n"
-            "Untuk membuat Kegiatan Swakelola:\n"
-            "1. Buat paket baru dengan jenis 'Swakelola'\n"
-            "2. Isi data kegiatan dan tim swakelola\n"
-            "3. Generate dokumen yang diperlukan\n\n"
-            "Dokumen yang tersedia:\n"
-            "• KAK Swakelola\n"
-            "• RAB Swakelola\n"
-            "• SK Tim Pelaksana\n"
-            "• Berita Acara Pembayaran\n"
-            "• Laporan Kemajuan\n"
-            "• BAST Swakelola"
-        )
+        try:
+            from .swakelola_manager import SwakelolaDialog
+            dialog = SwakelolaDialog(parent=self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def list_swakelola(self):
         """List all Swakelola activities"""
-        QMessageBox.information(
-            self, "Daftar Swakelola",
-            "Fitur daftar kegiatan swakelola akan segera tersedia.\n\n"
-            "Saat ini, Anda dapat melihat paket dengan jenis\n"
-            "'Swakelola' di daftar paket utama."
-        )
+        try:
+            from .swakelola_manager import SwakelolaManager
+            dialog = SwakelolaManager(self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def generate_sw_doc(self, doc_type: str):
         """Generate Swakelola document"""
-        doc_names = {
-            'KAK_SWAKELOLA': 'KAK Swakelola',
-            'RAB_SWAKELOLA': 'RAB Swakelola',
-            'SK_TIM_SWAKELOLA': 'SK Tim Pelaksana',
-            'BAP_SWAKELOLA': 'Berita Acara Pembayaran',
-            'LAPORAN_KEMAJUAN': 'Laporan Kemajuan',
-            'BAST_SWAKELOLA': 'BAST Swakelola'
-        }
-
-        if not self.current_paket_id:
-            QMessageBox.warning(
-                self, "Peringatan",
-                f"Untuk mencetak {doc_names.get(doc_type, doc_type)}:\n\n"
-                "1. Pilih paket Swakelola dari daftar\n"
-                "2. Atau buat paket baru terlebih dahulu"
-            )
-            return
-
-        # Try to generate the document
+        # Open manager to select and generate
         try:
-            from .generate_dialog import GenerateDocumentDialog
-            dialog = GenerateDocumentDialog(self.current_paket_id, 'SWAKELOLA', self)
+            from .swakelola_manager import SwakelolaManager
+            dialog = SwakelolaManager(self)
             dialog.exec()
-        except Exception as e:
-            QMessageBox.information(
-                self, "Generate Dokumen",
-                f"Untuk generate {doc_names.get(doc_type, doc_type)}:\n\n"
-                f"Gunakan workflow standar dengan memilih paket\n"
-                f"dan klik tahapan yang sesuai.\n\n"
-                f"Template tersedia di: templates/word/{doc_type.lower()}.docx"
-            )
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def show_about(self):
         QMessageBox.about(

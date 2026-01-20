@@ -3739,7 +3739,8 @@ class DatabaseManagerV4:
                     AND (uraian LIKE '%honor%' OR uraian LIKE '%pengelola%'
                          OR uraian LIKE '%keuangan%' OR uraian LIKE '%bendahara%'
                          OR uraian LIKE '%ppk%' OR uraian LIKE '%ppspm%'
-                         OR uraian LIKE '%operator%' OR uraian LIKE '%KPA%')
+                         OR uraian LIKE '%operator%' OR uraian LIKE '%KPA%'
+                         OR uraian LIKE '%PNBP%')
                 ORDER BY kode_akun
             """, (tahun,))
             return [dict(row) for row in cursor.fetchall()]

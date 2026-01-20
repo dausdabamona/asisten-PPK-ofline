@@ -926,6 +926,7 @@ class HonorariumPengelolaDialog(QDialog):
         ('PPK', 'Pejabat Pembuat Komitmen'),
         ('PPSPM', 'Pejabat Penandatangan SPM'),
         ('Bendahara', 'Bendahara Pengeluaran'),
+        ('Bendahara_PNBP', 'Bendahara Pengelola PNBP'),
         ('Operator', 'Operator Keuangan'),
         ('Staf', 'Staf Pengelola Keuangan')
     ]
@@ -1609,6 +1610,7 @@ class PembayaranLainnyaManager(QWidget):
         ('PPK', 'Pejabat Pembuat Komitmen'),
         ('PPSPM', 'Pejabat Penandatangan SPM'),
         ('Bendahara', 'Bendahara Pengeluaran'),
+        ('Bendahara_PNBP', 'Bendahara Pengelola PNBP'),
         ('Operator', 'Operator Keuangan'),
         ('Staf', 'Staf Pengelola Keuangan')
     ]

@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QWidget, QPushButton, QLabel, QLineEdit, QGroupBox,
     QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
-    QMessageBox, QAbstractItemView, QMenu, QSplitter, QTabWidget
+    QMessageBox, QAbstractItemView, QMenu, QSplitter, QTabWidget,
+    QFileDialog
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QColor
@@ -269,6 +270,40 @@ class PenyediaManager(QDialog):
         btn_add.clicked.connect(self.add_penyedia)
         toolbar.addWidget(btn_add)
 
+        # Export button
+        btn_export = QPushButton("📤 Export")
+        btn_export.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #229954;
+            }
+        """)
+        btn_export.clicked.connect(self.export_data)
+        toolbar.addWidget(btn_export)
+
+        # Import button
+        btn_import = QPushButton("📥 Import")
+        btn_import.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #d35400;
+            }
+        """)
+        btn_import.clicked.connect(self.import_data)
+        toolbar.addWidget(btn_import)
+
         toolbar.addStretch()
 
         # Show inactive
@@ -503,3 +538,71 @@ class PenyediaManager(QDialog):
 
         self.load_data()
         self.penyedia_changed.emit()
+
+    def export_data(self):
+        """Export penyedia data"""
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Data Penyedia",
+            "data_penyedia.xlsx",
+            "Excel Files (*.xlsx);;JSON Files (*.json)"
+        )
+
+        if not filepath:
+            return
+
+        try:
+            format_type = 'excel' if filepath.endswith('.xlsx') else 'json'
+            if self.db.export_penyedia(filepath, format_type):
+                QMessageBox.information(
+                    self, "Sukses",
+                    f"Data berhasil di-export ke:\n{filepath}"
+                )
+            else:
+                QMessageBox.warning(self, "Error", "Gagal export data!")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal export:\n{str(e)}")
+
+    def import_data(self):
+        """Import penyedia data"""
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Data Penyedia",
+            "",
+            "Excel Files (*.xlsx);;JSON Files (*.json);;All Files (*)"
+        )
+
+        if not filepath:
+            return
+
+        reply = QMessageBox.question(
+            self, "Konfirmasi Import",
+            "Import data penyedia?\n\n"
+            "Data dengan NPWP yang sama akan diupdate.\n"
+            "Data baru akan ditambahkan.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            format_type = 'excel' if filepath.endswith('.xlsx') else 'json'
+            success, errors_count, errors = self.db.import_penyedia(filepath, format_type)
+
+            if success > 0:
+                msg = f"Berhasil import {success} data penyedia."
+                if errors_count > 0:
+                    msg += f"\n\n{errors_count} data gagal:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        msg += f"\n... dan {len(errors)-5} error lainnya"
+                QMessageBox.information(self, "Import Selesai", msg)
+                self.load_data()
+                self.penyedia_changed.emit()
+            else:
+                QMessageBox.warning(
+                    self, "Import Gagal",
+                    "Tidak ada data yang berhasil diimport.\n\n" + "\n".join(errors)
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal import:\n{str(e)}")

@@ -2025,6 +2025,382 @@ class DatabaseManager:
             conn.commit()
             return cursor.rowcount > 0
 
+    # =========================================================================
+    # EXPORT / IMPORT / BACKUP OPERATIONS
+    # =========================================================================
+
+    def export_pegawai(self, filepath: str, format: str = 'json') -> bool:
+        """Export pegawai data to JSON or Excel"""
+        import json
+        from datetime import datetime
+
+        pegawai_list = self.get_pegawai_list()
+
+        # Remove internal fields for export
+        export_data = []
+        for p in pegawai_list:
+            export_item = {k: v for k, v in p.items()
+                         if k not in ['id', 'created_at', 'updated_at', 'signature_path']}
+            export_data.append(export_item)
+
+        if format == 'json':
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'type': 'pegawai',
+                    'exported_at': datetime.now().isoformat(),
+                    'count': len(export_data),
+                    'data': export_data
+                }, f, indent=2, ensure_ascii=False)
+            return True
+        elif format == 'excel':
+            try:
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Data Pegawai"
+
+                # Headers
+                headers = ['NIP', 'Nama', 'Gelar Depan', 'Gelar Belakang', 'Pangkat',
+                          'Golongan', 'Jabatan', 'Unit Kerja', 'NPWP', 'No Rekening',
+                          'Bank', 'PPK', 'PPSPM', 'Bendahara', 'Pemeriksa']
+                ws.append(headers)
+
+                # Data
+                for p in export_data:
+                    ws.append([
+                        p.get('nip', ''), p.get('nama', ''), p.get('gelar_depan', ''),
+                        p.get('gelar_belakang', ''), p.get('pangkat', ''), p.get('golongan', ''),
+                        p.get('jabatan', ''), p.get('unit_kerja', ''), p.get('npwp', ''),
+                        p.get('no_rekening', ''), p.get('nama_bank', ''),
+                        'Ya' if p.get('is_ppk') else '', 'Ya' if p.get('is_ppspm') else '',
+                        'Ya' if p.get('is_bendahara') else '', 'Ya' if p.get('is_pemeriksa') else ''
+                    ])
+
+                wb.save(filepath)
+                return True
+            except Exception as e:
+                print(f"Error exporting to Excel: {e}")
+                return False
+        return False
+
+    def import_pegawai(self, filepath: str, format: str = 'json') -> tuple:
+        """Import pegawai data from JSON or Excel. Returns (success_count, error_count, errors)"""
+        import json
+
+        success_count = 0
+        error_count = 0
+        errors = []
+
+        if format == 'json':
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                if data.get('type') != 'pegawai':
+                    return 0, 1, ["File bukan data pegawai yang valid"]
+
+                for item in data.get('data', []):
+                    try:
+                        # Check if NIP already exists
+                        existing = self.get_pegawai_by_nip(item.get('nip'))
+                        if existing:
+                            # Update existing
+                            item['id'] = existing['id']
+                        self.save_pegawai(item)
+                        success_count += 1
+                    except Exception as e:
+                        error_count += 1
+                        errors.append(f"Error pada {item.get('nama', 'Unknown')}: {str(e)}")
+            except Exception as e:
+                return 0, 1, [f"Error membaca file: {str(e)}"]
+
+        elif format == 'excel':
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(filepath)
+                ws = wb.active
+
+                rows = list(ws.iter_rows(min_row=2, values_only=True))  # Skip header
+                for row in rows:
+                    if not row[0] and not row[1]:  # Skip empty rows
+                        continue
+                    try:
+                        item = {
+                            'nip': row[0] or '',
+                            'nama': row[1] or '',
+                            'gelar_depan': row[2] or '',
+                            'gelar_belakang': row[3] or '',
+                            'pangkat': row[4] or '',
+                            'golongan': row[5] or '',
+                            'jabatan': row[6] or '',
+                            'unit_kerja': row[7] or '',
+                            'npwp': row[8] or '',
+                            'no_rekening': row[9] or '',
+                            'nama_bank': row[10] or '',
+                            'is_ppk': 1 if row[11] and str(row[11]).lower() in ['ya', 'yes', '1', 'true'] else 0,
+                            'is_ppspm': 1 if row[12] and str(row[12]).lower() in ['ya', 'yes', '1', 'true'] else 0,
+                            'is_bendahara': 1 if row[13] and str(row[13]).lower() in ['ya', 'yes', '1', 'true'] else 0,
+                            'is_pemeriksa': 1 if row[14] and str(row[14]).lower() in ['ya', 'yes', '1', 'true'] else 0,
+                        }
+                        existing = self.get_pegawai_by_nip(item.get('nip'))
+                        if existing:
+                            item['id'] = existing['id']
+                        self.save_pegawai(item)
+                        success_count += 1
+                    except Exception as e:
+                        error_count += 1
+                        errors.append(f"Error pada baris {rows.index(row)+2}: {str(e)}")
+            except Exception as e:
+                return 0, 1, [f"Error membaca file Excel: {str(e)}"]
+
+        return success_count, error_count, errors
+
+    def get_pegawai_by_nip(self, nip: str) -> Optional[Dict]:
+        """Get pegawai by NIP"""
+        if not nip:
+            return None
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM pegawai WHERE nip = ?", (nip,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def delete_pegawai(self, pegawai_id: int) -> bool:
+        """Soft delete pegawai"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE pegawai SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (pegawai_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_pegawai(self, pegawai_id: int) -> Optional[Dict]:
+        """Get single pegawai by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM pegawai WHERE id = ?", (pegawai_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def export_penyedia(self, filepath: str, format: str = 'json') -> bool:
+        """Export penyedia data to JSON or Excel"""
+        import json
+        from datetime import datetime
+
+        penyedia_list = self.get_penyedia_list()
+
+        # Remove internal fields for export
+        export_data = []
+        for p in penyedia_list:
+            export_item = {k: v for k, v in p.items()
+                         if k not in ['id', 'created_at', 'updated_at']}
+            export_data.append(export_item)
+
+        if format == 'json':
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'type': 'penyedia',
+                    'exported_at': datetime.now().isoformat(),
+                    'count': len(export_data),
+                    'data': export_data
+                }, f, indent=2, ensure_ascii=False)
+            return True
+        elif format == 'excel':
+            try:
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Data Penyedia"
+
+                # Headers
+                headers = ['Nama Perusahaan', 'Nama Direktur', 'Jabatan Direktur',
+                          'Alamat', 'Kota', 'NPWP', 'No Rekening', 'Bank',
+                          'Nama Rekening', 'Telepon', 'Email', 'PKP']
+                ws.append(headers)
+
+                # Data
+                for p in export_data:
+                    ws.append([
+                        p.get('nama', ''), p.get('nama_direktur', ''), p.get('jabatan_direktur', ''),
+                        p.get('alamat', ''), p.get('kota', ''), p.get('npwp', ''),
+                        p.get('no_rekening', ''), p.get('nama_bank', ''), p.get('nama_rekening', ''),
+                        p.get('telepon', ''), p.get('email', ''),
+                        'Ya' if p.get('is_pkp') else 'Tidak'
+                    ])
+
+                wb.save(filepath)
+                return True
+            except Exception as e:
+                print(f"Error exporting to Excel: {e}")
+                return False
+        return False
+
+    def import_penyedia(self, filepath: str, format: str = 'json') -> tuple:
+        """Import penyedia data from JSON or Excel. Returns (success_count, error_count, errors)"""
+        import json
+
+        success_count = 0
+        error_count = 0
+        errors = []
+
+        if format == 'json':
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                if data.get('type') != 'penyedia':
+                    return 0, 1, ["File bukan data penyedia yang valid"]
+
+                for item in data.get('data', []):
+                    try:
+                        # Check if NPWP already exists
+                        existing = self.get_penyedia_by_npwp(item.get('npwp'))
+                        if existing:
+                            item['id'] = existing['id']
+                        self.save_penyedia(item)
+                        success_count += 1
+                    except Exception as e:
+                        error_count += 1
+                        errors.append(f"Error pada {item.get('nama', 'Unknown')}: {str(e)}")
+            except Exception as e:
+                return 0, 1, [f"Error membaca file: {str(e)}"]
+
+        elif format == 'excel':
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(filepath)
+                ws = wb.active
+
+                rows = list(ws.iter_rows(min_row=2, values_only=True))
+                for row in rows:
+                    if not row[0]:  # Skip empty rows
+                        continue
+                    try:
+                        item = {
+                            'nama': row[0] or '',
+                            'nama_direktur': row[1] or '',
+                            'jabatan_direktur': row[2] or 'Direktur',
+                            'alamat': row[3] or '',
+                            'kota': row[4] or '',
+                            'npwp': row[5] or '',
+                            'no_rekening': row[6] or '',
+                            'nama_bank': row[7] or '',
+                            'nama_rekening': row[8] or '',
+                            'telepon': row[9] or '',
+                            'email': row[10] or '',
+                            'is_pkp': 1 if row[11] and str(row[11]).lower() in ['ya', 'yes', '1', 'true'] else 0,
+                        }
+                        existing = self.get_penyedia_by_npwp(item.get('npwp'))
+                        if existing:
+                            item['id'] = existing['id']
+                        self.save_penyedia(item)
+                        success_count += 1
+                    except Exception as e:
+                        error_count += 1
+                        errors.append(f"Error pada baris {rows.index(row)+2}: {str(e)}")
+            except Exception as e:
+                return 0, 1, [f"Error membaca file Excel: {str(e)}"]
+
+        return success_count, error_count, errors
+
+    def get_penyedia_by_npwp(self, npwp: str) -> Optional[Dict]:
+        """Get penyedia by NPWP"""
+        if not npwp:
+            return None
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM penyedia WHERE npwp = ? AND is_active = 1", (npwp,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def backup_master_data(self, filepath: str) -> bool:
+        """Backup all master data (pegawai, penyedia, satker) to JSON"""
+        import json
+        from datetime import datetime
+
+        try:
+            backup_data = {
+                'type': 'master_data_backup',
+                'exported_at': datetime.now().isoformat(),
+                'pegawai': {
+                    'count': len(self.get_pegawai_list()),
+                    'data': [{k: v for k, v in p.items()
+                             if k not in ['id', 'created_at', 'updated_at', 'signature_path']}
+                            for p in self.get_pegawai_list()]
+                },
+                'penyedia': {
+                    'count': len(self.get_penyedia_list()),
+                    'data': [{k: v for k, v in p.items()
+                             if k not in ['id', 'created_at', 'updated_at']}
+                            for p in self.get_penyedia_list()]
+                },
+                'satker': self.get_satker()
+            }
+
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(backup_data, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"Error creating backup: {e}")
+            return False
+
+    def restore_master_data(self, filepath: str) -> tuple:
+        """Restore master data from backup. Returns (success_msg, errors)"""
+        import json
+
+        errors = []
+        success_msgs = []
+
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            if data.get('type') != 'master_data_backup':
+                return None, ["File bukan backup master data yang valid"]
+
+            # Restore pegawai
+            pegawai_data = data.get('pegawai', {}).get('data', [])
+            pegawai_success = 0
+            for item in pegawai_data:
+                try:
+                    existing = self.get_pegawai_by_nip(item.get('nip'))
+                    if existing:
+                        item['id'] = existing['id']
+                    self.save_pegawai(item)
+                    pegawai_success += 1
+                except Exception as e:
+                    errors.append(f"Pegawai {item.get('nama')}: {str(e)}")
+            success_msgs.append(f"Pegawai: {pegawai_success} data")
+
+            # Restore penyedia
+            penyedia_data = data.get('penyedia', {}).get('data', [])
+            penyedia_success = 0
+            for item in penyedia_data:
+                try:
+                    existing = self.get_penyedia_by_npwp(item.get('npwp'))
+                    if existing:
+                        item['id'] = existing['id']
+                    self.save_penyedia(item)
+                    penyedia_success += 1
+                except Exception as e:
+                    errors.append(f"Penyedia {item.get('nama')}: {str(e)}")
+            success_msgs.append(f"Penyedia: {penyedia_success} data")
+
+            # Restore satker
+            satker_data = data.get('satker')
+            if satker_data:
+                try:
+                    self.save_satker(satker_data)
+                    success_msgs.append("Satker: berhasil")
+                except Exception as e:
+                    errors.append(f"Satker: {str(e)}")
+
+            return ", ".join(success_msgs), errors
+        except Exception as e:
+            return None, [f"Error membaca file: {str(e)}"]
+
 
 # ============================================================================
 # SINGLETON

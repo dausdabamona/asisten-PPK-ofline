@@ -768,13 +768,13 @@ DOCUMENT_TEMPLATES = {
         'name': 'Surat Perintah Perjalanan Dinas',
         'type': 'word',
         'template': 'sppd.docx',
-        'placeholders': ['satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
+        'placeholders': ['paket', 'satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
     },
     'KUITANSI_UM': {
         'name': 'Kuitansi Uang Muka Perjalanan Dinas',
         'type': 'word',
         'template': 'kuitansi_uang_muka.docx',
-        'placeholders': ['satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
+        'placeholders': ['paket', 'satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
     },
     'RINCIAN_BIAYA_PD': {
         'name': 'Rincian Biaya Perjalanan Dinas',
@@ -792,7 +792,7 @@ DOCUMENT_TEMPLATES = {
         'name': 'Kuitansi Rampung Perjalanan Dinas',
         'type': 'word',
         'template': 'kuitansi_rampung.docx',
-        'placeholders': ['satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
+        'placeholders': ['paket', 'satker', 'ppk', 'bendahara', 'perjalanan_dinas'],
     },
     'DAFTAR_PENGELUARAN_RIIL': {
         'name': 'Daftar Pengeluaran Riil',

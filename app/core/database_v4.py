@@ -784,6 +784,190 @@ CREATE TABLE IF NOT EXISTS pembayaran_pjlp (
 
 CREATE INDEX IF NOT EXISTS idx_pembayaran_pjlp_periode ON pembayaran_pjlp(tahun, bulan);
 CREATE INDEX IF NOT EXISTS idx_pembayaran_pjlp_status ON pembayaran_pjlp(status);
+
+-- ============================================================================
+-- SK KPA (Surat Keputusan Kuasa Pengguna Anggaran)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS sk_kpa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+    nomor_sk TEXT NOT NULL,
+    tanggal_sk DATE NOT NULL,
+    perihal TEXT NOT NULL,
+    jenis_pembayaran TEXT NOT NULL,  -- 'swakelola', 'honorarium', 'jamuan_tamu', 'pjlp'
+    referensi_id INTEGER,  -- ID dari tabel terkait
+
+    -- Data KPA
+    kpa_nama TEXT,
+    kpa_nip TEXT,
+    kpa_jabatan TEXT,
+
+    -- Data PPK
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    ppk_jabatan TEXT,
+
+    -- Data Bendahara
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Nilai
+    nilai_pembayaran REAL DEFAULT 0,
+
+    -- Keterangan
+    dasar_pembayaran TEXT,
+    keterangan TEXT,
+
+    status TEXT DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sk_kpa_tahun ON sk_kpa(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_sk_kpa_jenis ON sk_kpa(jenis_pembayaran);
+
+-- ============================================================================
+-- HONORARIUM
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS honorarium (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info Kegiatan
+    nama_kegiatan TEXT NOT NULL,
+    jenis_honorarium TEXT NOT NULL,  -- 'narasumber', 'moderator', 'panitia', 'tim_kerja', 'lainnya'
+    kategori TEXT DEFAULT 'reguler',  -- 'reguler', 'insidentil'
+
+    -- Dokumen
+    nomor_sk_kpa TEXT,
+    tanggal_sk_kpa DATE,
+    nomor_spt TEXT,
+    tanggal_spt DATE,
+    nomor_kuitansi TEXT,
+    tanggal_kuitansi DATE,
+
+    -- Periode (untuk reguler)
+    bulan INTEGER,
+    periode_mulai DATE,
+    periode_selesai DATE,
+
+    -- Sumber Dana
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+    mak TEXT,
+
+    -- Pejabat
+    kpa_nama TEXT,
+    kpa_nip TEXT,
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Total
+    total_bruto REAL DEFAULT 0,
+    total_pajak REAL DEFAULT 0,
+    total_netto REAL DEFAULT 0,
+
+    status TEXT DEFAULT 'draft',
+    keterangan TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Detail Penerima Honorarium
+CREATE TABLE IF NOT EXISTS honorarium_detail (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    honorarium_id INTEGER NOT NULL,
+
+    -- Data Penerima
+    nama TEXT NOT NULL,
+    nip TEXT,
+    jabatan TEXT,
+    pangkat_golongan TEXT,
+    npwp TEXT,
+    no_rekening TEXT,
+    nama_bank TEXT,
+
+    -- Peran dalam kegiatan
+    peran TEXT,  -- 'narasumber', 'moderator', 'panitia', dll
+
+    -- Nilai
+    jumlah_jp INTEGER DEFAULT 1,  -- Jam Pelajaran / Kegiatan
+    tarif_per_jp REAL DEFAULT 0,
+    nilai_bruto REAL DEFAULT 0,
+    pph21 REAL DEFAULT 0,
+    potongan_lain REAL DEFAULT 0,
+    nilai_netto REAL DEFAULT 0,
+
+    keterangan TEXT,
+
+    FOREIGN KEY (honorarium_id) REFERENCES honorarium(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_honorarium_tahun ON honorarium(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_honorarium_kategori ON honorarium(kategori);
+
+-- ============================================================================
+-- JAMUAN TAMU
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS jamuan_tamu (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info Kegiatan
+    nama_kegiatan TEXT NOT NULL,
+    tanggal_kegiatan DATE NOT NULL,
+    tempat TEXT,
+    kategori TEXT DEFAULT 'reguler',  -- 'reguler', 'insidentil'
+
+    -- Tamu
+    nama_tamu TEXT,
+    instansi_tamu TEXT,
+    jabatan_tamu TEXT,
+    jumlah_tamu INTEGER DEFAULT 1,
+
+    -- Dokumen
+    nomor_sk_kpa TEXT,
+    tanggal_sk_kpa DATE,
+    nomor_nota_dinas TEXT,
+    tanggal_nota_dinas DATE,
+    nomor_kuitansi TEXT,
+    tanggal_kuitansi DATE,
+
+    -- Sumber Dana
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+    mak TEXT,
+
+    -- Pejabat
+    kpa_nama TEXT,
+    kpa_nip TEXT,
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Biaya
+    biaya_konsumsi REAL DEFAULT 0,
+    biaya_akomodasi REAL DEFAULT 0,
+    biaya_transportasi REAL DEFAULT 0,
+    biaya_lainnya REAL DEFAULT 0,
+    total_biaya REAL DEFAULT 0,
+
+    status TEXT DEFAULT 'draft',
+    keterangan TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_jamuan_tamu_tahun ON jamuan_tamu(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_jamuan_tamu_tanggal ON jamuan_tamu(tanggal_kegiatan);
 """
 
 # ============================================================================
@@ -2443,6 +2627,470 @@ class DatabaseManagerV4:
                 'total_potongan_lain': 0,
                 'total_netto': 0
             }
+
+    # ========================================================================
+    # SK KPA (Surat Keputusan KPA) METHODS
+    # ========================================================================
+
+    def create_sk_kpa(self, data: Dict) -> int:
+        """Create new SK KPA"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO sk_kpa (
+                    tahun_anggaran, nomor_sk, tanggal_sk, perihal,
+                    jenis_pembayaran, referensi_id, kpa_nama, kpa_nip, kpa_jabatan,
+                    ppk_nama, ppk_nip, ppk_jabatan, bendahara_nama, bendahara_nip,
+                    nilai_pembayaran, dasar_pembayaran, keterangan, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran'),
+                data.get('nomor_sk'),
+                data.get('tanggal_sk'),
+                data.get('perihal'),
+                data.get('jenis_pembayaran'),
+                data.get('referensi_id'),
+                data.get('kpa_nama'),
+                data.get('kpa_nip'),
+                data.get('kpa_jabatan'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('nilai_pembayaran', 0),
+                data.get('dasar_pembayaran'),
+                data.get('keterangan'),
+                data.get('status', 'draft')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_sk_kpa(self, sk_id: int) -> Optional[Dict]:
+        """Get SK KPA by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM sk_kpa WHERE id = ?", (sk_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_sk_kpa(self, tahun: int = None, jenis: str = None) -> List[Dict]:
+        """Get all SK KPA"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM sk_kpa WHERE 1=1"
+            params = []
+            if tahun:
+                query += " AND tahun_anggaran = ?"
+                params.append(tahun)
+            if jenis:
+                query += " AND jenis_pembayaran = ?"
+                params.append(jenis)
+            query += " ORDER BY tanggal_sk DESC"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_sk_kpa(self, sk_id: int, data: Dict) -> bool:
+        """Update SK KPA"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE sk_kpa SET
+                    nomor_sk = ?, tanggal_sk = ?, perihal = ?,
+                    jenis_pembayaran = ?, referensi_id = ?,
+                    kpa_nama = ?, kpa_nip = ?, kpa_jabatan = ?,
+                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    nilai_pembayaran = ?, dasar_pembayaran = ?,
+                    keterangan = ?, status = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nomor_sk'),
+                data.get('tanggal_sk'),
+                data.get('perihal'),
+                data.get('jenis_pembayaran'),
+                data.get('referensi_id'),
+                data.get('kpa_nama'),
+                data.get('kpa_nip'),
+                data.get('kpa_jabatan'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('nilai_pembayaran', 0),
+                data.get('dasar_pembayaran'),
+                data.get('keterangan'),
+                data.get('status', 'draft'),
+                sk_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_sk_kpa(self, sk_id: int) -> bool:
+        """Delete SK KPA"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM sk_kpa WHERE id = ?", (sk_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # ========================================================================
+    # HONORARIUM METHODS
+    # ========================================================================
+
+    def create_honorarium(self, data: Dict) -> int:
+        """Create new honorarium"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO honorarium (
+                    tahun_anggaran, nama_kegiatan, jenis_honorarium, kategori,
+                    nomor_sk_kpa, tanggal_sk_kpa, nomor_spt, tanggal_spt,
+                    nomor_kuitansi, tanggal_kuitansi, bulan, periode_mulai, periode_selesai,
+                    sumber_dana, kode_akun, mak,
+                    kpa_nama, kpa_nip, ppk_nama, ppk_nip, bendahara_nama, bendahara_nip,
+                    total_bruto, total_pajak, total_netto, status, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran'),
+                data.get('nama_kegiatan'),
+                data.get('jenis_honorarium'),
+                data.get('kategori', 'reguler'),
+                data.get('nomor_sk_kpa'),
+                data.get('tanggal_sk_kpa'),
+                data.get('nomor_spt'),
+                data.get('tanggal_spt'),
+                data.get('nomor_kuitansi'),
+                data.get('tanggal_kuitansi'),
+                data.get('bulan'),
+                data.get('periode_mulai'),
+                data.get('periode_selesai'),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('mak'),
+                data.get('kpa_nama'),
+                data.get('kpa_nip'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('total_bruto', 0),
+                data.get('total_pajak', 0),
+                data.get('total_netto', 0),
+                data.get('status', 'draft'),
+                data.get('keterangan')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_honorarium(self, hon_id: int) -> Optional[Dict]:
+        """Get honorarium by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM honorarium WHERE id = ?", (hon_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_honorarium(self, tahun: int = None, kategori: str = None) -> List[Dict]:
+        """Get all honorarium"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM honorarium WHERE 1=1"
+            params = []
+            if tahun:
+                query += " AND tahun_anggaran = ?"
+                params.append(tahun)
+            if kategori:
+                query += " AND kategori = ?"
+                params.append(kategori)
+            query += " ORDER BY created_at DESC"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_honorarium(self, hon_id: int, data: Dict) -> bool:
+        """Update honorarium"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE honorarium SET
+                    nama_kegiatan = ?, jenis_honorarium = ?, kategori = ?,
+                    nomor_sk_kpa = ?, tanggal_sk_kpa = ?, nomor_spt = ?, tanggal_spt = ?,
+                    nomor_kuitansi = ?, tanggal_kuitansi = ?,
+                    bulan = ?, periode_mulai = ?, periode_selesai = ?,
+                    sumber_dana = ?, kode_akun = ?, mak = ?,
+                    kpa_nama = ?, kpa_nip = ?, ppk_nama = ?, ppk_nip = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    total_bruto = ?, total_pajak = ?, total_netto = ?,
+                    status = ?, keterangan = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama_kegiatan'),
+                data.get('jenis_honorarium'),
+                data.get('kategori', 'reguler'),
+                data.get('nomor_sk_kpa'),
+                data.get('tanggal_sk_kpa'),
+                data.get('nomor_spt'),
+                data.get('tanggal_spt'),
+                data.get('nomor_kuitansi'),
+                data.get('tanggal_kuitansi'),
+                data.get('bulan'),
+                data.get('periode_mulai'),
+                data.get('periode_selesai'),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('mak'),
+                data.get('kpa_nama'),
+                data.get('kpa_nip'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('total_bruto', 0),
+                data.get('total_pajak', 0),
+                data.get('total_netto', 0),
+                data.get('status', 'draft'),
+                data.get('keterangan'),
+                hon_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_honorarium(self, hon_id: int) -> bool:
+        """Delete honorarium"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM honorarium WHERE id = ?", (hon_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # Honorarium Detail
+    def add_honorarium_detail(self, data: Dict) -> int:
+        """Add honorarium detail"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO honorarium_detail (
+                    honorarium_id, nama, nip, jabatan, pangkat_golongan,
+                    npwp, no_rekening, nama_bank, peran,
+                    jumlah_jp, tarif_per_jp, nilai_bruto, pph21,
+                    potongan_lain, nilai_netto, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('honorarium_id'),
+                data.get('nama'),
+                data.get('nip'),
+                data.get('jabatan'),
+                data.get('pangkat_golongan'),
+                data.get('npwp'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('peran'),
+                data.get('jumlah_jp', 1),
+                data.get('tarif_per_jp', 0),
+                data.get('nilai_bruto', 0),
+                data.get('pph21', 0),
+                data.get('potongan_lain', 0),
+                data.get('nilai_netto', 0),
+                data.get('keterangan')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_honorarium_details(self, honorarium_id: int) -> List[Dict]:
+        """Get all details for honorarium"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM honorarium_detail
+                WHERE honorarium_id = ?
+                ORDER BY id
+            """, (honorarium_id,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_honorarium_detail(self, detail_id: int, data: Dict) -> bool:
+        """Update honorarium detail"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE honorarium_detail SET
+                    nama = ?, nip = ?, jabatan = ?, pangkat_golongan = ?,
+                    npwp = ?, no_rekening = ?, nama_bank = ?, peran = ?,
+                    jumlah_jp = ?, tarif_per_jp = ?, nilai_bruto = ?,
+                    pph21 = ?, potongan_lain = ?, nilai_netto = ?, keterangan = ?
+                WHERE id = ?
+            """, (
+                data.get('nama'),
+                data.get('nip'),
+                data.get('jabatan'),
+                data.get('pangkat_golongan'),
+                data.get('npwp'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('peran'),
+                data.get('jumlah_jp', 1),
+                data.get('tarif_per_jp', 0),
+                data.get('nilai_bruto', 0),
+                data.get('pph21', 0),
+                data.get('potongan_lain', 0),
+                data.get('nilai_netto', 0),
+                data.get('keterangan'),
+                detail_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_honorarium_detail(self, detail_id: int) -> bool:
+        """Delete honorarium detail"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM honorarium_detail WHERE id = ?", (detail_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # ========================================================================
+    # JAMUAN TAMU METHODS
+    # ========================================================================
+
+    def create_jamuan_tamu(self, data: Dict) -> int:
+        """Create new jamuan tamu"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO jamuan_tamu (
+                    tahun_anggaran, nama_kegiatan, tanggal_kegiatan, tempat, kategori,
+                    nama_tamu, instansi_tamu, jabatan_tamu, jumlah_tamu,
+                    nomor_sk_kpa, tanggal_sk_kpa, nomor_nota_dinas, tanggal_nota_dinas,
+                    nomor_kuitansi, tanggal_kuitansi,
+                    sumber_dana, kode_akun, mak,
+                    kpa_nama, kpa_nip, ppk_nama, ppk_nip, bendahara_nama, bendahara_nip,
+                    biaya_konsumsi, biaya_akomodasi, biaya_transportasi, biaya_lainnya, total_biaya,
+                    status, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran'),
+                data.get('nama_kegiatan'),
+                data.get('tanggal_kegiatan'),
+                data.get('tempat'),
+                data.get('kategori', 'reguler'),
+                data.get('nama_tamu'),
+                data.get('instansi_tamu'),
+                data.get('jabatan_tamu'),
+                data.get('jumlah_tamu', 1),
+                data.get('nomor_sk_kpa'),
+                data.get('tanggal_sk_kpa'),
+                data.get('nomor_nota_dinas'),
+                data.get('tanggal_nota_dinas'),
+                data.get('nomor_kuitansi'),
+                data.get('tanggal_kuitansi'),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('mak'),
+                data.get('kpa_nama'),
+                data.get('kpa_nip'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('biaya_konsumsi', 0),
+                data.get('biaya_akomodasi', 0),
+                data.get('biaya_transportasi', 0),
+                data.get('biaya_lainnya', 0),
+                data.get('total_biaya', 0),
+                data.get('status', 'draft'),
+                data.get('keterangan')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_jamuan_tamu(self, jt_id: int) -> Optional[Dict]:
+        """Get jamuan tamu by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM jamuan_tamu WHERE id = ?", (jt_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_jamuan_tamu(self, tahun: int = None, kategori: str = None) -> List[Dict]:
+        """Get all jamuan tamu"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM jamuan_tamu WHERE 1=1"
+            params = []
+            if tahun:
+                query += " AND tahun_anggaran = ?"
+                params.append(tahun)
+            if kategori:
+                query += " AND kategori = ?"
+                params.append(kategori)
+            query += " ORDER BY tanggal_kegiatan DESC"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_jamuan_tamu(self, jt_id: int, data: Dict) -> bool:
+        """Update jamuan tamu"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE jamuan_tamu SET
+                    nama_kegiatan = ?, tanggal_kegiatan = ?, tempat = ?, kategori = ?,
+                    nama_tamu = ?, instansi_tamu = ?, jabatan_tamu = ?, jumlah_tamu = ?,
+                    nomor_sk_kpa = ?, tanggal_sk_kpa = ?,
+                    nomor_nota_dinas = ?, tanggal_nota_dinas = ?,
+                    nomor_kuitansi = ?, tanggal_kuitansi = ?,
+                    sumber_dana = ?, kode_akun = ?, mak = ?,
+                    kpa_nama = ?, kpa_nip = ?, ppk_nama = ?, ppk_nip = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    biaya_konsumsi = ?, biaya_akomodasi = ?,
+                    biaya_transportasi = ?, biaya_lainnya = ?, total_biaya = ?,
+                    status = ?, keterangan = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama_kegiatan'),
+                data.get('tanggal_kegiatan'),
+                data.get('tempat'),
+                data.get('kategori', 'reguler'),
+                data.get('nama_tamu'),
+                data.get('instansi_tamu'),
+                data.get('jabatan_tamu'),
+                data.get('jumlah_tamu', 1),
+                data.get('nomor_sk_kpa'),
+                data.get('tanggal_sk_kpa'),
+                data.get('nomor_nota_dinas'),
+                data.get('tanggal_nota_dinas'),
+                data.get('nomor_kuitansi'),
+                data.get('tanggal_kuitansi'),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('mak'),
+                data.get('kpa_nama'),
+                data.get('kpa_nip'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('biaya_konsumsi', 0),
+                data.get('biaya_akomodasi', 0),
+                data.get('biaya_transportasi', 0),
+                data.get('biaya_lainnya', 0),
+                data.get('total_biaya', 0),
+                data.get('status', 'draft'),
+                data.get('keterangan'),
+                jt_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_jamuan_tamu(self, jt_id: int) -> bool:
+        """Delete jamuan tamu"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM jamuan_tamu WHERE id = ?", (jt_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
 
 # ============================================================================

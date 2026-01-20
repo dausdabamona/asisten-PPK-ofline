@@ -3730,16 +3730,17 @@ class DatabaseManagerV4:
         """Get pagu anggaran items for honorarium pengelola keuangan"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # Akun 511xxx adalah Belanja Pegawai
+            # Akun 52xxxx adalah Belanja Barang (termasuk honor pengelola keuangan)
             cursor.execute("""
                 SELECT id, kode_akun, uraian, jumlah, realisasi, sisa
                 FROM pagu_anggaran
                 WHERE tahun_anggaran = ?
-                    AND kode_akun LIKE '511%'
+                    AND kode_akun LIKE '52%'
                     AND (uraian LIKE '%honor%' OR uraian LIKE '%pengelola%'
                          OR uraian LIKE '%keuangan%' OR uraian LIKE '%bendahara%'
                          OR uraian LIKE '%ppk%' OR uraian LIKE '%ppspm%'
-                         OR uraian LIKE '%operator%')
+                         OR uraian LIKE '%operator%' OR uraian LIKE '%KPA%'
+                         OR uraian LIKE '%PNBP%')
                 ORDER BY kode_akun
             """, (tahun,))
             return [dict(row) for row in cursor.fetchall()]

@@ -926,6 +926,7 @@ class HonorariumPengelolaDialog(QDialog):
         ('PPK', 'Pejabat Pembuat Komitmen'),
         ('PPSPM', 'Pejabat Penandatangan SPM'),
         ('Bendahara', 'Bendahara Pengeluaran'),
+        ('Bendahara_PNBP', 'Bendahara Pengelola PNBP'),
         ('Operator', 'Operator Keuangan'),
         ('Staf', 'Staf Pengelola Keuangan')
     ]
@@ -1609,6 +1610,7 @@ class PembayaranLainnyaManager(QWidget):
         ('PPK', 'Pejabat Pembuat Komitmen'),
         ('PPSPM', 'Pejabat Penandatangan SPM'),
         ('Bendahara', 'Bendahara Pengeluaran'),
+        ('Bendahara_PNBP', 'Bendahara Pengelola PNBP'),
         ('Operator', 'Operator Keuangan'),
         ('Staf', 'Staf Pengelola Keuangan')
     ]
@@ -1660,7 +1662,7 @@ class PembayaranLainnyaManager(QWidget):
         tahun = self.cmb_hpk_tahun.currentData()
         if not tahun:
             tahun = TAHUN_ANGGARAN
-        # Get pagu with akun 511xxx (Belanja Pegawai - Honorarium)
+        # Get pagu with akun 52xxxx (Belanja Barang - Honor Pengelola Keuangan)
         data = self.db.get_pagu_for_honorarium_pengelola(tahun=tahun)
         self.tbl_fa_ref.setRowCount(len(data))
 
@@ -1708,7 +1710,7 @@ class PembayaranLainnyaManager(QWidget):
 
         if not pagu_list:
             QMessageBox.warning(self, "Info", "Tidak ada data pagu untuk honorarium pengelola keuangan.\n"
-                                               "Pastikan sudah mengisi FA Detail dengan akun 511xxx.")
+                                               "Pastikan sudah mengisi FA Detail dengan akun 52xxxx.")
             return
 
         # Show dialog to select which pagu to use

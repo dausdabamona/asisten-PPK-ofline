@@ -1031,9 +1031,9 @@ class GeneratePDDocumentDialog(QDialog):
             return f"Rp {value:,.0f}".replace(',', '.')
 
         # Terbilang
-        def terbilang(n):
-            from app.templates.engine import format_terbilang
-            return format_terbilang(n)
+        def terbilang_rupiah(n):
+            from app.templates.engine import terbilang
+            return terbilang(n)
 
         return {
             # DIPA
@@ -1083,10 +1083,10 @@ class GeneratePDDocumentDialog(QDialog):
             'biaya_lain_lain': fmt_rp(d.get('biaya_lain_lain', 0) or 0),
             'total_biaya': fmt_rp(total_biaya),
             'uang_muka': fmt_rp(uang_muka),
-            'uang_muka_terbilang': terbilang(uang_muka),
+            'uang_muka_terbilang': terbilang_rupiah(uang_muka),
             'kekurangan_bayar': fmt_rp(max(0, selisih)),
             'kelebihan_bayar': fmt_rp(max(0, -selisih)),
-            'sisa_terbilang': terbilang(abs(selisih)),
+            'sisa_terbilang': terbilang_rupiah(abs(selisih)),
 
             # Pejabat
             'ppk_nama': d.get('ppk_nama', ''),

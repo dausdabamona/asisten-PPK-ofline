@@ -320,18 +320,55 @@ class PegawaiManager(QDialog):
         # Toolbar
         toolbar = QHBoxLayout()
         
-        btn_add = QPushButton("➕ Tambah Pegawai")
-        btn_add.setObjectName("btnPrimary")
+        btn_add = QPushButton("+ Tambah Pegawai")
+        btn_add.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
         btn_add.clicked.connect(self.add_pegawai)
         toolbar.addWidget(btn_add)
-        
-        btn_import = QPushButton("📥 Import CSV")
-        btn_import.clicked.connect(self.import_csv)
-        toolbar.addWidget(btn_import)
-        
-        btn_export = QPushButton("📊 Export Excel")
+
+        # Export button (green)
+        btn_export = QPushButton("📤 Export")
+        btn_export.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #229954;
+            }
+        """)
         btn_export.clicked.connect(self.export_excel)
         toolbar.addWidget(btn_export)
+
+        # Import button (orange)
+        btn_import = QPushButton("📥 Import")
+        btn_import.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #d35400;
+            }
+        """)
+        btn_import.clicked.connect(self.import_data)
+        toolbar.addWidget(btn_import)
         
         toolbar.addStretch()
         
@@ -767,6 +804,126 @@ class PegawaiManager(QDialog):
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal export:\n{str(e)}")
+
+    def import_data(self):
+        """Import pegawai from Excel or CSV file"""
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Data Pegawai",
+            "",
+            "Excel Files (*.xlsx);;CSV Files (*.csv);;All Files (*)"
+        )
+
+        if not filepath:
+            return
+
+        reply = QMessageBox.question(
+            self, "Konfirmasi Import",
+            "Import data pegawai?\n\n"
+            "Data dengan NIP yang sama akan diupdate.\n"
+            "Data baru akan ditambahkan.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            pegawai_list = []
+
+            if filepath.endswith('.xlsx'):
+                # Import from Excel
+                from openpyxl import load_workbook
+                wb = load_workbook(filepath)
+                ws = wb.active
+
+                # Get headers from first row
+                headers = []
+                for cell in ws[1]:
+                    headers.append(str(cell.value).lower().strip() if cell.value else '')
+
+                # Map column indices
+                col_map = {}
+                for idx, h in enumerate(headers):
+                    if h in ['nip', 'nomor_nip']:
+                        col_map['nip'] = idx
+                    elif h in ['nama', 'name', 'nama_pegawai']:
+                        col_map['nama'] = idx
+                    elif h in ['jabatan', 'position']:
+                        col_map['jabatan'] = idx
+                    elif h in ['golongan', 'gol']:
+                        col_map['golongan'] = idx
+                    elif h in ['pangkat', 'rank']:
+                        col_map['pangkat'] = idx
+                    elif h in ['rekening', 'no_rekening', 'norekening', 'no rekening']:
+                        col_map['no_rekening'] = idx
+                    elif h in ['bank', 'nama_bank', 'namabank']:
+                        col_map['nama_bank'] = idx
+                    elif h in ['unitkerja', 'unit_kerja', 'unit kerja', 'unit']:
+                        col_map['unit_kerja'] = idx
+                    elif h in ['email']:
+                        col_map['email'] = idx
+                    elif h in ['telepon', 'hp', 'phone', 'telp']:
+                        col_map['telepon'] = idx
+
+                # Read data rows
+                for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                    if not row or all(v is None for v in row):
+                        continue
+
+                    data = {}
+                    for field, col_idx in col_map.items():
+                        if col_idx < len(row):
+                            val = row[col_idx]
+                            data[field] = str(val).strip() if val else ''
+
+                    # Only add if nama exists
+                    if data.get('nama'):
+                        pegawai_list.append(data)
+
+            else:
+                # Import from CSV
+                with open(filepath, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        data = {}
+                        data['nip'] = row.get('nip') or row.get('NIP') or ''
+                        data['nama'] = row.get('nama') or row.get('NAMA') or ''
+                        data['jabatan'] = row.get('jabatan') or row.get('JABATAN') or ''
+                        data['golongan'] = row.get('golongan') or row.get('GOLONGAN') or row.get('gol') or ''
+                        data['pangkat'] = row.get('pangkat') or row.get('PANGKAT') or ''
+                        data['no_rekening'] = row.get('rekening') or row.get('no_rekening') or ''
+                        data['nama_bank'] = row.get('bank') or row.get('nama_bank') or ''
+                        data['unit_kerja'] = row.get('unitKerja') or row.get('unit_kerja') or ''
+                        data['email'] = row.get('email') or row.get('EMAIL') or ''
+                        data['telepon'] = row.get('telepon') or row.get('TELEPON') or ''
+
+                        if data.get('nama'):
+                            pegawai_list.append(data)
+
+            if not pegawai_list:
+                QMessageBox.warning(self, "Peringatan", "Tidak ada data yang dapat diimport!")
+                return
+
+            # Import data
+            imported, updated, errors = self.db.bulk_import_pegawai(pegawai_list)
+
+            msg = f"Import selesai!\n\n"
+            msg += f"✅ Ditambahkan: {imported}\n"
+            msg += f"🔄 Diupdate: {updated}\n"
+
+            if errors:
+                msg += f"\n⚠️ {len(errors)} error:\n"
+                msg += "\n".join(errors[:5])
+                if len(errors) > 5:
+                    msg += f"\n... dan {len(errors)-5} error lainnya"
+
+            QMessageBox.information(self, "Import Selesai", msg)
+            self.load_data()
+            self.pegawai_changed.emit()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal import:\n{str(e)}")
 
 
 # ============================================================================

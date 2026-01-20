@@ -157,6 +157,27 @@ QLineEdit:focus, QComboBox:focus, QDateEdit:focus {
     border: 2px solid #3498db;
 }
 
+QComboBox QAbstractItemView {
+    background-color: white;
+    border: 1px solid #d0d0d0;
+    selection-background-color: #3498db;
+    selection-color: white;
+}
+
+QComboBox QAbstractItemView::item {
+    padding: 8px;
+    min-height: 25px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #ecf0f1;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
 QProgressBar {
     border: 1px solid #d0d0d0;
     border-radius: 5px;
@@ -1615,6 +1636,27 @@ class DashboardWindow(QMainWindow):
         action_sw_bast.triggered.connect(lambda: self.generate_sw_doc('BAST_SWAKELOLA'))
         sw_menu.addAction(action_sw_bast)
 
+        # PJLP menu
+        pjlp_menu = menubar.addMenu("&PJLP")
+
+        action_pjlp_buat = QAction("📝 Buat Kontrak PJLP Baru", self)
+        action_pjlp_buat.triggered.connect(self.create_pjlp)
+        pjlp_menu.addAction(action_pjlp_buat)
+
+        action_pjlp_list = QAction("📋 Daftar Kontrak PJLP", self)
+        action_pjlp_list.triggered.connect(self.list_pjlp)
+        pjlp_menu.addAction(action_pjlp_list)
+
+        pjlp_menu.addSeparator()
+
+        action_pjlp_bayar = QAction("💰 Pembayaran Bulanan", self)
+        action_pjlp_bayar.triggered.connect(self.pembayaran_pjlp)
+        pjlp_menu.addAction(action_pjlp_bayar)
+
+        action_pjlp_rekap = QAction("📊 Rekap Pembayaran", self)
+        action_pjlp_rekap.triggered.connect(self.rekap_pjlp)
+        pjlp_menu.addAction(action_pjlp_rekap)
+
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
         
@@ -1995,127 +2037,113 @@ class DashboardWindow(QMainWindow):
 
     def create_perjalanan_dinas(self):
         """Create new Perjalanan Dinas"""
-        QMessageBox.information(
-            self, "Perjalanan Dinas",
-            "Fitur Perjalanan Dinas Baru\n\n"
-            "Untuk membuat Perjalanan Dinas:\n"
-            "1. Buat paket baru dengan jenis 'Perjalanan Dinas'\n"
-            "2. Isi data pelaksana perjalanan dinas\n"
-            "3. Generate dokumen yang diperlukan\n\n"
-            "Dokumen yang tersedia:\n"
-            "• Surat Tugas\n"
-            "• SPPD\n"
-            "• Kuitansi Uang Muka\n"
-            "• Rincian Biaya\n"
-            "• Laporan Perjalanan Dinas\n"
-            "• Kuitansi Rampung\n"
-            "• Daftar Pengeluaran Riil"
-        )
+        try:
+            from .perjalanan_dinas_manager import PerjalananDinasDialog
+            dialog = PerjalananDinasDialog(parent=self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def list_perjalanan_dinas(self):
         """List all Perjalanan Dinas"""
-        QMessageBox.information(
-            self, "Daftar Perjalanan Dinas",
-            "Fitur daftar perjalanan dinas akan segera tersedia.\n\n"
-            "Saat ini, Anda dapat melihat paket dengan jenis\n"
-            "'Perjalanan Dinas' di daftar paket utama."
-        )
+        try:
+            from .perjalanan_dinas_manager import PerjalananDinasManager
+            dialog = PerjalananDinasManager(self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def generate_pd_doc(self, doc_type: str):
         """Generate Perjalanan Dinas document"""
-        doc_names = {
-            'SURAT_TUGAS': 'Surat Tugas',
-            'SPPD': 'SPPD',
-            'KUITANSI_UM': 'Kuitansi Uang Muka',
-            'RINCIAN_BIAYA_PD': 'Rincian Biaya Perjalanan Dinas',
-            'LAPORAN_PD': 'Laporan Perjalanan Dinas',
-            'KUITANSI_RAMPUNG': 'Kuitansi Rampung',
-            'DAFTAR_PENGELUARAN_RIIL': 'Daftar Pengeluaran Riil'
-        }
-
-        if not self.current_paket_id:
-            QMessageBox.warning(
-                self, "Peringatan",
-                f"Untuk mencetak {doc_names.get(doc_type, doc_type)}:\n\n"
-                "1. Pilih paket Perjalanan Dinas dari daftar\n"
-                "2. Atau buat paket baru terlebih dahulu"
-            )
-            return
-
-        # Try to generate the document
+        # Open manager to select and generate
         try:
-            from .generate_dialog import GenerateDocumentDialog
-            dialog = GenerateDocumentDialog(self.current_paket_id, 'PERJALANAN_DINAS', self)
+            from .perjalanan_dinas_manager import PerjalananDinasManager
+            dialog = PerjalananDinasManager(self)
             dialog.exec()
-        except Exception as e:
-            QMessageBox.information(
-                self, "Generate Dokumen",
-                f"Untuk generate {doc_names.get(doc_type, doc_type)}:\n\n"
-                f"Gunakan workflow standar dengan memilih paket\n"
-                f"dan klik tahapan yang sesuai.\n\n"
-                f"Template tersedia di: templates/word/{doc_type.lower()}.docx"
-            )
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def create_swakelola(self):
         """Create new Swakelola activity"""
-        QMessageBox.information(
-            self, "Swakelola",
-            "Fitur Swakelola Baru\n\n"
-            "Untuk membuat Kegiatan Swakelola:\n"
-            "1. Buat paket baru dengan jenis 'Swakelola'\n"
-            "2. Isi data kegiatan dan tim swakelola\n"
-            "3. Generate dokumen yang diperlukan\n\n"
-            "Dokumen yang tersedia:\n"
-            "• KAK Swakelola\n"
-            "• RAB Swakelola\n"
-            "• SK Tim Pelaksana\n"
-            "• Berita Acara Pembayaran\n"
-            "• Laporan Kemajuan\n"
-            "• BAST Swakelola"
-        )
+        try:
+            from .swakelola_manager import SwakelolaDialog
+            dialog = SwakelolaDialog(parent=self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def list_swakelola(self):
         """List all Swakelola activities"""
-        QMessageBox.information(
-            self, "Daftar Swakelola",
-            "Fitur daftar kegiatan swakelola akan segera tersedia.\n\n"
-            "Saat ini, Anda dapat melihat paket dengan jenis\n"
-            "'Swakelola' di daftar paket utama."
-        )
+        try:
+            from .swakelola_manager import SwakelolaManager
+            dialog = SwakelolaManager(self)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def generate_sw_doc(self, doc_type: str):
         """Generate Swakelola document"""
-        doc_names = {
-            'KAK_SWAKELOLA': 'KAK Swakelola',
-            'RAB_SWAKELOLA': 'RAB Swakelola',
-            'SK_TIM_SWAKELOLA': 'SK Tim Pelaksana',
-            'BAP_SWAKELOLA': 'Berita Acara Pembayaran',
-            'LAPORAN_KEMAJUAN': 'Laporan Kemajuan',
-            'BAST_SWAKELOLA': 'BAST Swakelola'
-        }
-
-        if not self.current_paket_id:
-            QMessageBox.warning(
-                self, "Peringatan",
-                f"Untuk mencetak {doc_names.get(doc_type, doc_type)}:\n\n"
-                "1. Pilih paket Swakelola dari daftar\n"
-                "2. Atau buat paket baru terlebih dahulu"
-            )
-            return
-
-        # Try to generate the document
+        # Open manager to select and generate
         try:
-            from .generate_dialog import GenerateDocumentDialog
-            dialog = GenerateDocumentDialog(self.current_paket_id, 'SWAKELOLA', self)
+            from .swakelola_manager import SwakelolaManager
+            dialog = SwakelolaManager(self)
             dialog.exec()
-        except Exception as e:
-            QMessageBox.information(
-                self, "Generate Dokumen",
-                f"Untuk generate {doc_names.get(doc_type, doc_type)}:\n\n"
-                f"Gunakan workflow standar dengan memilih paket\n"
-                f"dan klik tahapan yang sesuai.\n\n"
-                f"Template tersedia di: templates/word/{doc_type.lower()}.docx"
-            )
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def create_pjlp(self):
+        """Create new PJLP contract"""
+        try:
+            from .pjlp_manager import PJLPDialog
+            dialog = PJLPDialog(parent=self)
+            if dialog.exec() == QDialog.Accepted:
+                QMessageBox.information(self, "Sukses", "Kontrak PJLP berhasil dibuat!")
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def list_pjlp(self):
+        """List all PJLP contracts"""
+        try:
+            from .pjlp_manager import PJLPManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("PJLP Manager")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PJLPManager(dialog)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def pembayaran_pjlp(self):
+        """Open PJLP payment tab"""
+        try:
+            from .pjlp_manager import PJLPManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Pembayaran PJLP")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PJLPManager(dialog)
+            manager.tabs.setCurrentIndex(1)  # Switch to Monitoring Pembayaran tab
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def rekap_pjlp(self):
+        """Open PJLP monthly recap tab"""
+        try:
+            from .pjlp_manager import PJLPManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Rekap Pembayaran PJLP")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PJLPManager(dialog)
+            manager.tabs.setCurrentIndex(2)  # Switch to Rekap Bulanan tab
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
 
     def show_about(self):
         QMessageBox.about(

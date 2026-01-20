@@ -556,6 +556,234 @@ CREATE TABLE IF NOT EXISTS doc_counter (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(doc_type, tahun)
 );
+
+-- ============================================================================
+-- PERJALANAN DINAS (Official Travel)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS perjalanan_dinas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info kegiatan
+    nama_kegiatan TEXT NOT NULL,
+    maksud_perjalanan TEXT,
+    nomor_surat_tugas TEXT,
+    nomor_sppd TEXT,
+
+    -- Pelaksana
+    pelaksana_nama TEXT NOT NULL,
+    pelaksana_nip TEXT,
+    pelaksana_pangkat TEXT,
+    pelaksana_golongan TEXT,
+    pelaksana_jabatan TEXT,
+
+    -- Tujuan
+    kota_asal TEXT,
+    kota_tujuan TEXT,
+    provinsi_tujuan TEXT,
+    alamat_tujuan TEXT,
+
+    -- Waktu
+    tanggal_surat_tugas DATE,
+    tanggal_berangkat DATE,
+    tanggal_kembali DATE,
+    lama_perjalanan INTEGER DEFAULT 1,
+
+    -- Anggaran DIPA
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+
+    -- Biaya
+    biaya_transport REAL DEFAULT 0,
+    biaya_uang_harian REAL DEFAULT 0,
+    biaya_penginapan REAL DEFAULT 0,
+    biaya_representasi REAL DEFAULT 0,
+    biaya_lain_lain REAL DEFAULT 0,
+    uang_muka REAL DEFAULT 0,
+
+    -- Pejabat
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    ppk_jabatan TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Status
+    status TEXT DEFAULT 'draft',
+    doc_count INTEGER DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pd_tahun ON perjalanan_dinas(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_pd_pelaksana ON perjalanan_dinas(pelaksana_nama);
+
+-- ============================================================================
+-- SWAKELOLA (Self-managed Procurement)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS swakelola (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info kegiatan
+    nama_kegiatan TEXT NOT NULL,
+    tipe_swakelola INTEGER DEFAULT 0,
+    tipe_swakelola_text TEXT,
+    deskripsi TEXT,
+    output_kegiatan TEXT,
+
+    -- Nomor dokumen
+    nomor_kak TEXT,
+    nomor_sk_tim TEXT,
+
+    -- Waktu
+    tanggal_sk_tim DATE,
+    tanggal_mulai DATE,
+    tanggal_selesai DATE,
+    jangka_waktu INTEGER DEFAULT 30,
+
+    -- Anggaran DIPA
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+    pagu_swakelola REAL DEFAULT 0,
+
+    -- Pemegang Uang Muka
+    pum_nama TEXT,
+    pum_nip TEXT,
+    pum_jabatan TEXT,
+    uang_muka REAL DEFAULT 0,
+    tanggal_uang_muka DATE,
+
+    -- Realisasi / Rampung
+    total_realisasi REAL DEFAULT 0,
+    tanggal_rampung DATE,
+
+    -- Tim Pelaksana
+    ketua_nama TEXT,
+    ketua_nip TEXT,
+    ketua_jabatan TEXT,
+    sekretaris_nama TEXT,
+    sekretaris_nip TEXT,
+    anggota_tim TEXT,
+
+    -- Pejabat
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    ppk_jabatan TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Status
+    status TEXT DEFAULT 'draft',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sw_tahun ON swakelola(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_sw_kegiatan ON swakelola(nama_kegiatan);
+
+-- ============================================================================
+-- PJLP (Penyedia Jasa Lainnya Perorangan)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS pjlp (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Info Kontrak
+    nomor_kontrak TEXT,
+    tanggal_kontrak DATE,
+    nama_pekerjaan TEXT NOT NULL,
+    lingkup_pekerjaan TEXT,
+    lokasi_pekerjaan TEXT,
+
+    -- Data Penyedia/Tenaga PJLP
+    nama_pjlp TEXT NOT NULL,
+    nik TEXT,
+    npwp TEXT,
+    alamat TEXT,
+    telepon TEXT,
+    email TEXT,
+    no_rekening TEXT,
+    nama_bank TEXT,
+
+    -- Periode Kontrak
+    tanggal_mulai DATE,
+    tanggal_selesai DATE,
+    jangka_waktu INTEGER DEFAULT 12,
+
+    -- Nilai Kontrak
+    honor_bulanan REAL DEFAULT 0,
+    total_nilai_kontrak REAL DEFAULT 0,
+
+    -- Anggaran DIPA
+    sumber_dana TEXT DEFAULT 'DIPA',
+    kode_akun TEXT,
+
+    -- Pejabat
+    ppk_nama TEXT,
+    ppk_nip TEXT,
+    ppk_jabatan TEXT,
+    bendahara_nama TEXT,
+    bendahara_nip TEXT,
+
+    -- Status
+    status TEXT DEFAULT 'aktif',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pjlp_tahun ON pjlp(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_pjlp_nama ON pjlp(nama_pjlp);
+CREATE INDEX IF NOT EXISTS idx_pjlp_status ON pjlp(status);
+
+-- ============================================================================
+-- PEMBAYARAN PJLP (Monthly Payment Tracking)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS pembayaran_pjlp (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pjlp_id INTEGER NOT NULL,
+
+    -- Periode
+    bulan INTEGER NOT NULL,
+    tahun INTEGER NOT NULL,
+
+    -- Dokumen
+    nomor_kuitansi TEXT,
+    tanggal_kuitansi DATE,
+    nomor_spp TEXT,
+    tanggal_spp DATE,
+
+    -- Nilai Pembayaran
+    nilai_bruto REAL DEFAULT 0,
+    potongan_pajak REAL DEFAULT 0,
+    potongan_lain REAL DEFAULT 0,
+    nilai_netto REAL DEFAULT 0,
+
+    -- Monitoring
+    kehadiran_hari INTEGER DEFAULT 0,
+    total_hari_kerja INTEGER DEFAULT 22,
+    catatan_kinerja TEXT,
+
+    -- Status
+    status TEXT DEFAULT 'draft',
+    tanggal_bayar DATE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (pjlp_id) REFERENCES pjlp(id) ON DELETE CASCADE,
+    UNIQUE(pjlp_id, bulan, tahun)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pembayaran_pjlp_periode ON pembayaran_pjlp(tahun, bulan);
+CREATE INDEX IF NOT EXISTS idx_pembayaran_pjlp_status ON pembayaran_pjlp(status);
 """
 
 # ============================================================================
@@ -918,7 +1146,344 @@ class DatabaseManagerV4:
             conn.commit()
         
         return imported, updated, errors
-    
+
+    # =========================================================================
+    # PENYEDIA (VENDOR) OPERATIONS
+    # =========================================================================
+
+    def get_all_penyedia(self, active_only: bool = True) -> List[Dict]:
+        """Get all penyedia/vendor"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if active_only:
+                cursor.execute("SELECT * FROM penyedia WHERE is_active = 1 ORDER BY nama")
+            else:
+                cursor.execute("SELECT * FROM penyedia ORDER BY nama")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_penyedia(self, penyedia_id: int) -> Optional[Dict]:
+        """Get single penyedia by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM penyedia WHERE id = ?", (penyedia_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def create_penyedia(self, data: Dict) -> int:
+        """Create new penyedia"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO penyedia (
+                    nama, nama_direktur, jabatan_direktur, alamat, kota,
+                    npwp, no_rekening, nama_bank, nama_rekening,
+                    telepon, email, is_pkp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('nama'),
+                data.get('nama_direktur'),
+                data.get('jabatan_direktur', 'Direktur'),
+                data.get('alamat'),
+                data.get('kota'),
+                data.get('npwp'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('nama_rekening'),
+                data.get('telepon'),
+                data.get('email'),
+                1 if data.get('is_pkp', True) else 0
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_penyedia(self, penyedia_id: int, data: Dict) -> bool:
+        """Update penyedia"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE penyedia SET
+                    nama = ?, nama_direktur = ?, jabatan_direktur = ?,
+                    alamat = ?, kota = ?, npwp = ?, no_rekening = ?,
+                    nama_bank = ?, nama_rekening = ?, telepon = ?, email = ?,
+                    is_pkp = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama'),
+                data.get('nama_direktur'),
+                data.get('jabatan_direktur', 'Direktur'),
+                data.get('alamat'),
+                data.get('kota'),
+                data.get('npwp'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('nama_rekening'),
+                data.get('telepon'),
+                data.get('email'),
+                1 if data.get('is_pkp', True) else 0,
+                penyedia_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def deactivate_penyedia(self, penyedia_id: int) -> bool:
+        """Deactivate penyedia (soft delete)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE penyedia SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (penyedia_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def import_penyedia(self, filepath: str, format_type: str = 'excel') -> Tuple[int, int, List[str]]:
+        """
+        Import penyedia from Excel/JSON file
+        Returns: (success_count, error_count, error_messages)
+        """
+        success = 0
+        errors_count = 0
+        errors = []
+
+        try:
+            if format_type == 'excel':
+                from openpyxl import load_workbook
+                wb = load_workbook(filepath)
+                ws = wb.active
+
+                # Get headers from first row
+                headers = []
+                for cell in ws[1]:
+                    headers.append(str(cell.value).lower().strip() if cell.value else '')
+
+                # Map column indices
+                col_map = {}
+                for idx, h in enumerate(headers):
+                    h_lower = h.lower().replace(' ', '_').replace('.', '')
+                    if h_lower in ['no', 'nomor']:
+                        continue  # Skip row number
+                    elif h_lower in ['nama_perusahaan', 'nama', 'perusahaan', 'company']:
+                        col_map['nama'] = idx
+                    elif h_lower in ['nama_direktur', 'direktur', 'pimpinan', 'nama_pimpinan']:
+                        col_map['nama_direktur'] = idx
+                    elif h_lower in ['jabatan_direktur', 'jabatan_pimpinan', 'jabatan']:
+                        col_map['jabatan_direktur'] = idx
+                    elif h_lower in ['alamat', 'address']:
+                        col_map['alamat'] = idx
+                    elif h_lower in ['kota', 'city', 'kabupaten']:
+                        col_map['kota'] = idx
+                    elif h_lower in ['npwp']:
+                        col_map['npwp'] = idx
+                    elif h_lower in ['no_rekening', 'norekening', 'rekening', 'account']:
+                        col_map['no_rekening'] = idx
+                    elif h_lower in ['bank', 'nama_bank']:
+                        col_map['nama_bank'] = idx
+                    elif h_lower in ['nama_rekening', 'namarekening', 'atas_nama']:
+                        col_map['nama_rekening'] = idx
+                    elif h_lower in ['telepon', 'telp', 'phone', 'hp']:
+                        col_map['telepon'] = idx
+                    elif h_lower in ['email', 'e-mail']:
+                        col_map['email'] = idx
+                    elif h_lower in ['pkp', 'is_pkp']:
+                        col_map['is_pkp'] = idx
+
+                # Read data rows
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+
+                    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                        if not row or all(v is None for v in row):
+                            continue
+
+                        try:
+                            data = {}
+                            for field, col_idx in col_map.items():
+                                if col_idx < len(row):
+                                    val = row[col_idx]
+                                    data[field] = str(val).strip() if val else ''
+
+                            # Skip if nama is empty
+                            if not data.get('nama'):
+                                continue
+
+                            # Check PKP column
+                            pkp_val = data.get('is_pkp', '').lower()
+                            is_pkp = 1 if pkp_val in ['ya', 'yes', '1', 'true', 'pkp', 'v', 'x'] else 0
+
+                            # Check if exists by NPWP
+                            npwp = data.get('npwp', '').strip()
+                            existing = None
+                            if npwp:
+                                cursor.execute("SELECT id FROM penyedia WHERE npwp = ?", (npwp,))
+                                existing = cursor.fetchone()
+
+                            if existing:
+                                # Update existing
+                                cursor.execute("""
+                                    UPDATE penyedia SET
+                                        nama = ?, nama_direktur = ?, jabatan_direktur = ?,
+                                        alamat = ?, kota = ?, no_rekening = ?,
+                                        nama_bank = ?, nama_rekening = ?, telepon = ?, email = ?,
+                                        is_pkp = ?, is_active = 1, updated_at = CURRENT_TIMESTAMP
+                                    WHERE npwp = ?
+                                """, (
+                                    data.get('nama'),
+                                    data.get('nama_direktur'),
+                                    data.get('jabatan_direktur', 'Direktur'),
+                                    data.get('alamat'),
+                                    data.get('kota'),
+                                    data.get('no_rekening'),
+                                    data.get('nama_bank'),
+                                    data.get('nama_rekening'),
+                                    data.get('telepon'),
+                                    data.get('email'),
+                                    is_pkp,
+                                    npwp
+                                ))
+                            else:
+                                # Insert new
+                                cursor.execute("""
+                                    INSERT INTO penyedia (
+                                        nama, nama_direktur, jabatan_direktur, alamat, kota,
+                                        npwp, no_rekening, nama_bank, nama_rekening,
+                                        telepon, email, is_pkp
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    data.get('nama'),
+                                    data.get('nama_direktur'),
+                                    data.get('jabatan_direktur', 'Direktur'),
+                                    data.get('alamat'),
+                                    data.get('kota'),
+                                    npwp or None,
+                                    data.get('no_rekening'),
+                                    data.get('nama_bank'),
+                                    data.get('nama_rekening'),
+                                    data.get('telepon'),
+                                    data.get('email'),
+                                    is_pkp
+                                ))
+                            success += 1
+
+                        except Exception as e:
+                            errors_count += 1
+                            errors.append(f"Baris {row_idx}: {str(e)}")
+
+                    conn.commit()
+
+            else:  # JSON format
+                import json
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data_list = json.load(f)
+
+                if isinstance(data_list, dict):
+                    data_list = data_list.get('penyedia', [])
+
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+
+                    for i, data in enumerate(data_list):
+                        try:
+                            if not data.get('nama'):
+                                continue
+
+                            npwp = data.get('npwp', '').strip()
+                            existing = None
+                            if npwp:
+                                cursor.execute("SELECT id FROM penyedia WHERE npwp = ?", (npwp,))
+                                existing = cursor.fetchone()
+
+                            if existing:
+                                self.update_penyedia(existing[0], data)
+                            else:
+                                self.create_penyedia(data)
+                            success += 1
+
+                        except Exception as e:
+                            errors_count += 1
+                            errors.append(f"Data {i+1}: {str(e)}")
+
+                    conn.commit()
+
+        except Exception as e:
+            errors.append(f"Error membaca file: {str(e)}")
+
+        return success, errors_count, errors
+
+    def export_penyedia(self, filepath: str, format_type: str = 'excel') -> bool:
+        """Export penyedia to Excel/JSON file"""
+        try:
+            penyedia_list = self.get_all_penyedia(active_only=False)
+
+            if format_type == 'excel':
+                from openpyxl import Workbook
+                from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Data Penyedia"
+
+                # Headers
+                headers = ['Nama Perusahaan', 'Nama Direktur', 'Jabatan', 'Alamat', 'Kota',
+                          'NPWP', 'No Rekening', 'Bank', 'Nama Rekening', 'Telepon', 'Email', 'PKP', 'Status']
+
+                header_font = Font(bold=True, color="FFFFFF")
+                header_fill = PatternFill(start_color="27ae60", end_color="27ae60", fill_type="solid")
+                border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+
+                for col, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col, value=header)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = border
+                    cell.alignment = Alignment(horizontal='center')
+
+                # Data
+                for row, p in enumerate(penyedia_list, 2):
+                    ws.cell(row=row, column=1, value=p.get('nama', '')).border = border
+                    ws.cell(row=row, column=2, value=p.get('nama_direktur', '')).border = border
+                    ws.cell(row=row, column=3, value=p.get('jabatan_direktur', '')).border = border
+                    ws.cell(row=row, column=4, value=p.get('alamat', '')).border = border
+                    ws.cell(row=row, column=5, value=p.get('kota', '')).border = border
+                    ws.cell(row=row, column=6, value=p.get('npwp', '')).border = border
+                    ws.cell(row=row, column=7, value=p.get('no_rekening', '')).border = border
+                    ws.cell(row=row, column=8, value=p.get('nama_bank', '')).border = border
+                    ws.cell(row=row, column=9, value=p.get('nama_rekening', '')).border = border
+                    ws.cell(row=row, column=10, value=p.get('telepon', '')).border = border
+                    ws.cell(row=row, column=11, value=p.get('email', '')).border = border
+                    ws.cell(row=row, column=12, value='Ya' if p.get('is_pkp') else 'Tidak').border = border
+                    ws.cell(row=row, column=13, value='Aktif' if p.get('is_active') else 'Non-aktif').border = border
+
+                # Auto-width columns
+                for col in ws.columns:
+                    max_length = 0
+                    column = col[0].column_letter
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    ws.column_dimensions[column].width = min(max_length + 2, 40)
+
+                wb.save(filepath)
+
+            else:  # JSON format
+                import json
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump({'penyedia': penyedia_list}, f, indent=2, default=str, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            print(f"Error exporting penyedia: {e}")
+            return False
+
     # =========================================================================
     # PAKET PEJABAT OPERATIONS
     # =========================================================================
@@ -1319,6 +1884,565 @@ class DatabaseManagerV4:
                 notes
             ))
             conn.commit()
+
+    # =========================================================================
+    # PERJALANAN DINAS (Official Travel)
+    # =========================================================================
+
+    def create_perjalanan_dinas(self, data: Dict) -> int:
+        """Create new perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO perjalanan_dinas (
+                    tahun_anggaran, nama_kegiatan, maksud_perjalanan,
+                    nomor_surat_tugas, nomor_sppd,
+                    pelaksana_nama, pelaksana_nip, pelaksana_pangkat,
+                    pelaksana_golongan, pelaksana_jabatan,
+                    kota_asal, kota_tujuan, provinsi_tujuan, alamat_tujuan,
+                    tanggal_surat_tugas, tanggal_berangkat, tanggal_kembali, lama_perjalanan,
+                    sumber_dana, kode_akun,
+                    biaya_transport, biaya_uang_harian, biaya_penginapan,
+                    biaya_representasi, biaya_lain_lain, uang_muka,
+                    ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_nama, bendahara_nip,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran', TAHUN_ANGGARAN),
+                data.get('nama_kegiatan'),
+                data.get('maksud_perjalanan'),
+                data.get('nomor_surat_tugas'),
+                data.get('nomor_sppd'),
+                data.get('pelaksana_nama'),
+                data.get('pelaksana_nip'),
+                data.get('pelaksana_pangkat'),
+                data.get('pelaksana_golongan'),
+                data.get('pelaksana_jabatan'),
+                data.get('kota_asal'),
+                data.get('kota_tujuan'),
+                data.get('provinsi_tujuan'),
+                data.get('alamat_tujuan'),
+                data.get('tanggal_surat_tugas'),
+                data.get('tanggal_berangkat'),
+                data.get('tanggal_kembali'),
+                data.get('lama_perjalanan', 1),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('biaya_transport', 0),
+                data.get('biaya_uang_harian', 0),
+                data.get('biaya_penginapan', 0),
+                data.get('biaya_representasi', 0),
+                data.get('biaya_lain_lain', 0),
+                data.get('uang_muka', 0),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_perjalanan_dinas(self, pd_id: int, data: Dict) -> bool:
+        """Update perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE perjalanan_dinas SET
+                    nama_kegiatan = ?, maksud_perjalanan = ?,
+                    nomor_surat_tugas = ?, nomor_sppd = ?,
+                    pelaksana_nama = ?, pelaksana_nip = ?, pelaksana_pangkat = ?,
+                    pelaksana_golongan = ?, pelaksana_jabatan = ?,
+                    kota_asal = ?, kota_tujuan = ?, provinsi_tujuan = ?, alamat_tujuan = ?,
+                    tanggal_surat_tugas = ?, tanggal_berangkat = ?, tanggal_kembali = ?, lama_perjalanan = ?,
+                    sumber_dana = ?, kode_akun = ?,
+                    biaya_transport = ?, biaya_uang_harian = ?, biaya_penginapan = ?,
+                    biaya_representasi = ?, biaya_lain_lain = ?, uang_muka = ?,
+                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama_kegiatan'),
+                data.get('maksud_perjalanan'),
+                data.get('nomor_surat_tugas'),
+                data.get('nomor_sppd'),
+                data.get('pelaksana_nama'),
+                data.get('pelaksana_nip'),
+                data.get('pelaksana_pangkat'),
+                data.get('pelaksana_golongan'),
+                data.get('pelaksana_jabatan'),
+                data.get('kota_asal'),
+                data.get('kota_tujuan'),
+                data.get('provinsi_tujuan'),
+                data.get('alamat_tujuan'),
+                data.get('tanggal_surat_tugas'),
+                data.get('tanggal_berangkat'),
+                data.get('tanggal_kembali'),
+                data.get('lama_perjalanan', 1),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('biaya_transport', 0),
+                data.get('biaya_uang_harian', 0),
+                data.get('biaya_penginapan', 0),
+                data.get('biaya_representasi', 0),
+                data.get('biaya_lain_lain', 0),
+                data.get('uang_muka', 0),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft'),
+                pd_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_perjalanan_dinas(self, pd_id: int) -> Optional[Dict]:
+        """Get single perjalanan dinas by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM perjalanan_dinas WHERE id = ?", (pd_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def get_all_perjalanan_dinas(self, tahun: int = None) -> List[Dict]:
+        """Get all perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if tahun:
+                cursor.execute("""
+                    SELECT * FROM perjalanan_dinas
+                    WHERE tahun_anggaran = ?
+                    ORDER BY created_at DESC
+                """, (tahun,))
+            else:
+                cursor.execute("SELECT * FROM perjalanan_dinas ORDER BY created_at DESC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_perjalanan_dinas(self, pd_id: int) -> bool:
+        """Delete perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM perjalanan_dinas WHERE id = ?", (pd_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # =========================================================================
+    # SWAKELOLA (Self-managed Procurement)
+    # =========================================================================
+
+    def create_swakelola(self, data: Dict) -> int:
+        """Create new swakelola activity"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO swakelola (
+                    tahun_anggaran, nama_kegiatan, tipe_swakelola, tipe_swakelola_text,
+                    deskripsi, output_kegiatan, nomor_kak, nomor_sk_tim,
+                    tanggal_sk_tim, tanggal_mulai, tanggal_selesai, jangka_waktu,
+                    sumber_dana, kode_akun, pagu_swakelola,
+                    pum_nama, pum_nip, pum_jabatan, uang_muka, tanggal_uang_muka,
+                    total_realisasi, tanggal_rampung,
+                    ketua_nama, ketua_nip, ketua_jabatan,
+                    sekretaris_nama, sekretaris_nip, anggota_tim,
+                    ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_nama, bendahara_nip,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran', TAHUN_ANGGARAN),
+                data.get('nama_kegiatan'),
+                data.get('tipe_swakelola', 0),
+                data.get('tipe_swakelola_text'),
+                data.get('deskripsi'),
+                data.get('output_kegiatan'),
+                data.get('nomor_kak'),
+                data.get('nomor_sk_tim'),
+                data.get('tanggal_sk_tim'),
+                data.get('tanggal_mulai'),
+                data.get('tanggal_selesai'),
+                data.get('jangka_waktu', 30),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('pagu_swakelola', 0),
+                data.get('pum_nama'),
+                data.get('pum_nip'),
+                data.get('pum_jabatan'),
+                data.get('uang_muka', 0),
+                data.get('tanggal_uang_muka'),
+                data.get('total_realisasi', 0),
+                data.get('tanggal_rampung'),
+                data.get('ketua_nama'),
+                data.get('ketua_nip'),
+                data.get('ketua_jabatan'),
+                data.get('sekretaris_nama'),
+                data.get('sekretaris_nip'),
+                data.get('anggota_tim'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_swakelola(self, sw_id: int, data: Dict) -> bool:
+        """Update swakelola activity"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE swakelola SET
+                    nama_kegiatan = ?, tipe_swakelola = ?, tipe_swakelola_text = ?,
+                    deskripsi = ?, output_kegiatan = ?, nomor_kak = ?, nomor_sk_tim = ?,
+                    tanggal_sk_tim = ?, tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
+                    sumber_dana = ?, kode_akun = ?, pagu_swakelola = ?,
+                    pum_nama = ?, pum_nip = ?, pum_jabatan = ?, uang_muka = ?, tanggal_uang_muka = ?,
+                    total_realisasi = ?, tanggal_rampung = ?,
+                    ketua_nama = ?, ketua_nip = ?, ketua_jabatan = ?,
+                    sekretaris_nama = ?, sekretaris_nip = ?, anggota_tim = ?,
+                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_nama = ?, bendahara_nip = ?,
+                    status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('nama_kegiatan'),
+                data.get('tipe_swakelola', 0),
+                data.get('tipe_swakelola_text'),
+                data.get('deskripsi'),
+                data.get('output_kegiatan'),
+                data.get('nomor_kak'),
+                data.get('nomor_sk_tim'),
+                data.get('tanggal_sk_tim'),
+                data.get('tanggal_mulai'),
+                data.get('tanggal_selesai'),
+                data.get('jangka_waktu', 30),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('pagu_swakelola', 0),
+                data.get('pum_nama'),
+                data.get('pum_nip'),
+                data.get('pum_jabatan'),
+                data.get('uang_muka', 0),
+                data.get('tanggal_uang_muka'),
+                data.get('total_realisasi', 0),
+                data.get('tanggal_rampung'),
+                data.get('ketua_nama'),
+                data.get('ketua_nip'),
+                data.get('ketua_jabatan'),
+                data.get('sekretaris_nama'),
+                data.get('sekretaris_nip'),
+                data.get('anggota_tim'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'draft'),
+                sw_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_swakelola(self, sw_id: int) -> Optional[Dict]:
+        """Get single swakelola by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM swakelola WHERE id = ?", (sw_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def get_all_swakelola(self, tahun: int = None) -> List[Dict]:
+        """Get all swakelola activities"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if tahun:
+                cursor.execute("""
+                    SELECT * FROM swakelola
+                    WHERE tahun_anggaran = ?
+                    ORDER BY created_at DESC
+                """, (tahun,))
+            else:
+                cursor.execute("SELECT * FROM swakelola ORDER BY created_at DESC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_swakelola(self, sw_id: int) -> bool:
+        """Delete swakelola"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM swakelola WHERE id = ?", (sw_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # ========================================================================
+    # PJLP (Penyedia Jasa Lainnya Perorangan) METHODS
+    # ========================================================================
+
+    def create_pjlp(self, data: Dict) -> int:
+        """Create new PJLP contract"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO pjlp (
+                    tahun_anggaran, nomor_kontrak, tanggal_kontrak,
+                    nama_pekerjaan, nama_pjlp, nik, npwp, alamat, telepon, email,
+                    no_rekening, nama_bank, tanggal_mulai, tanggal_selesai,
+                    jangka_waktu, honor_bulanan, total_nilai_kontrak,
+                    sumber_dana, kode_akun, ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_nama, bendahara_nip, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran'),
+                data.get('nomor_kontrak'),
+                data.get('tanggal_kontrak'),
+                data.get('nama_pekerjaan'),
+                data.get('nama_pjlp'),
+                data.get('nik'),
+                data.get('npwp'),
+                data.get('alamat'),
+                data.get('telepon'),
+                data.get('email'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('tanggal_mulai'),
+                data.get('tanggal_selesai'),
+                data.get('jangka_waktu', 12),
+                data.get('honor_bulanan', 0),
+                data.get('total_nilai_kontrak', 0),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'aktif')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_pjlp(self, pjlp_id: int, data: Dict) -> bool:
+        """Update PJLP contract"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE pjlp SET
+                    tahun_anggaran = ?, nomor_kontrak = ?, tanggal_kontrak = ?,
+                    nama_pekerjaan = ?, nama_pjlp = ?, nik = ?, npwp = ?,
+                    alamat = ?, telepon = ?, email = ?, no_rekening = ?, nama_bank = ?,
+                    tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
+                    honor_bulanan = ?, total_nilai_kontrak = ?, sumber_dana = ?,
+                    kode_akun = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_nama = ?, bendahara_nip = ?, status = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('tahun_anggaran'),
+                data.get('nomor_kontrak'),
+                data.get('tanggal_kontrak'),
+                data.get('nama_pekerjaan'),
+                data.get('nama_pjlp'),
+                data.get('nik'),
+                data.get('npwp'),
+                data.get('alamat'),
+                data.get('telepon'),
+                data.get('email'),
+                data.get('no_rekening'),
+                data.get('nama_bank'),
+                data.get('tanggal_mulai'),
+                data.get('tanggal_selesai'),
+                data.get('jangka_waktu', 12),
+                data.get('honor_bulanan', 0),
+                data.get('total_nilai_kontrak', 0),
+                data.get('sumber_dana', 'DIPA'),
+                data.get('kode_akun'),
+                data.get('ppk_nama'),
+                data.get('ppk_nip'),
+                data.get('ppk_jabatan'),
+                data.get('bendahara_nama'),
+                data.get('bendahara_nip'),
+                data.get('status', 'aktif'),
+                pjlp_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_pjlp(self, pjlp_id: int) -> Optional[Dict]:
+        """Get single PJLP by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM pjlp WHERE id = ?", (pjlp_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def get_all_pjlp(self, tahun: int = None, status: str = None) -> List[Dict]:
+        """Get all PJLP contracts"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM pjlp WHERE 1=1"
+            params = []
+            if tahun:
+                query += " AND tahun_anggaran = ?"
+                params.append(tahun)
+            if status:
+                query += " AND status = ?"
+                params.append(status)
+            query += " ORDER BY created_at DESC"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_pjlp(self, pjlp_id: int) -> bool:
+        """Delete PJLP contract"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM pjlp WHERE id = ?", (pjlp_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # ========================================================================
+    # PEMBAYARAN PJLP (Monthly Payment) METHODS
+    # ========================================================================
+
+    def create_pembayaran_pjlp(self, data: Dict) -> int:
+        """Create new PJLP monthly payment"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO pembayaran_pjlp (
+                    pjlp_id, bulan, tahun, nomor_kuitansi, tanggal_kuitansi,
+                    nomor_spp, tanggal_spp, nilai_bruto, potongan_pajak,
+                    potongan_lain, nilai_netto, kehadiran_hari, total_hari_kerja,
+                    catatan_kinerja, status, tanggal_bayar
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('pjlp_id'),
+                data.get('bulan'),
+                data.get('tahun'),
+                data.get('nomor_kuitansi'),
+                data.get('tanggal_kuitansi'),
+                data.get('nomor_spp'),
+                data.get('tanggal_spp'),
+                data.get('nilai_bruto', 0),
+                data.get('potongan_pajak', 0),
+                data.get('potongan_lain', 0),
+                data.get('nilai_netto', 0),
+                data.get('kehadiran_hari', 0),
+                data.get('total_hari_kerja', 22),
+                data.get('catatan_kinerja'),
+                data.get('status', 'draft'),
+                data.get('tanggal_bayar')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_pembayaran_pjlp(self, payment_id: int, data: Dict) -> bool:
+        """Update PJLP monthly payment"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE pembayaran_pjlp SET
+                    nomor_kuitansi = ?, tanggal_kuitansi = ?,
+                    nomor_spp = ?, tanggal_spp = ?,
+                    nilai_bruto = ?, potongan_pajak = ?, potongan_lain = ?,
+                    nilai_netto = ?, kehadiran_hari = ?, total_hari_kerja = ?,
+                    catatan_kinerja = ?, status = ?, tanggal_bayar = ?
+                WHERE id = ?
+            """, (
+                data.get('nomor_kuitansi'),
+                data.get('tanggal_kuitansi'),
+                data.get('nomor_spp'),
+                data.get('tanggal_spp'),
+                data.get('nilai_bruto', 0),
+                data.get('potongan_pajak', 0),
+                data.get('potongan_lain', 0),
+                data.get('nilai_netto', 0),
+                data.get('kehadiran_hari', 0),
+                data.get('total_hari_kerja', 22),
+                data.get('catatan_kinerja'),
+                data.get('status', 'draft'),
+                data.get('tanggal_bayar'),
+                payment_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_pembayaran_pjlp(self, payment_id: int) -> Optional[Dict]:
+        """Get single payment by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM pembayaran_pjlp WHERE id = ?", (payment_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
+    def get_pembayaran_by_pjlp(self, pjlp_id: int) -> List[Dict]:
+        """Get all payments for a PJLP contract"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM pembayaran_pjlp
+                WHERE pjlp_id = ?
+                ORDER BY tahun DESC, bulan DESC
+            """, (pjlp_id,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_pembayaran_by_bulan(self, bulan: int, tahun: int) -> List[Dict]:
+        """Get all PJLP payments for a specific month"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.*, pj.nama_pjlp, pj.nama_pekerjaan, pj.honor_bulanan
+                FROM pembayaran_pjlp p
+                JOIN pjlp pj ON p.pjlp_id = pj.id
+                WHERE p.bulan = ? AND p.tahun = ?
+                ORDER BY pj.nama_pjlp
+            """, (bulan, tahun))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_pembayaran_pjlp(self, payment_id: int) -> bool:
+        """Delete PJLP payment"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM pembayaran_pjlp WHERE id = ?", (payment_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_pjlp_summary(self, pjlp_id: int) -> Dict:
+        """Get payment summary for a PJLP contract"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_bulan_dibayar,
+                    SUM(nilai_bruto) as total_bruto,
+                    SUM(potongan_pajak) as total_pajak,
+                    SUM(potongan_lain) as total_potongan_lain,
+                    SUM(nilai_netto) as total_netto
+                FROM pembayaran_pjlp
+                WHERE pjlp_id = ? AND status = 'dibayar'
+            """, (pjlp_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return {
+                'total_bulan_dibayar': 0,
+                'total_bruto': 0,
+                'total_pajak': 0,
+                'total_potongan_lain': 0,
+                'total_netto': 0
+            }
 
 
 # ============================================================================

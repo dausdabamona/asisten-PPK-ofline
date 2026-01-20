@@ -1533,7 +1533,88 @@ class DashboardWindow(QMainWindow):
         action_satker = QAction("🏛️ Data Satker", self)
         action_satker.triggered.connect(self.open_satker_manager)
         master_menu.addAction(action_satker)
-        
+
+        master_menu.addSeparator()
+
+        # Backup/Restore
+        action_backup = QAction("💾 Backup Master Data", self)
+        action_backup.triggered.connect(self.backup_master_data)
+        master_menu.addAction(action_backup)
+
+        action_restore = QAction("📂 Restore Master Data", self)
+        action_restore.triggered.connect(self.restore_master_data)
+        master_menu.addAction(action_restore)
+
+        # Perjalanan Dinas menu
+        pd_menu = menubar.addMenu("&Perjalanan Dinas")
+
+        action_pd_buat = QAction("✈️ Buat Perjalanan Dinas Baru", self)
+        action_pd_buat.triggered.connect(self.create_perjalanan_dinas)
+        pd_menu.addAction(action_pd_buat)
+
+        action_pd_list = QAction("📋 Daftar Perjalanan Dinas", self)
+        action_pd_list.triggered.connect(self.list_perjalanan_dinas)
+        pd_menu.addAction(action_pd_list)
+
+        pd_menu.addSeparator()
+
+        action_pd_surat_tugas = QAction("📄 Cetak Surat Tugas", self)
+        action_pd_surat_tugas.triggered.connect(lambda: self.generate_pd_doc('SURAT_TUGAS'))
+        pd_menu.addAction(action_pd_surat_tugas)
+
+        action_pd_sppd = QAction("📄 Cetak SPPD", self)
+        action_pd_sppd.triggered.connect(lambda: self.generate_pd_doc('SPPD'))
+        pd_menu.addAction(action_pd_sppd)
+
+        action_pd_kuitansi_um = QAction("💰 Cetak Kuitansi Uang Muka", self)
+        action_pd_kuitansi_um.triggered.connect(lambda: self.generate_pd_doc('KUITANSI_UM'))
+        pd_menu.addAction(action_pd_kuitansi_um)
+
+        action_pd_rincian = QAction("📊 Cetak Rincian Biaya", self)
+        action_pd_rincian.triggered.connect(lambda: self.generate_pd_doc('RINCIAN_BIAYA_PD'))
+        pd_menu.addAction(action_pd_rincian)
+
+        action_pd_kuitansi_rampung = QAction("💰 Cetak Kuitansi Rampung", self)
+        action_pd_kuitansi_rampung.triggered.connect(lambda: self.generate_pd_doc('KUITANSI_RAMPUNG'))
+        pd_menu.addAction(action_pd_kuitansi_rampung)
+
+        # Swakelola menu
+        sw_menu = menubar.addMenu("&Swakelola")
+
+        action_sw_buat = QAction("📝 Buat Kegiatan Swakelola Baru", self)
+        action_sw_buat.triggered.connect(self.create_swakelola)
+        sw_menu.addAction(action_sw_buat)
+
+        action_sw_list = QAction("📋 Daftar Kegiatan Swakelola", self)
+        action_sw_list.triggered.connect(self.list_swakelola)
+        sw_menu.addAction(action_sw_list)
+
+        sw_menu.addSeparator()
+
+        action_sw_kak = QAction("📄 Cetak KAK Swakelola", self)
+        action_sw_kak.triggered.connect(lambda: self.generate_sw_doc('KAK_SWAKELOLA'))
+        sw_menu.addAction(action_sw_kak)
+
+        action_sw_rab = QAction("📊 Cetak RAB Swakelola", self)
+        action_sw_rab.triggered.connect(lambda: self.generate_sw_doc('RAB_SWAKELOLA'))
+        sw_menu.addAction(action_sw_rab)
+
+        action_sw_sk_tim = QAction("📄 Cetak SK Tim", self)
+        action_sw_sk_tim.triggered.connect(lambda: self.generate_sw_doc('SK_TIM_SWAKELOLA'))
+        sw_menu.addAction(action_sw_sk_tim)
+
+        action_sw_bap = QAction("📄 Cetak BA Pembayaran", self)
+        action_sw_bap.triggered.connect(lambda: self.generate_sw_doc('BAP_SWAKELOLA'))
+        sw_menu.addAction(action_sw_bap)
+
+        action_sw_laporan = QAction("📄 Cetak Laporan Kemajuan", self)
+        action_sw_laporan.triggered.connect(lambda: self.generate_sw_doc('LAPORAN_KEMAJUAN'))
+        sw_menu.addAction(action_sw_laporan)
+
+        action_sw_bast = QAction("📄 Cetak BAST Swakelola", self)
+        action_sw_bast.triggered.connect(lambda: self.generate_sw_doc('BAST_SWAKELOLA'))
+        sw_menu.addAction(action_sw_bast)
+
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
         
@@ -1844,7 +1925,198 @@ class DashboardWindow(QMainWindow):
     def open_master_data(self):
         """Open Master Data (legacy - redirect to pegawai)"""
         self.open_pegawai_manager()
-    
+
+    def backup_master_data(self):
+        """Backup all master data to JSON file"""
+        from PySide6.QtWidgets import QFileDialog
+        from datetime import datetime
+
+        default_name = f"backup_master_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Backup Master Data",
+            default_name,
+            "JSON Files (*.json)"
+        )
+
+        if not filepath:
+            return
+
+        try:
+            if self.db.backup_master_data(filepath):
+                QMessageBox.information(
+                    self, "Sukses",
+                    f"Backup master data berhasil disimpan ke:\n{filepath}"
+                )
+            else:
+                QMessageBox.warning(self, "Error", "Gagal membuat backup!")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal backup:\n{str(e)}")
+
+    def restore_master_data(self):
+        """Restore master data from JSON backup file"""
+        from PySide6.QtWidgets import QFileDialog
+
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Restore Master Data",
+            "",
+            "JSON Files (*.json)"
+        )
+
+        if not filepath:
+            return
+
+        reply = QMessageBox.question(
+            self, "Konfirmasi Restore",
+            "Restore master data dari backup?\n\n"
+            "Data yang sudah ada akan diupdate jika NIP/NPWP sama.\n"
+            "Data baru akan ditambahkan.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            success_msg, errors = self.db.restore_master_data(filepath)
+            if success_msg:
+                msg = f"Restore berhasil!\n\n{success_msg}"
+                if errors:
+                    msg += f"\n\nError:\n" + "\n".join(errors[:5])
+                QMessageBox.information(self, "Restore Selesai", msg)
+            else:
+                QMessageBox.warning(
+                    self, "Restore Gagal",
+                    "Tidak ada data yang berhasil di-restore.\n\n" + "\n".join(errors)
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal restore:\n{str(e)}")
+
+    def create_perjalanan_dinas(self):
+        """Create new Perjalanan Dinas"""
+        QMessageBox.information(
+            self, "Perjalanan Dinas",
+            "Fitur Perjalanan Dinas Baru\n\n"
+            "Untuk membuat Perjalanan Dinas:\n"
+            "1. Buat paket baru dengan jenis 'Perjalanan Dinas'\n"
+            "2. Isi data pelaksana perjalanan dinas\n"
+            "3. Generate dokumen yang diperlukan\n\n"
+            "Dokumen yang tersedia:\n"
+            "• Surat Tugas\n"
+            "• SPPD\n"
+            "• Kuitansi Uang Muka\n"
+            "• Rincian Biaya\n"
+            "• Laporan Perjalanan Dinas\n"
+            "• Kuitansi Rampung\n"
+            "• Daftar Pengeluaran Riil"
+        )
+
+    def list_perjalanan_dinas(self):
+        """List all Perjalanan Dinas"""
+        QMessageBox.information(
+            self, "Daftar Perjalanan Dinas",
+            "Fitur daftar perjalanan dinas akan segera tersedia.\n\n"
+            "Saat ini, Anda dapat melihat paket dengan jenis\n"
+            "'Perjalanan Dinas' di daftar paket utama."
+        )
+
+    def generate_pd_doc(self, doc_type: str):
+        """Generate Perjalanan Dinas document"""
+        doc_names = {
+            'SURAT_TUGAS': 'Surat Tugas',
+            'SPPD': 'SPPD',
+            'KUITANSI_UM': 'Kuitansi Uang Muka',
+            'RINCIAN_BIAYA_PD': 'Rincian Biaya Perjalanan Dinas',
+            'LAPORAN_PD': 'Laporan Perjalanan Dinas',
+            'KUITANSI_RAMPUNG': 'Kuitansi Rampung',
+            'DAFTAR_PENGELUARAN_RIIL': 'Daftar Pengeluaran Riil'
+        }
+
+        if not self.current_paket_id:
+            QMessageBox.warning(
+                self, "Peringatan",
+                f"Untuk mencetak {doc_names.get(doc_type, doc_type)}:\n\n"
+                "1. Pilih paket Perjalanan Dinas dari daftar\n"
+                "2. Atau buat paket baru terlebih dahulu"
+            )
+            return
+
+        # Try to generate the document
+        try:
+            from .generate_dialog import GenerateDocumentDialog
+            dialog = GenerateDocumentDialog(self.current_paket_id, 'PERJALANAN_DINAS', self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.information(
+                self, "Generate Dokumen",
+                f"Untuk generate {doc_names.get(doc_type, doc_type)}:\n\n"
+                f"Gunakan workflow standar dengan memilih paket\n"
+                f"dan klik tahapan yang sesuai.\n\n"
+                f"Template tersedia di: templates/word/{doc_type.lower()}.docx"
+            )
+
+    def create_swakelola(self):
+        """Create new Swakelola activity"""
+        QMessageBox.information(
+            self, "Swakelola",
+            "Fitur Swakelola Baru\n\n"
+            "Untuk membuat Kegiatan Swakelola:\n"
+            "1. Buat paket baru dengan jenis 'Swakelola'\n"
+            "2. Isi data kegiatan dan tim swakelola\n"
+            "3. Generate dokumen yang diperlukan\n\n"
+            "Dokumen yang tersedia:\n"
+            "• KAK Swakelola\n"
+            "• RAB Swakelola\n"
+            "• SK Tim Pelaksana\n"
+            "• Berita Acara Pembayaran\n"
+            "• Laporan Kemajuan\n"
+            "• BAST Swakelola"
+        )
+
+    def list_swakelola(self):
+        """List all Swakelola activities"""
+        QMessageBox.information(
+            self, "Daftar Swakelola",
+            "Fitur daftar kegiatan swakelola akan segera tersedia.\n\n"
+            "Saat ini, Anda dapat melihat paket dengan jenis\n"
+            "'Swakelola' di daftar paket utama."
+        )
+
+    def generate_sw_doc(self, doc_type: str):
+        """Generate Swakelola document"""
+        doc_names = {
+            'KAK_SWAKELOLA': 'KAK Swakelola',
+            'RAB_SWAKELOLA': 'RAB Swakelola',
+            'SK_TIM_SWAKELOLA': 'SK Tim Pelaksana',
+            'BAP_SWAKELOLA': 'Berita Acara Pembayaran',
+            'LAPORAN_KEMAJUAN': 'Laporan Kemajuan',
+            'BAST_SWAKELOLA': 'BAST Swakelola'
+        }
+
+        if not self.current_paket_id:
+            QMessageBox.warning(
+                self, "Peringatan",
+                f"Untuk mencetak {doc_names.get(doc_type, doc_type)}:\n\n"
+                "1. Pilih paket Swakelola dari daftar\n"
+                "2. Atau buat paket baru terlebih dahulu"
+            )
+            return
+
+        # Try to generate the document
+        try:
+            from .generate_dialog import GenerateDocumentDialog
+            dialog = GenerateDocumentDialog(self.current_paket_id, 'SWAKELOLA', self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.information(
+                self, "Generate Dokumen",
+                f"Untuk generate {doc_names.get(doc_type, doc_type)}:\n\n"
+                f"Gunakan workflow standar dengan memilih paket\n"
+                f"dan klik tahapan yang sesuai.\n\n"
+                f"Template tersedia di: templates/word/{doc_type.lower()}.docx"
+            )
+
     def show_about(self):
         QMessageBox.about(
             self, "Tentang",

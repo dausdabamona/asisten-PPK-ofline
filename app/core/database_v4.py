@@ -968,6 +968,111 @@ CREATE TABLE IF NOT EXISTS jamuan_tamu (
 
 CREATE INDEX IF NOT EXISTS idx_jamuan_tamu_tahun ON jamuan_tamu(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_jamuan_tamu_tanggal ON jamuan_tamu(tanggal_kegiatan);
+
+-- ============================================================================
+-- PAGU ANGGARAN / FA DETAIL (POK/DIPA)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS pagu_anggaran (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Kode Hierarki
+    kode_program TEXT,
+    kode_kegiatan TEXT,
+    kode_kro TEXT,
+    kode_ro TEXT,
+    kode_komponen TEXT,
+    kode_sub_komponen TEXT,
+    kode_akun TEXT,
+    kode_detail TEXT,
+    kode_full TEXT,  -- Kode lengkap gabungan
+
+    -- Level hierarki: 1=Program, 2=Kegiatan, 3=KRO, 4=RO, 5=Komponen, 6=SubKomponen, 7=Akun, 8=Detail
+    level_kode INTEGER DEFAULT 8,
+    parent_id INTEGER,
+
+    -- Uraian
+    uraian TEXT NOT NULL,
+
+    -- Volume dan Satuan
+    volume REAL DEFAULT 0,
+    satuan TEXT,
+
+    -- Harga
+    harga_satuan REAL DEFAULT 0,
+    jumlah REAL DEFAULT 0,
+
+    -- Realisasi
+    realisasi REAL DEFAULT 0,
+    sisa REAL DEFAULT 0,
+    persen_realisasi REAL DEFAULT 0,
+
+    -- Sumber Dana
+    sumber_dana TEXT DEFAULT 'RM',  -- RM, PNBP, BLU, PLN, HLN
+
+    -- Flag
+    is_locked INTEGER DEFAULT 0,
+    is_blokir INTEGER DEFAULT 0,
+
+    -- Keterangan
+    keterangan TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pagu_tahun ON pagu_anggaran(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_pagu_kode_full ON pagu_anggaran(kode_full);
+CREATE INDEX IF NOT EXISTS idx_pagu_kode_akun ON pagu_anggaran(kode_akun);
+CREATE INDEX IF NOT EXISTS idx_pagu_level ON pagu_anggaran(level_kode);
+CREATE INDEX IF NOT EXISTS idx_pagu_parent ON pagu_anggaran(parent_id);
+
+-- Tabel untuk tracking realisasi per bulan
+CREATE TABLE IF NOT EXISTS realisasi_anggaran (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pagu_id INTEGER NOT NULL,
+    bulan INTEGER NOT NULL,
+    tahun INTEGER NOT NULL,
+
+    nilai_realisasi REAL DEFAULT 0,
+    nomor_sp2d TEXT,
+    tanggal_sp2d DATE,
+    keterangan TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (pagu_id) REFERENCES pagu_anggaran(id) ON DELETE CASCADE,
+    UNIQUE(pagu_id, bulan, tahun)
+);
+
+CREATE INDEX IF NOT EXISTS idx_realisasi_periode ON realisasi_anggaran(tahun, bulan);
+
+-- ============================================================================
+-- HONORARIUM PENGELOLA KEUANGAN
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS honorarium_pengelola (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun INTEGER NOT NULL,
+    bulan INTEGER NOT NULL,
+    jabatan TEXT NOT NULL,  -- KPA, PPK, PPSPM, Bendahara, Operator, Staf
+    pegawai_id INTEGER NOT NULL,
+    jumlah REAL DEFAULT 0,
+    pajak REAL DEFAULT 0,
+    netto REAL DEFAULT 0,
+    pagu_id INTEGER,  -- Reference to pagu_anggaran
+    keterangan TEXT,
+    status TEXT DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (pegawai_id) REFERENCES pegawai(id),
+    FOREIGN KEY (pagu_id) REFERENCES pagu_anggaran(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hon_pengelola_tahun_bulan ON honorarium_pengelola(tahun, bulan);
+CREATE INDEX IF NOT EXISTS idx_hon_pengelola_jabatan ON honorarium_pengelola(jabatan);
 """
 
 # ============================================================================
@@ -1110,7 +1215,42 @@ class DatabaseManagerV4:
                     cursor.execute(sql)
                 except:
                     pass
-    
+
+        # Migration: Add pejabat keuangan columns to satker
+        cursor.execute("PRAGMA table_info(satker)")
+        satker_columns = [col[1] for col in cursor.fetchall()]
+
+        satker_migrations = [
+            ('kpa_id', "ALTER TABLE satker ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE satker ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('ppspm_id', "ALTER TABLE satker ADD COLUMN ppspm_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE satker ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in satker_migrations:
+            if col not in satker_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add SK KPA columns to swakelola
+        cursor.execute("PRAGMA table_info(swakelola)")
+        swakelola_columns = [col[1] for col in cursor.fetchall()]
+
+        swakelola_migrations = [
+            ('nomor_sk_kpa', "ALTER TABLE swakelola ADD COLUMN nomor_sk_kpa TEXT"),
+            ('tanggal_sk_kpa', "ALTER TABLE swakelola ADD COLUMN tanggal_sk_kpa DATE"),
+            ('perihal_sk_kpa', "ALTER TABLE swakelola ADD COLUMN perihal_sk_kpa TEXT"),
+        ]
+
+        for col, sql in swakelola_migrations:
+            if col not in swakelola_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
         cursor.execute("""
@@ -1132,7 +1272,78 @@ class DatabaseManagerV4:
             SATKER_DEFAULT['kementerian'],
             SATKER_DEFAULT['eselon1'],
         ))
-    
+
+    # =========================================================================
+    # SATKER OPERATIONS
+    # =========================================================================
+
+    def get_satker(self) -> Dict:
+        """Get default satker data"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM satker LIMIT 1")
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+
+    def update_satker(self, data: Dict) -> bool:
+        """Update satker data"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE satker SET
+                    nama = ?, nama_pendek = ?, alamat = ?, kota = ?, kode_pos = ?,
+                    provinsi = ?, telepon = ?, fax = ?, email = ?, website = ?,
+                    kementerian = ?, eselon1 = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+            """, (
+                data.get('nama'), data.get('nama_pendek'), data.get('alamat'),
+                data.get('kota'), data.get('kode_pos'), data.get('provinsi'),
+                data.get('telepon'), data.get('fax'), data.get('email'),
+                data.get('website'), data.get('kementerian'), data.get('eselon1'),
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def update_satker_pejabat(self, kpa_id: int = None, ppk_id: int = None,
+                              ppspm_id: int = None, bendahara_id: int = None) -> bool:
+        """Update pejabat keuangan for satker"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE satker SET
+                    kpa_id = ?, ppk_id = ?, ppspm_id = ?, bendahara_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+            """, (kpa_id, ppk_id, ppspm_id, bendahara_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_satker_pejabat(self) -> Dict:
+        """Get satker pejabat with pegawai details"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.id, s.kode, s.nama, s.nama_pendek,
+                    s.kpa_id, s.ppk_id, s.ppspm_id, s.bendahara_id,
+                    kpa.nama as kpa_nama, kpa.nip as kpa_nip, kpa.jabatan as kpa_jabatan,
+                    kpa.pangkat as kpa_pangkat, kpa.golongan as kpa_golongan,
+                    ppk.nama as ppk_nama, ppk.nip as ppk_nip, ppk.jabatan as ppk_jabatan,
+                    ppk.pangkat as ppk_pangkat, ppk.golongan as ppk_golongan,
+                    ppspm.nama as ppspm_nama, ppspm.nip as ppspm_nip, ppspm.jabatan as ppspm_jabatan,
+                    ppspm.pangkat as ppspm_pangkat, ppspm.golongan as ppspm_golongan,
+                    bendahara.nama as bendahara_nama, bendahara.nip as bendahara_nip,
+                    bendahara.jabatan as bendahara_jabatan, bendahara.pangkat as bendahara_pangkat,
+                    bendahara.golongan as bendahara_golongan
+                FROM satker s
+                LEFT JOIN pegawai kpa ON s.kpa_id = kpa.id
+                LEFT JOIN pegawai ppk ON s.ppk_id = ppk.id
+                LEFT JOIN pegawai ppspm ON s.ppspm_id = ppspm.id
+                LEFT JOIN pegawai bendahara ON s.bendahara_id = bendahara.id
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+
     @contextmanager
     def get_connection(self):
         """Get database connection with context manager"""
@@ -2229,6 +2440,7 @@ class DatabaseManagerV4:
                 INSERT INTO swakelola (
                     tahun_anggaran, nama_kegiatan, tipe_swakelola, tipe_swakelola_text,
                     deskripsi, output_kegiatan, nomor_kak, nomor_sk_tim,
+                    nomor_sk_kpa, tanggal_sk_kpa, perihal_sk_kpa,
                     tanggal_sk_tim, tanggal_mulai, tanggal_selesai, jangka_waktu,
                     sumber_dana, kode_akun, pagu_swakelola,
                     pum_nama, pum_nip, pum_jabatan, uang_muka, tanggal_uang_muka,
@@ -2238,7 +2450,7 @@ class DatabaseManagerV4:
                     ppk_nama, ppk_nip, ppk_jabatan,
                     bendahara_nama, bendahara_nip,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran', TAHUN_ANGGARAN),
                 data.get('nama_kegiatan'),
@@ -2248,6 +2460,9 @@ class DatabaseManagerV4:
                 data.get('output_kegiatan'),
                 data.get('nomor_kak'),
                 data.get('nomor_sk_tim'),
+                data.get('nomor_sk_kpa'),
+                data.get('tanggal_sk_kpa'),
+                data.get('perihal_sk_kpa'),
                 data.get('tanggal_sk_tim'),
                 data.get('tanggal_mulai'),
                 data.get('tanggal_selesai'),
@@ -2286,6 +2501,7 @@ class DatabaseManagerV4:
                 UPDATE swakelola SET
                     nama_kegiatan = ?, tipe_swakelola = ?, tipe_swakelola_text = ?,
                     deskripsi = ?, output_kegiatan = ?, nomor_kak = ?, nomor_sk_tim = ?,
+                    nomor_sk_kpa = ?, tanggal_sk_kpa = ?, perihal_sk_kpa = ?,
                     tanggal_sk_tim = ?, tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
                     sumber_dana = ?, kode_akun = ?, pagu_swakelola = ?,
                     pum_nama = ?, pum_nip = ?, pum_jabatan = ?, uang_muka = ?, tanggal_uang_muka = ?,
@@ -2304,6 +2520,9 @@ class DatabaseManagerV4:
                 data.get('output_kegiatan'),
                 data.get('nomor_kak'),
                 data.get('nomor_sk_tim'),
+                data.get('nomor_sk_kpa'),
+                data.get('tanggal_sk_kpa'),
+                data.get('perihal_sk_kpa'),
                 data.get('tanggal_sk_tim'),
                 data.get('tanggal_mulai'),
                 data.get('tanggal_selesai'),
@@ -3091,6 +3310,439 @@ class DatabaseManagerV4:
             cursor.execute("DELETE FROM jamuan_tamu WHERE id = ?", (jt_id,))
             conn.commit()
             return cursor.rowcount > 0
+
+    # ========================================================================
+    # PAGU ANGGARAN / FA DETAIL METHODS
+    # ========================================================================
+
+    def create_pagu_anggaran(self, data: Dict) -> int:
+        """Create new pagu anggaran entry"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Calculate sisa
+            jumlah = data.get('jumlah', 0) or 0
+            realisasi = data.get('realisasi', 0) or 0
+            sisa = jumlah - realisasi
+            persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
+
+            cursor.execute("""
+                INSERT INTO pagu_anggaran (
+                    tahun_anggaran, kode_program, kode_kegiatan, kode_kro, kode_ro,
+                    kode_komponen, kode_sub_komponen, kode_akun, kode_detail, kode_full,
+                    level_kode, parent_id, uraian, volume, satuan,
+                    harga_satuan, jumlah, realisasi, sisa, persen_realisasi,
+                    sumber_dana, is_locked, is_blokir, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun_anggaran'),
+                data.get('kode_program'),
+                data.get('kode_kegiatan'),
+                data.get('kode_kro'),
+                data.get('kode_ro'),
+                data.get('kode_komponen'),
+                data.get('kode_sub_komponen'),
+                data.get('kode_akun'),
+                data.get('kode_detail'),
+                data.get('kode_full'),
+                data.get('level_kode', 8),
+                data.get('parent_id'),
+                data.get('uraian'),
+                data.get('volume', 0),
+                data.get('satuan'),
+                data.get('harga_satuan', 0),
+                jumlah,
+                realisasi,
+                sisa,
+                persen,
+                data.get('sumber_dana', 'RM'),
+                data.get('is_locked', 0),
+                data.get('is_blokir', 0),
+                data.get('keterangan')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_pagu_anggaran(self, pagu_id: int) -> Optional[Dict]:
+        """Get pagu anggaran by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM pagu_anggaran WHERE id = ?", (pagu_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_pagu_anggaran(self, tahun: int = None, kode_akun: str = None,
+                              level: int = None, parent_id: int = None) -> List[Dict]:
+        """Get all pagu anggaran with filters"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM pagu_anggaran WHERE 1=1"
+            params = []
+
+            if tahun:
+                query += " AND tahun_anggaran = ?"
+                params.append(tahun)
+            if kode_akun:
+                query += " AND kode_akun LIKE ?"
+                params.append(f"{kode_akun}%")
+            if level:
+                query += " AND level_kode = ?"
+                params.append(level)
+            if parent_id is not None:
+                query += " AND parent_id = ?"
+                params.append(parent_id)
+
+            query += " ORDER BY kode_full, id"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_pagu_by_kode(self, tahun: int, kode_full: str) -> Optional[Dict]:
+        """Get pagu by full code"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM pagu_anggaran
+                WHERE tahun_anggaran = ? AND kode_full = ?
+            """, (tahun, kode_full))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_pagu_summary(self, tahun: int) -> Dict:
+        """Get summary of pagu anggaran"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_item,
+                    SUM(jumlah) as total_pagu,
+                    SUM(realisasi) as total_realisasi,
+                    SUM(sisa) as total_sisa
+                FROM pagu_anggaran
+                WHERE tahun_anggaran = ? AND level_kode = 8
+            """, (tahun,))
+            row = cursor.fetchone()
+            if row:
+                result = dict(row)
+                total_pagu = result.get('total_pagu', 0) or 0
+                total_real = result.get('total_realisasi', 0) or 0
+                result['persen_realisasi'] = (total_real / total_pagu * 100) if total_pagu > 0 else 0
+                return result
+            return {
+                'total_item': 0,
+                'total_pagu': 0,
+                'total_realisasi': 0,
+                'total_sisa': 0,
+                'persen_realisasi': 0
+            }
+
+    def get_pagu_by_akun_group(self, tahun: int) -> List[Dict]:
+        """Get pagu grouped by kode akun"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    SUBSTR(kode_akun, 1, 2) as grup_akun,
+                    SUM(jumlah) as total_pagu,
+                    SUM(realisasi) as total_realisasi,
+                    SUM(sisa) as total_sisa,
+                    COUNT(*) as jumlah_item
+                FROM pagu_anggaran
+                WHERE tahun_anggaran = ? AND level_kode = 8
+                GROUP BY SUBSTR(kode_akun, 1, 2)
+                ORDER BY grup_akun
+            """, (tahun,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_pagu_anggaran(self, pagu_id: int, data: Dict) -> bool:
+        """Update pagu anggaran"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            jumlah = data.get('jumlah', 0) or 0
+            realisasi = data.get('realisasi', 0) or 0
+            sisa = jumlah - realisasi
+            persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
+
+            cursor.execute("""
+                UPDATE pagu_anggaran SET
+                    kode_program = ?, kode_kegiatan = ?, kode_kro = ?, kode_ro = ?,
+                    kode_komponen = ?, kode_sub_komponen = ?, kode_akun = ?,
+                    kode_detail = ?, kode_full = ?, level_kode = ?, parent_id = ?,
+                    uraian = ?, volume = ?, satuan = ?, harga_satuan = ?,
+                    jumlah = ?, realisasi = ?, sisa = ?, persen_realisasi = ?,
+                    sumber_dana = ?, is_locked = ?, is_blokir = ?, keterangan = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('kode_program'),
+                data.get('kode_kegiatan'),
+                data.get('kode_kro'),
+                data.get('kode_ro'),
+                data.get('kode_komponen'),
+                data.get('kode_sub_komponen'),
+                data.get('kode_akun'),
+                data.get('kode_detail'),
+                data.get('kode_full'),
+                data.get('level_kode', 8),
+                data.get('parent_id'),
+                data.get('uraian'),
+                data.get('volume', 0),
+                data.get('satuan'),
+                data.get('harga_satuan', 0),
+                jumlah,
+                realisasi,
+                sisa,
+                persen,
+                data.get('sumber_dana', 'RM'),
+                data.get('is_locked', 0),
+                data.get('is_blokir', 0),
+                data.get('keterangan'),
+                pagu_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def update_pagu_realisasi(self, pagu_id: int, realisasi: float) -> bool:
+        """Update realisasi pagu"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE pagu_anggaran SET
+                    realisasi = ?,
+                    sisa = jumlah - ?,
+                    persen_realisasi = CASE WHEN jumlah > 0 THEN (? / jumlah * 100) ELSE 0 END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (realisasi, realisasi, realisasi, pagu_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_pagu_anggaran(self, pagu_id: int) -> bool:
+        """Delete pagu anggaran"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM pagu_anggaran WHERE id = ?", (pagu_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_all_pagu_tahun(self, tahun: int) -> int:
+        """Delete all pagu for a year (for reimport)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM pagu_anggaran WHERE tahun_anggaran = ?", (tahun,))
+            conn.commit()
+            return cursor.rowcount
+
+    def bulk_insert_pagu(self, data_list: List[Dict]) -> int:
+        """Bulk insert pagu anggaran"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            count = 0
+            for data in data_list:
+                jumlah = data.get('jumlah', 0) or 0
+                realisasi = data.get('realisasi', 0) or 0
+                sisa = jumlah - realisasi
+                persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
+
+                cursor.execute("""
+                    INSERT INTO pagu_anggaran (
+                        tahun_anggaran, kode_program, kode_kegiatan, kode_kro, kode_ro,
+                        kode_komponen, kode_sub_komponen, kode_akun, kode_detail, kode_full,
+                        level_kode, parent_id, uraian, volume, satuan,
+                        harga_satuan, jumlah, realisasi, sisa, persen_realisasi,
+                        sumber_dana, is_locked, is_blokir, keterangan
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    data.get('tahun_anggaran'),
+                    data.get('kode_program'),
+                    data.get('kode_kegiatan'),
+                    data.get('kode_kro'),
+                    data.get('kode_ro'),
+                    data.get('kode_komponen'),
+                    data.get('kode_sub_komponen'),
+                    data.get('kode_akun'),
+                    data.get('kode_detail'),
+                    data.get('kode_full'),
+                    data.get('level_kode', 8),
+                    data.get('parent_id'),
+                    data.get('uraian'),
+                    data.get('volume', 0),
+                    data.get('satuan'),
+                    data.get('harga_satuan', 0),
+                    jumlah,
+                    realisasi,
+                    sisa,
+                    persen,
+                    data.get('sumber_dana', 'RM'),
+                    data.get('is_locked', 0),
+                    data.get('is_blokir', 0),
+                    data.get('keterangan')
+                ))
+                count += 1
+            conn.commit()
+            return count
+
+    # Realisasi tracking
+    def add_realisasi(self, data: Dict) -> int:
+        """Add realisasi record"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO realisasi_anggaran (
+                    pagu_id, bulan, tahun, nilai_realisasi,
+                    nomor_sp2d, tanggal_sp2d, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('pagu_id'),
+                data.get('bulan'),
+                data.get('tahun'),
+                data.get('nilai_realisasi', 0),
+                data.get('nomor_sp2d'),
+                data.get('tanggal_sp2d'),
+                data.get('keterangan')
+            ))
+            conn.commit()
+
+            # Update total realisasi di pagu
+            self._update_total_realisasi(data.get('pagu_id'))
+            return cursor.lastrowid
+
+    def _update_total_realisasi(self, pagu_id: int):
+        """Update total realisasi dari semua bulan"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT SUM(nilai_realisasi) as total
+                FROM realisasi_anggaran WHERE pagu_id = ?
+            """, (pagu_id,))
+            row = cursor.fetchone()
+            total = row['total'] if row and row['total'] else 0
+            self.update_pagu_realisasi(pagu_id, total)
+
+    def get_realisasi_by_pagu(self, pagu_id: int) -> List[Dict]:
+        """Get all realisasi for a pagu"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM realisasi_anggaran
+                WHERE pagu_id = ?
+                ORDER BY tahun, bulan
+            """, (pagu_id,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    # =========================================================================
+    # HONORARIUM PENGELOLA KEUANGAN
+    # =========================================================================
+
+    def create_honorarium_pengelola(self, data: Dict) -> int:
+        """Create honorarium pengelola keuangan"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO honorarium_pengelola (
+                    tahun, bulan, jabatan, pegawai_id,
+                    jumlah, pajak, netto, pagu_id, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('tahun'),
+                data.get('bulan'),
+                data.get('jabatan'),
+                data.get('pegawai_id'),
+                data.get('jumlah', 0),
+                data.get('pajak', 0),
+                data.get('netto', 0),
+                data.get('pagu_id'),
+                data.get('keterangan')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_honorarium_pengelola(self, hp_id: int, data: Dict) -> bool:
+        """Update honorarium pengelola keuangan"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE honorarium_pengelola SET
+                    tahun = ?, bulan = ?, jabatan = ?, pegawai_id = ?,
+                    jumlah = ?, pajak = ?, netto = ?, pagu_id = ?, keterangan = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                data.get('tahun'),
+                data.get('bulan'),
+                data.get('jabatan'),
+                data.get('pegawai_id'),
+                data.get('jumlah', 0),
+                data.get('pajak', 0),
+                data.get('netto', 0),
+                data.get('pagu_id'),
+                data.get('keterangan'),
+                hp_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_honorarium_pengelola(self, hp_id: int) -> bool:
+        """Delete honorarium pengelola keuangan"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM honorarium_pengelola WHERE id = ?", (hp_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_honorarium_pengelola(self, hp_id: int) -> Optional[Dict]:
+        """Get single honorarium pengelola by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT hp.*, p.nama as pegawai_nama, p.nip as pegawai_nip
+                FROM honorarium_pengelola hp
+                LEFT JOIN pegawai p ON hp.pegawai_id = p.id
+                WHERE hp.id = ?
+            """, (hp_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_honorarium_pengelola(self, tahun: int = None, bulan: int = None) -> List[Dict]:
+        """Get all honorarium pengelola with filters"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            sql = """
+                SELECT hp.*, p.nama as pegawai_nama, p.nip as pegawai_nip
+                FROM honorarium_pengelola hp
+                LEFT JOIN pegawai p ON hp.pegawai_id = p.id
+            """
+            conditions = []
+            params = []
+            if tahun:
+                conditions.append("hp.tahun = ?")
+                params.append(tahun)
+            if bulan:
+                conditions.append("hp.bulan = ?")
+                params.append(bulan)
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+            sql += " ORDER BY hp.tahun DESC, hp.bulan DESC, hp.jabatan"
+            cursor.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_pagu_for_honorarium_pengelola(self, tahun: int) -> List[Dict]:
+        """Get pagu anggaran items for honorarium pengelola keuangan"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # Akun 511xxx adalah Belanja Pegawai
+            cursor.execute("""
+                SELECT id, kode_akun, uraian, jumlah, realisasi, sisa
+                FROM pagu_anggaran
+                WHERE tahun_anggaran = ?
+                    AND kode_akun LIKE '511%'
+                    AND (uraian LIKE '%honor%' OR uraian LIKE '%pengelola%'
+                         OR uraian LIKE '%keuangan%' OR uraian LIKE '%bendahara%'
+                         OR uraian LIKE '%ppk%' OR uraian LIKE '%ppspm%'
+                         OR uraian LIKE '%operator%')
+                ORDER BY kode_akun
+            """, (tahun,))
+            return [dict(row) for row in cursor.fetchall()]
 
 
 # ============================================================================

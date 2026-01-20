@@ -1698,6 +1698,27 @@ class DashboardWindow(QMainWindow):
         action_pembayaran_all.triggered.connect(self.manage_pembayaran_lainnya)
         pembayaran_menu.addAction(action_pembayaran_all)
 
+        # FA Detail / Pagu Anggaran menu
+        fa_menu = menubar.addMenu("&FA Detail")
+
+        action_fa_pagu = QAction("📋 Pagu Anggaran (POK)", self)
+        action_fa_pagu.triggered.connect(self.manage_fa_detail)
+        fa_menu.addAction(action_fa_pagu)
+
+        action_fa_import = QAction("📥 Import Pagu dari Excel", self)
+        action_fa_import.triggered.connect(self.import_fa_excel)
+        fa_menu.addAction(action_fa_import)
+
+        fa_menu.addSeparator()
+
+        action_fa_rekap = QAction("📊 Rekap per Akun", self)
+        action_fa_rekap.triggered.connect(self.rekap_fa_akun)
+        fa_menu.addAction(action_fa_rekap)
+
+        action_fa_realisasi = QAction("💰 Monitoring Realisasi", self)
+        action_fa_realisasi.triggered.connect(self.monitoring_realisasi)
+        fa_menu.addAction(action_fa_realisasi)
+
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
         
@@ -2248,6 +2269,68 @@ class DashboardWindow(QMainWindow):
             dialog.setMinimumSize(1200, 700)
             layout = QVBoxLayout(dialog)
             manager = PembayaranLainnyaManager(dialog)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_fa_detail(self):
+        """Manage FA Detail / Pagu Anggaran"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Pagu Anggaran (POK)")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def import_fa_excel(self):
+        """Import pagu anggaran from Excel file"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Pagu Anggaran (POK)")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            layout.addWidget(manager)
+            # Trigger import after dialog opens
+            QTimer.singleShot(100, manager.import_excel)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def rekap_fa_akun(self):
+        """Show FA Detail rekap per akun"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Rekap per Akun")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            # Switch to rekap tab
+            manager.tab_widget.setCurrentIndex(1)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def monitoring_realisasi(self):
+        """Show FA Detail monitoring realisasi"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Monitoring Realisasi")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            # Switch to monitoring tab
+            manager.tab_widget.setCurrentIndex(2)
             layout.addWidget(manager)
             dialog.exec()
         except ImportError as e:

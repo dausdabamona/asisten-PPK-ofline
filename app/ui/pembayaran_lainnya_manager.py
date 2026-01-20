@@ -915,6 +915,292 @@ class JamuanTamuDialog(QDialog):
 
 
 # ============================================================================
+# HONORARIUM PENGELOLA KEUANGAN DIALOG
+# ============================================================================
+
+class HonorariumPengelolaDialog(QDialog):
+    """Dialog for Honorarium Pengelola Keuangan"""
+
+    JABATAN_PENGELOLA = [
+        ('KPA', 'Kuasa Pengguna Anggaran'),
+        ('PPK', 'Pejabat Pembuat Komitmen'),
+        ('PPSPM', 'Pejabat Penandatangan SPM'),
+        ('Bendahara', 'Bendahara Pengeluaran'),
+        ('Operator', 'Operator Keuangan'),
+        ('Staf', 'Staf Pengelola Keuangan')
+    ]
+
+    BULAN_NAMES = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ]
+
+    def __init__(self, hpk_data: dict = None, parent=None):
+        super().__init__(parent)
+        self.hpk_data = hpk_data
+        self.db = get_db_manager_v4()
+
+        self.setWindowTitle("Tambah Honor Pengelola Keuangan" if not hpk_data else "Edit Honor Pengelola Keuangan")
+        self.setMinimumWidth(600)
+        self.setup_ui()
+        self.load_pegawai()
+
+        if hpk_data:
+            self.load_data()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        form = QFormLayout()
+
+        # Tahun & Bulan
+        periode_layout = QHBoxLayout()
+        self.spn_tahun = QSpinBox()
+        self.spn_tahun.setRange(2020, 2050)
+        self.spn_tahun.setValue(TAHUN_ANGGARAN)
+        periode_layout.addWidget(self.spn_tahun)
+        periode_layout.addWidget(QLabel("Bulan:"))
+        self.cmb_bulan = QComboBox()
+        for i, b in enumerate(self.BULAN_NAMES):
+            self.cmb_bulan.addItem(b, i + 1)
+        self.cmb_bulan.setCurrentIndex(datetime.now().month - 1)
+        periode_layout.addWidget(self.cmb_bulan)
+        form.addRow("Tahun:", periode_layout)
+
+        # Jabatan
+        self.cmb_jabatan = QComboBox()
+        for code, name in self.JABATAN_PENGELOLA:
+            self.cmb_jabatan.addItem(f"{code} - {name}", code)
+        self.cmb_jabatan.currentIndexChanged.connect(self.on_jabatan_changed)
+        form.addRow("Jabatan:", self.cmb_jabatan)
+
+        # Pegawai
+        self.cmb_pegawai = QComboBox()
+        self.cmb_pegawai.addItem("-- Pilih Pegawai --", None)
+        form.addRow("Pegawai:", self.cmb_pegawai)
+
+        # Jumlah
+        self.spn_jumlah = CurrencySpinBox()
+        form.addRow("Jumlah Bruto:", self.spn_jumlah)
+
+        # Pajak
+        self.spn_pajak = CurrencySpinBox()
+        self.spn_pajak.valueChanged.connect(self.calc_netto)
+        form.addRow("Pajak (PPh 21):", self.spn_pajak)
+
+        # Netto
+        self.lbl_netto = QLabel("Rp 0")
+        self.lbl_netto.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+        form.addRow("Jumlah Netto:", self.lbl_netto)
+
+        # Keterangan
+        self.txt_keterangan = QLineEdit()
+        self.txt_keterangan.setPlaceholderText("Keterangan tambahan...")
+        form.addRow("Keterangan:", self.txt_keterangan)
+
+        layout.addLayout(form)
+
+        # Auto-fill from satker pejabat
+        info = QLabel("Tip: Pilihan pegawai akan otomatis mengisi dari Data Satker jika sudah diatur.")
+        info.setStyleSheet("color: #7f8c8d; font-style: italic; padding: 5px;")
+        layout.addWidget(info)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_save = QPushButton("Simpan")
+        btn_save.setStyleSheet("background: #27ae60; color: white; padding: 10px 30px;")
+        btn_save.clicked.connect(self.save_data)
+        btn_layout.addWidget(btn_save)
+        btn_cancel = QPushButton("Batal")
+        btn_cancel.setStyleSheet("background: #95a5a6; color: white; padding: 10px 30px;")
+        btn_cancel.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancel)
+        layout.addLayout(btn_layout)
+
+        # Calculate netto on jumlah change
+        self.spn_jumlah.valueChanged.connect(self.calc_netto)
+
+    def load_pegawai(self):
+        """Load pegawai list"""
+        pegawai = self.db.get_all_pegawai(active_only=True)
+        for p in pegawai:
+            display = f"{p['nama']} - {p.get('nip', 'N/A')}"
+            self.cmb_pegawai.addItem(display, p['id'])
+
+    def on_jabatan_changed(self):
+        """Auto-fill pegawai from satker settings"""
+        jabatan = self.cmb_jabatan.currentData()
+        satker = self.db.get_satker_pejabat()
+
+        pegawai_id = None
+        if jabatan == 'KPA':
+            pegawai_id = satker.get('kpa_id')
+        elif jabatan == 'PPK':
+            pegawai_id = satker.get('ppk_id')
+        elif jabatan == 'PPSPM':
+            pegawai_id = satker.get('ppspm_id')
+        elif jabatan == 'Bendahara':
+            pegawai_id = satker.get('bendahara_id')
+
+        if pegawai_id:
+            for i in range(self.cmb_pegawai.count()):
+                if self.cmb_pegawai.itemData(i) == pegawai_id:
+                    self.cmb_pegawai.setCurrentIndex(i)
+                    break
+
+    def calc_netto(self):
+        """Calculate netto amount"""
+        bruto = self.spn_jumlah.value()
+        pajak = self.spn_pajak.value()
+        netto = bruto - pajak
+        self.lbl_netto.setText(f"Rp {netto:,.0f}".replace(",", "."))
+
+    def load_data(self):
+        """Load existing data"""
+        if not self.hpk_data:
+            return
+        self.spn_tahun.setValue(self.hpk_data.get('tahun', TAHUN_ANGGARAN))
+        bulan = self.hpk_data.get('bulan', 1)
+        self.cmb_bulan.setCurrentIndex(bulan - 1)
+
+        jabatan = self.hpk_data.get('jabatan', '')
+        for i in range(self.cmb_jabatan.count()):
+            if self.cmb_jabatan.itemData(i) == jabatan:
+                self.cmb_jabatan.setCurrentIndex(i)
+                break
+
+        pegawai_id = self.hpk_data.get('pegawai_id')
+        if pegawai_id:
+            for i in range(self.cmb_pegawai.count()):
+                if self.cmb_pegawai.itemData(i) == pegawai_id:
+                    self.cmb_pegawai.setCurrentIndex(i)
+                    break
+
+        self.spn_jumlah.setValue(self.hpk_data.get('jumlah', 0))
+        self.spn_pajak.setValue(self.hpk_data.get('pajak', 0))
+        self.txt_keterangan.setText(self.hpk_data.get('keterangan', '') or '')
+        self.calc_netto()
+
+    def save_data(self):
+        """Validate and save data"""
+        pegawai_id = self.cmb_pegawai.currentData()
+        if not pegawai_id:
+            QMessageBox.warning(self, "Validasi", "Pilih pegawai terlebih dahulu!")
+            return
+
+        jumlah = self.spn_jumlah.value()
+        if jumlah <= 0:
+            QMessageBox.warning(self, "Validasi", "Jumlah harus lebih dari 0!")
+            return
+
+        data = {
+            'tahun': self.spn_tahun.value(),
+            'bulan': self.cmb_bulan.currentData(),
+            'jabatan': self.cmb_jabatan.currentData(),
+            'pegawai_id': pegawai_id,
+            'jumlah': jumlah,
+            'pajak': self.spn_pajak.value(),
+            'netto': jumlah - self.spn_pajak.value(),
+            'keterangan': self.txt_keterangan.text().strip() or None
+        }
+
+        try:
+            if self.hpk_data:
+                self.db.update_honorarium_pengelola(self.hpk_data['id'], data)
+            else:
+                self.db.create_honorarium_pengelola(data)
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal menyimpan data:\n{str(e)}")
+
+
+# ============================================================================
+# IMPORT FA DIALOG
+# ============================================================================
+
+class ImportFADialog(QDialog):
+    """Dialog to select pagu from FA Detail for import"""
+
+    def __init__(self, pagu_list: List[Dict], parent=None):
+        super().__init__(parent)
+        self.pagu_list = pagu_list
+        self.db = get_db_manager_v4()
+
+        self.setWindowTitle("Import dari FA Detail")
+        self.setMinimumWidth(700)
+        self.setMinimumHeight(400)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        header = QLabel("Pilih item pagu anggaran untuk honorarium pengelola keuangan:")
+        header.setStyleSheet("font-size: 14px; font-weight: bold;")
+        layout.addWidget(header)
+
+        # Table
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels([
+            "Pilih", "Kode Akun", "Uraian", "Pagu", "Sisa"
+        ])
+        self.table.setRowCount(len(self.pagu_list))
+        self.table.horizontalHeader().setStretchLastSection(True)
+
+        self.checkboxes = []
+        for row, pagu in enumerate(self.pagu_list):
+            # Checkbox
+            chk = QCheckBox()
+            self.checkboxes.append(chk)
+            chk_widget = QWidget()
+            chk_layout = QHBoxLayout(chk_widget)
+            chk_layout.addWidget(chk)
+            chk_layout.setAlignment(Qt.AlignCenter)
+            chk_layout.setContentsMargins(0, 0, 0, 0)
+            self.table.setCellWidget(row, 0, chk_widget)
+
+            self.table.setItem(row, 1, QTableWidgetItem(pagu.get('kode_akun', '')))
+            self.table.setItem(row, 2, QTableWidgetItem(pagu.get('uraian', '')))
+            self.table.setItem(row, 3, QTableWidgetItem(f"Rp {pagu.get('jumlah', 0):,.0f}".replace(",", ".")))
+            self.table.setItem(row, 4, QTableWidgetItem(f"Rp {pagu.get('sisa', 0):,.0f}".replace(",", ".")))
+
+        self.table.setColumnWidth(0, 50)
+        self.table.setColumnWidth(1, 100)
+        self.table.setColumnWidth(3, 150)
+        self.table.setColumnWidth(4, 150)
+        layout.addWidget(self.table)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_import = QPushButton("Import Terpilih")
+        btn_import.setStyleSheet("background: #27ae60; color: white; padding: 10px 30px;")
+        btn_import.clicked.connect(self.do_import)
+        btn_layout.addWidget(btn_import)
+        btn_cancel = QPushButton("Batal")
+        btn_cancel.setStyleSheet("background: #95a5a6; color: white; padding: 10px 30px;")
+        btn_cancel.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancel)
+        layout.addLayout(btn_layout)
+
+    def do_import(self):
+        """Import selected pagu items"""
+        selected = []
+        for i, chk in enumerate(self.checkboxes):
+            if chk.isChecked():
+                selected.append(self.pagu_list[i])
+
+        if not selected:
+            QMessageBox.warning(self, "Info", "Pilih minimal satu item untuk diimpor!")
+            return
+
+        QMessageBox.information(self, "Info", f"{len(selected)} item telah ditandai.\n"
+                                               "Silakan buat honorarium dengan jumlah sesuai pagu yang dipilih.")
+        self.accept()
+
+
+# ============================================================================
 # PEMBAYARAN LAINNYA MANAGER (Main Widget)
 # ============================================================================
 
@@ -1060,6 +1346,73 @@ class PembayaranLainnyaManager(QWidget):
 
         self.tabs.addTab(tab_jt, "Jamuan Tamu")
 
+        # ========== TAB 4: HONORARIUM PENGELOLA KEUANGAN ==========
+        tab_hpk = QWidget()
+        hpk_layout = QVBoxLayout(tab_hpk)
+
+        # Info
+        info_label = QLabel("Honorarium Pengelola Keuangan diambil dari FA Detail (Pagu Anggaran)")
+        info_label.setStyleSheet("color: #7f8c8d; font-style: italic; padding: 5px;")
+        hpk_layout.addWidget(info_label)
+
+        # Toolbar
+        hpk_toolbar = QHBoxLayout()
+        btn_add_hpk = QPushButton("+ Tambah Pembayaran")
+        btn_add_hpk.setStyleSheet("background-color: #9b59b6; color: white; padding: 8px 16px;")
+        btn_add_hpk.clicked.connect(self.add_honorarium_pengelola)
+        hpk_toolbar.addWidget(btn_add_hpk)
+
+        btn_from_fa = QPushButton("Import dari FA Detail")
+        btn_from_fa.setStyleSheet("background-color: #1abc9c; color: white; padding: 8px 16px;")
+        btn_from_fa.clicked.connect(self.import_from_fa_detail)
+        hpk_toolbar.addWidget(btn_from_fa)
+        hpk_toolbar.addStretch()
+
+        hpk_toolbar.addWidget(QLabel("Tahun:"))
+        self.cmb_hpk_tahun = QComboBox()
+        for y in range(TAHUN_ANGGARAN - 2, TAHUN_ANGGARAN + 3):
+            self.cmb_hpk_tahun.addItem(str(y), y)
+        self.cmb_hpk_tahun.setCurrentText(str(TAHUN_ANGGARAN))
+        self.cmb_hpk_tahun.currentIndexChanged.connect(self.refresh_honorarium_pengelola)
+        hpk_toolbar.addWidget(self.cmb_hpk_tahun)
+
+        hpk_layout.addLayout(hpk_toolbar)
+
+        # Table
+        self.tbl_hpk = QTableWidget()
+        self.tbl_hpk.setColumnCount(9)
+        self.tbl_hpk.setHorizontalHeaderLabels([
+            "ID", "Bulan", "Jabatan", "Pegawai", "NIP", "Jumlah", "Pajak", "Netto", "Aksi"
+        ])
+        self.tbl_hpk.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tbl_hpk.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tbl_hpk.horizontalHeader().setStretchLastSection(True)
+        self.tbl_hpk.setColumnWidth(0, 50)
+        self.tbl_hpk.setColumnWidth(1, 100)
+        self.tbl_hpk.setColumnWidth(2, 120)
+        self.tbl_hpk.setColumnWidth(3, 200)
+        self.tbl_hpk.setColumnWidth(4, 150)
+        self.tbl_hpk.setColumnWidth(5, 120)
+        self.tbl_hpk.setColumnWidth(6, 100)
+        self.tbl_hpk.setColumnWidth(7, 120)
+        hpk_layout.addWidget(self.tbl_hpk)
+
+        # FA Detail reference
+        fa_group = QGroupBox("Referensi Pagu Anggaran (FA Detail)")
+        fa_layout = QVBoxLayout()
+        self.tbl_fa_ref = QTableWidget()
+        self.tbl_fa_ref.setColumnCount(5)
+        self.tbl_fa_ref.setHorizontalHeaderLabels([
+            "Kode Akun", "Uraian", "Pagu", "Realisasi", "Sisa"
+        ])
+        self.tbl_fa_ref.setMaximumHeight(150)
+        self.tbl_fa_ref.horizontalHeader().setStretchLastSection(True)
+        fa_layout.addWidget(self.tbl_fa_ref)
+        fa_group.setLayout(fa_layout)
+        hpk_layout.addWidget(fa_group)
+
+        self.tabs.addTab(tab_hpk, "Honor Pengelola Keuangan")
+
         layout.addWidget(self.tabs)
 
     def format_currency(self, value):
@@ -1069,6 +1422,8 @@ class PembayaranLainnyaManager(QWidget):
         self.refresh_sk_kpa()
         self.refresh_honorarium()
         self.refresh_jamuan_tamu()
+        self.refresh_honorarium_pengelola()
+        self.refresh_fa_reference()
 
     def refresh_sk_kpa(self):
         tahun = self.cmb_sk_tahun.currentData()
@@ -1244,3 +1599,120 @@ class PembayaranLainnyaManager(QWidget):
         if reply == QMessageBox.Yes:
             if self.db.delete_jamuan_tamu(jt_id):
                 self.refresh_jamuan_tamu()
+
+    # =========================================================================
+    # HONORARIUM PENGELOLA KEUANGAN
+    # =========================================================================
+
+    JABATAN_PENGELOLA = [
+        ('KPA', 'Kuasa Pengguna Anggaran'),
+        ('PPK', 'Pejabat Pembuat Komitmen'),
+        ('PPSPM', 'Pejabat Penandatangan SPM'),
+        ('Bendahara', 'Bendahara Pengeluaran'),
+        ('Operator', 'Operator Keuangan'),
+        ('Staf', 'Staf Pengelola Keuangan')
+    ]
+
+    BULAN_NAMES = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ]
+
+    def refresh_honorarium_pengelola(self):
+        """Refresh honorarium pengelola keuangan table"""
+        tahun = self.cmb_hpk_tahun.currentData()
+        if not tahun:
+            tahun = TAHUN_ANGGARAN
+        data = self.db.get_all_honorarium_pengelola(tahun=tahun)
+        self.tbl_hpk.setRowCount(len(data))
+
+        for row, d in enumerate(data):
+            self.tbl_hpk.setItem(row, 0, QTableWidgetItem(str(d['id'])))
+            # Get bulan name
+            bulan_idx = d.get('bulan', 1) - 1
+            bulan_name = self.BULAN_NAMES[bulan_idx] if 0 <= bulan_idx < 12 else str(d.get('bulan'))
+            self.tbl_hpk.setItem(row, 1, QTableWidgetItem(bulan_name))
+            self.tbl_hpk.setItem(row, 2, QTableWidgetItem(d.get('jabatan', '')))
+            self.tbl_hpk.setItem(row, 3, QTableWidgetItem(d.get('pegawai_nama', '')))
+            self.tbl_hpk.setItem(row, 4, QTableWidgetItem(d.get('pegawai_nip', '')))
+            self.tbl_hpk.setItem(row, 5, QTableWidgetItem(self.format_currency(d.get('jumlah', 0))))
+            self.tbl_hpk.setItem(row, 6, QTableWidgetItem(self.format_currency(d.get('pajak', 0))))
+            self.tbl_hpk.setItem(row, 7, QTableWidgetItem(self.format_currency(d.get('netto', 0))))
+
+            btn_widget = QWidget()
+            btn_layout = QHBoxLayout(btn_widget)
+            btn_layout.setContentsMargins(2, 2, 2, 2)
+
+            btn_edit = QPushButton("Edit")
+            btn_edit.setStyleSheet("background: #3498db; color: white; padding: 2px 8px;")
+            btn_edit.clicked.connect(lambda checked, r=row: self.edit_honorarium_pengelola(r))
+            btn_layout.addWidget(btn_edit)
+
+            btn_del = QPushButton("Hapus")
+            btn_del.setStyleSheet("background: #e74c3c; color: white; padding: 2px 8px;")
+            btn_del.clicked.connect(lambda checked, r=row: self.delete_honorarium_pengelola(r))
+            btn_layout.addWidget(btn_del)
+
+            self.tbl_hpk.setCellWidget(row, 8, btn_widget)
+
+    def refresh_fa_reference(self):
+        """Refresh FA Detail reference table for pengelola keuangan"""
+        tahun = self.cmb_hpk_tahun.currentData()
+        if not tahun:
+            tahun = TAHUN_ANGGARAN
+        # Get pagu with akun 511xxx (Belanja Pegawai - Honorarium)
+        data = self.db.get_pagu_for_honorarium_pengelola(tahun=tahun)
+        self.tbl_fa_ref.setRowCount(len(data))
+
+        for row, d in enumerate(data):
+            self.tbl_fa_ref.setItem(row, 0, QTableWidgetItem(d.get('kode_akun', '')))
+            self.tbl_fa_ref.setItem(row, 1, QTableWidgetItem(d.get('uraian', '')))
+            self.tbl_fa_ref.setItem(row, 2, QTableWidgetItem(self.format_currency(d.get('jumlah', 0))))
+            self.tbl_fa_ref.setItem(row, 3, QTableWidgetItem(self.format_currency(d.get('realisasi', 0))))
+            self.tbl_fa_ref.setItem(row, 4, QTableWidgetItem(self.format_currency(d.get('sisa', 0))))
+
+    def add_honorarium_pengelola(self):
+        """Add honorarium pengelola keuangan"""
+        dialog = HonorariumPengelolaDialog(parent=self)
+        if dialog.exec() == QDialog.Accepted:
+            self.refresh_honorarium_pengelola()
+            self.refresh_fa_reference()
+            QMessageBox.information(self, "Sukses", "Honorarium berhasil ditambahkan!")
+
+    def edit_honorarium_pengelola(self, row):
+        hpk_id = int(self.tbl_hpk.item(row, 0).text())
+        hpk_data = self.db.get_honorarium_pengelola(hpk_id)
+        if hpk_data:
+            dialog = HonorariumPengelolaDialog(hpk_data, parent=self)
+            if dialog.exec() == QDialog.Accepted:
+                self.refresh_honorarium_pengelola()
+                self.refresh_fa_reference()
+
+    def delete_honorarium_pengelola(self, row):
+        hpk_id = int(self.tbl_hpk.item(row, 0).text())
+        reply = QMessageBox.question(self, "Konfirmasi", "Yakin ingin menghapus Honorarium ini?",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            if self.db.delete_honorarium_pengelola(hpk_id):
+                self.refresh_honorarium_pengelola()
+                self.refresh_fa_reference()
+
+    def import_from_fa_detail(self):
+        """Import honorarium amounts from FA Detail"""
+        tahun = self.cmb_hpk_tahun.currentData()
+        if not tahun:
+            tahun = TAHUN_ANGGARAN
+
+        # Get pagu for honorarium pengelola
+        pagu_list = self.db.get_pagu_for_honorarium_pengelola(tahun=tahun)
+
+        if not pagu_list:
+            QMessageBox.warning(self, "Info", "Tidak ada data pagu untuk honorarium pengelola keuangan.\n"
+                                               "Pastikan sudah mengisi FA Detail dengan akun 511xxx.")
+            return
+
+        # Show dialog to select which pagu to use
+        dialog = ImportFADialog(pagu_list, parent=self)
+        if dialog.exec() == QDialog.Accepted:
+            self.refresh_fa_reference()
+            QMessageBox.information(self, "Sukses", "Data berhasil diimpor dari FA Detail!")

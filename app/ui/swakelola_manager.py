@@ -143,6 +143,29 @@ class SwakelolaDialog(QDialog):
         nomor_group.setLayout(nomor_form)
         form1.addWidget(nomor_group)
 
+        # SK KPA Group
+        sk_kpa_group = QGroupBox("SK KPA (Surat Keputusan Kuasa Pengguna Anggaran)")
+        sk_kpa_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #e74c3c; }")
+        sk_kpa_form = QFormLayout()
+
+        sk_nomor_layout = QHBoxLayout()
+        self.txt_nomor_sk_kpa = QLineEdit()
+        self.txt_nomor_sk_kpa.setPlaceholderText("SK-KPA/001/2024")
+        sk_nomor_layout.addWidget(self.txt_nomor_sk_kpa)
+        sk_nomor_layout.addWidget(QLabel("Tanggal:"))
+        self.date_sk_kpa = QDateEdit()
+        self.date_sk_kpa.setCalendarPopup(True)
+        self.date_sk_kpa.setDate(QDate.currentDate())
+        sk_nomor_layout.addWidget(self.date_sk_kpa)
+        sk_kpa_form.addRow("No. SK KPA:", sk_nomor_layout)
+
+        self.txt_perihal_sk_kpa = QLineEdit()
+        self.txt_perihal_sk_kpa.setPlaceholderText("Pembayaran Kegiatan Swakelola...")
+        sk_kpa_form.addRow("Perihal:", self.txt_perihal_sk_kpa)
+
+        sk_kpa_group.setLayout(sk_kpa_form)
+        form1.addWidget(sk_kpa_group)
+
         # Waktu
         waktu_group = QGroupBox("Waktu Pelaksanaan")
         waktu_form = QFormLayout()
@@ -514,6 +537,12 @@ class SwakelolaDialog(QDialog):
         self.txt_nomor_kak.setText(d.get('nomor_kak', '') or '')
         self.txt_nomor_sk_tim.setText(d.get('nomor_sk_tim', '') or '')
 
+        # SK KPA
+        self.txt_nomor_sk_kpa.setText(d.get('nomor_sk_kpa', '') or '')
+        self.txt_perihal_sk_kpa.setText(d.get('perihal_sk_kpa', '') or '')
+        if d.get('tanggal_sk_kpa'):
+            self.date_sk_kpa.setDate(QDate.fromString(str(d['tanggal_sk_kpa']), 'yyyy-MM-dd'))
+
         if d.get('tanggal_sk_tim'):
             self.date_sk_tim.setDate(QDate.fromString(str(d['tanggal_sk_tim']), 'yyyy-MM-dd'))
         if d.get('tanggal_mulai'):
@@ -566,6 +595,11 @@ class SwakelolaDialog(QDialog):
 
             'nomor_kak': self.txt_nomor_kak.text().strip(),
             'nomor_sk_tim': self.txt_nomor_sk_tim.text().strip(),
+
+            # SK KPA
+            'nomor_sk_kpa': self.txt_nomor_sk_kpa.text().strip(),
+            'tanggal_sk_kpa': self.date_sk_kpa.date().toPython(),
+            'perihal_sk_kpa': self.txt_perihal_sk_kpa.text().strip(),
 
             'tanggal_sk_tim': self.date_sk_tim.date().toPython(),
             'tanggal_mulai': self.date_mulai.date().toPython(),

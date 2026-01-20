@@ -693,7 +693,25 @@ class DatabaseManager:
                 FOREIGN KEY (approved_by) REFERENCES pegawai(id)
             )
         """)
-    
+
+        # Migration: Add pejabat keuangan columns to satker
+        cursor.execute("PRAGMA table_info(satker)")
+        satker_columns = [col[1] for col in cursor.fetchall()]
+
+        satker_migrations = [
+            ('kpa_id', "ALTER TABLE satker ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE satker ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('ppspm_id', "ALTER TABLE satker ADD COLUMN ppspm_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE satker ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in satker_migrations:
+            if col not in satker_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
         cursor.execute("""
@@ -2005,6 +2023,65 @@ class DatabaseManager:
                 ))
                 conn.commit()
                 return cursor.lastrowid
+
+    def update_satker(self, data: Dict) -> bool:
+        """Update satker data"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE satker SET
+                    nama = ?, nama_pendek = ?, alamat = ?, kota = ?, kode_pos = ?,
+                    provinsi = ?, telepon = ?, fax = ?, email = ?, website = ?,
+                    kementerian = ?, eselon1 = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+            """, (
+                data.get('nama'), data.get('nama_pendek'), data.get('alamat'),
+                data.get('kota'), data.get('kode_pos'), data.get('provinsi'),
+                data.get('telepon'), data.get('fax'), data.get('email'),
+                data.get('website'), data.get('kementerian'), data.get('eselon1'),
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def update_satker_pejabat(self, kpa_id: int = None, ppk_id: int = None,
+                              ppspm_id: int = None, bendahara_id: int = None) -> bool:
+        """Update pejabat keuangan for satker"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE satker SET
+                    kpa_id = ?, ppk_id = ?, ppspm_id = ?, bendahara_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+            """, (kpa_id, ppk_id, ppspm_id, bendahara_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_satker_pejabat(self) -> Dict:
+        """Get satker pejabat with pegawai details"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.id, s.kode, s.nama, s.nama_pendek,
+                    s.kpa_id, s.ppk_id, s.ppspm_id, s.bendahara_id,
+                    kpa.nama as kpa_nama, kpa.nip as kpa_nip, kpa.jabatan as kpa_jabatan,
+                    kpa.pangkat as kpa_pangkat, kpa.golongan as kpa_golongan,
+                    ppk.nama as ppk_nama, ppk.nip as ppk_nip, ppk.jabatan as ppk_jabatan,
+                    ppk.pangkat as ppk_pangkat, ppk.golongan as ppk_golongan,
+                    ppspm.nama as ppspm_nama, ppspm.nip as ppspm_nip, ppspm.jabatan as ppspm_jabatan,
+                    ppspm.pangkat as ppspm_pangkat, ppspm.golongan as ppspm_golongan,
+                    bendahara.nama as bendahara_nama, bendahara.nip as bendahara_nip,
+                    bendahara.jabatan as bendahara_jabatan, bendahara.pangkat as bendahara_pangkat,
+                    bendahara.golongan as bendahara_golongan
+                FROM satker s
+                LEFT JOIN pegawai kpa ON s.kpa_id = kpa.id
+                LEFT JOIN pegawai ppk ON s.ppk_id = ppk.id
+                LEFT JOIN pegawai ppspm ON s.ppspm_id = ppspm.id
+                LEFT JOIN pegawai bendahara ON s.bendahara_id = bendahara.id
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+            return dict(row) if row else {}
 
     def get_penyedia(self, penyedia_id: int) -> Optional[Dict]:
         """Get single penyedia by ID"""

@@ -1657,6 +1657,68 @@ class DashboardWindow(QMainWindow):
         action_pjlp_rekap.triggered.connect(self.rekap_pjlp)
         pjlp_menu.addAction(action_pjlp_rekap)
 
+        # Pembayaran Lainnya menu
+        pembayaran_menu = menubar.addMenu("Pem&bayaran")
+
+        action_sk_kpa = QAction("📜 SK KPA", self)
+        action_sk_kpa.triggered.connect(self.manage_sk_kpa)
+        pembayaran_menu.addAction(action_sk_kpa)
+
+        pembayaran_menu.addSeparator()
+
+        action_honorarium = QAction("💵 Honorarium", self)
+        action_honorarium.triggered.connect(self.manage_honorarium)
+        pembayaran_menu.addAction(action_honorarium)
+
+        action_hon_reguler = QAction("   📋 Honorarium Reguler", self)
+        action_hon_reguler.triggered.connect(lambda: self.manage_honorarium('reguler'))
+        pembayaran_menu.addAction(action_hon_reguler)
+
+        action_hon_insidentil = QAction("   📋 Honorarium Insidentil", self)
+        action_hon_insidentil.triggered.connect(lambda: self.manage_honorarium('insidentil'))
+        pembayaran_menu.addAction(action_hon_insidentil)
+
+        pembayaran_menu.addSeparator()
+
+        action_jamuan = QAction("🍽️ Jamuan Tamu", self)
+        action_jamuan.triggered.connect(self.manage_jamuan_tamu)
+        pembayaran_menu.addAction(action_jamuan)
+
+        action_jamuan_reguler = QAction("   📋 Jamuan Reguler", self)
+        action_jamuan_reguler.triggered.connect(lambda: self.manage_jamuan_tamu('reguler'))
+        pembayaran_menu.addAction(action_jamuan_reguler)
+
+        action_jamuan_insidentil = QAction("   📋 Jamuan Insidentil", self)
+        action_jamuan_insidentil.triggered.connect(lambda: self.manage_jamuan_tamu('insidentil'))
+        pembayaran_menu.addAction(action_jamuan_insidentil)
+
+        pembayaran_menu.addSeparator()
+
+        action_pembayaran_all = QAction("📊 Lihat Semua Pembayaran", self)
+        action_pembayaran_all.triggered.connect(self.manage_pembayaran_lainnya)
+        pembayaran_menu.addAction(action_pembayaran_all)
+
+        # FA Detail / Pagu Anggaran menu
+        fa_menu = menubar.addMenu("&FA Detail")
+
+        action_fa_pagu = QAction("📋 Pagu Anggaran (POK)", self)
+        action_fa_pagu.triggered.connect(self.manage_fa_detail)
+        fa_menu.addAction(action_fa_pagu)
+
+        action_fa_import = QAction("📥 Import Pagu dari Excel", self)
+        action_fa_import.triggered.connect(self.import_fa_excel)
+        fa_menu.addAction(action_fa_import)
+
+        fa_menu.addSeparator()
+
+        action_fa_rekap = QAction("📊 Rekap per Akun", self)
+        action_fa_rekap.triggered.connect(self.rekap_fa_akun)
+        fa_menu.addAction(action_fa_rekap)
+
+        action_fa_realisasi = QAction("💰 Monitoring Realisasi", self)
+        action_fa_realisasi.triggered.connect(self.monitoring_realisasi)
+        fa_menu.addAction(action_fa_realisasi)
+
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
         
@@ -2140,6 +2202,135 @@ class DashboardWindow(QMainWindow):
             layout = QVBoxLayout(dialog)
             manager = PJLPManager(dialog)
             manager.tabs.setCurrentIndex(2)  # Switch to Rekap Bulanan tab
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_sk_kpa(self):
+        """Manage SK KPA"""
+        try:
+            from .pembayaran_lainnya_manager import PembayaranLainnyaManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("SK KPA")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PembayaranLainnyaManager(dialog)
+            manager.tabs.setCurrentIndex(0)  # SK KPA tab
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_honorarium(self, kategori=None):
+        """Manage Honorarium"""
+        try:
+            from .pembayaran_lainnya_manager import PembayaranLainnyaManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Honorarium")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PembayaranLainnyaManager(dialog)
+            manager.tabs.setCurrentIndex(1)  # Honorarium tab
+            if kategori:
+                idx = manager.cmb_hon_kategori.findText(kategori)
+                if idx >= 0:
+                    manager.cmb_hon_kategori.setCurrentIndex(idx)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_jamuan_tamu(self, kategori=None):
+        """Manage Jamuan Tamu"""
+        try:
+            from .pembayaran_lainnya_manager import PembayaranLainnyaManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Jamuan Tamu")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PembayaranLainnyaManager(dialog)
+            manager.tabs.setCurrentIndex(2)  # Jamuan Tamu tab
+            if kategori:
+                idx = manager.cmb_jt_kategori.findText(kategori)
+                if idx >= 0:
+                    manager.cmb_jt_kategori.setCurrentIndex(idx)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_pembayaran_lainnya(self):
+        """Manage all other payments"""
+        try:
+            from .pembayaran_lainnya_manager import PembayaranLainnyaManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Pembayaran Lainnya")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = PembayaranLainnyaManager(dialog)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_fa_detail(self):
+        """Manage FA Detail / Pagu Anggaran"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Pagu Anggaran (POK)")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def import_fa_excel(self):
+        """Import pagu anggaran from Excel file"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Pagu Anggaran (POK)")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            layout.addWidget(manager)
+            # Trigger import after dialog opens
+            QTimer.singleShot(100, manager.import_excel)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def rekap_fa_akun(self):
+        """Show FA Detail rekap per akun"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Rekap per Akun")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            # Switch to rekap tab
+            manager.tab_widget.setCurrentIndex(1)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def monitoring_realisasi(self):
+        """Show FA Detail monitoring realisasi"""
+        try:
+            from .fa_detail_manager import FADetailManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FA Detail - Monitoring Realisasi")
+            dialog.setMinimumSize(1300, 800)
+            layout = QVBoxLayout(dialog)
+            manager = FADetailManager(dialog)
+            # Switch to monitoring tab
+            manager.tab_widget.setCurrentIndex(2)
             layout.addWidget(manager)
             dialog.exec()
         except ImportError as e:

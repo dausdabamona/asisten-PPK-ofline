@@ -9,9 +9,9 @@ from typing import Dict, Optional
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QPushButton, QLabel, QLineEdit, QGroupBox,
-    QMessageBox, QFrame
+    QMessageBox, QFrame, QComboBox, QScrollArea, QWidget
 )
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 
 from app.core.database import get_db_manager
 
@@ -125,6 +125,45 @@ class SatkerManager(QDialog):
         kontak_group.setLayout(kontak_layout)
         layout.addWidget(kontak_group)
 
+        # Pejabat Keuangan Group
+        pejabat_group = QGroupBox("Pejabat Keuangan (Pilih dari Data Pegawai)")
+        pejabat_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #3498db;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                color: #2980b9;
+            }
+        """)
+        pejabat_layout = QFormLayout()
+
+        info_pejabat = QLabel("Setting pejabat keuangan satu kali di sini akan digunakan untuk semua pembayaran.")
+        info_pejabat.setStyleSheet("color: #7f8c8d; font-style: italic; font-weight: normal;")
+        pejabat_layout.addRow(info_pejabat)
+
+        self.cmb_kpa = QComboBox()
+        self.cmb_kpa.addItem("-- Pilih KPA --", None)
+        pejabat_layout.addRow("KPA:", self.cmb_kpa)
+
+        self.cmb_ppk = QComboBox()
+        self.cmb_ppk.addItem("-- Pilih PPK --", None)
+        pejabat_layout.addRow("PPK:", self.cmb_ppk)
+
+        self.cmb_ppspm = QComboBox()
+        self.cmb_ppspm.addItem("-- Pilih PPSPM --", None)
+        pejabat_layout.addRow("PPSPM:", self.cmb_ppspm)
+
+        self.cmb_bendahara = QComboBox()
+        self.cmb_bendahara.addItem("-- Pilih Bendahara --", None)
+        pejabat_layout.addRow("Bendahara:", self.cmb_bendahara)
+
+        pejabat_group.setLayout(pejabat_layout)
+        layout.addWidget(pejabat_group)
+
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -164,8 +203,29 @@ class SatkerManager(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def load_pegawai_combobox(self):
+        """Load pegawai list into comboboxes"""
+        pegawai_list = self.db.get_all_pegawai(active_only=True)
+
+        # Store for later reference
+        self.pegawai_list = pegawai_list
+
+        # Populate comboboxes
+        for pegawai in pegawai_list:
+            display_name = f"{pegawai['nama']} - {pegawai.get('nip', 'N/A')}"
+            if pegawai.get('jabatan'):
+                display_name += f" ({pegawai['jabatan']})"
+
+            self.cmb_kpa.addItem(display_name, pegawai['id'])
+            self.cmb_ppk.addItem(display_name, pegawai['id'])
+            self.cmb_ppspm.addItem(display_name, pegawai['id'])
+            self.cmb_bendahara.addItem(display_name, pegawai['id'])
+
     def load_data(self):
         """Load satker data from database"""
+        # Load pegawai first
+        self.load_pegawai_combobox()
+
         satker = self.db.get_satker()
 
         self.satker_id = satker.get('id')
@@ -183,6 +243,22 @@ class SatkerManager(QDialog):
         self.txt_fax.setText(satker.get('fax', '') or '')
         self.txt_email.setText(satker.get('email', '') or '')
         self.txt_website.setText(satker.get('website', '') or '')
+
+        # Load pejabat keuangan
+        self.set_combo_value(self.cmb_kpa, satker.get('kpa_id'))
+        self.set_combo_value(self.cmb_ppk, satker.get('ppk_id'))
+        self.set_combo_value(self.cmb_ppspm, satker.get('ppspm_id'))
+        self.set_combo_value(self.cmb_bendahara, satker.get('bendahara_id'))
+
+    def set_combo_value(self, combo: QComboBox, value):
+        """Set combo box value by data"""
+        if value is None:
+            combo.setCurrentIndex(0)
+            return
+        for i in range(combo.count()):
+            if combo.itemData(i) == value:
+                combo.setCurrentIndex(i)
+                return
 
     def get_data(self) -> Dict:
         """Get form data"""
@@ -223,8 +299,17 @@ class SatkerManager(QDialog):
             return
 
         try:
-            self.db.save_satker(data)
-            QMessageBox.information(self, "Sukses", "Data Satker berhasil disimpan!")
+            # Save satker data
+            self.db.update_satker(data)
+
+            # Save pejabat keuangan
+            kpa_id = self.cmb_kpa.currentData()
+            ppk_id = self.cmb_ppk.currentData()
+            ppspm_id = self.cmb_ppspm.currentData()
+            bendahara_id = self.cmb_bendahara.currentData()
+            self.db.update_satker_pejabat(kpa_id, ppk_id, ppspm_id, bendahara_id)
+
+            QMessageBox.information(self, "Sukses", "Data Satker dan Pejabat Keuangan berhasil disimpan!")
             self.satker_changed.emit()
             self.accept()
         except Exception as e:

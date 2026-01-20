@@ -143,6 +143,29 @@ class SwakelolaDialog(QDialog):
         nomor_group.setLayout(nomor_form)
         form1.addWidget(nomor_group)
 
+        # SK KPA Group
+        sk_kpa_group = QGroupBox("SK KPA (Surat Keputusan Kuasa Pengguna Anggaran)")
+        sk_kpa_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #e74c3c; }")
+        sk_kpa_form = QFormLayout()
+
+        sk_nomor_layout = QHBoxLayout()
+        self.txt_nomor_sk_kpa = QLineEdit()
+        self.txt_nomor_sk_kpa.setPlaceholderText("SK-KPA/001/2024")
+        sk_nomor_layout.addWidget(self.txt_nomor_sk_kpa)
+        sk_nomor_layout.addWidget(QLabel("Tanggal:"))
+        self.date_sk_kpa = QDateEdit()
+        self.date_sk_kpa.setCalendarPopup(True)
+        self.date_sk_kpa.setDate(QDate.currentDate())
+        sk_nomor_layout.addWidget(self.date_sk_kpa)
+        sk_kpa_form.addRow("No. SK KPA:", sk_nomor_layout)
+
+        self.txt_perihal_sk_kpa = QLineEdit()
+        self.txt_perihal_sk_kpa.setPlaceholderText("Pembayaran Kegiatan Swakelola...")
+        sk_kpa_form.addRow("Perihal:", self.txt_perihal_sk_kpa)
+
+        sk_kpa_group.setLayout(sk_kpa_form)
+        form1.addWidget(sk_kpa_group)
+
         # Waktu
         waktu_group = QGroupBox("Waktu Pelaksanaan")
         waktu_form = QFormLayout()
@@ -514,6 +537,12 @@ class SwakelolaDialog(QDialog):
         self.txt_nomor_kak.setText(d.get('nomor_kak', '') or '')
         self.txt_nomor_sk_tim.setText(d.get('nomor_sk_tim', '') or '')
 
+        # SK KPA
+        self.txt_nomor_sk_kpa.setText(d.get('nomor_sk_kpa', '') or '')
+        self.txt_perihal_sk_kpa.setText(d.get('perihal_sk_kpa', '') or '')
+        if d.get('tanggal_sk_kpa'):
+            self.date_sk_kpa.setDate(QDate.fromString(str(d['tanggal_sk_kpa']), 'yyyy-MM-dd'))
+
         if d.get('tanggal_sk_tim'):
             self.date_sk_tim.setDate(QDate.fromString(str(d['tanggal_sk_tim']), 'yyyy-MM-dd'))
         if d.get('tanggal_mulai'):
@@ -566,6 +595,11 @@ class SwakelolaDialog(QDialog):
 
             'nomor_kak': self.txt_nomor_kak.text().strip(),
             'nomor_sk_tim': self.txt_nomor_sk_tim.text().strip(),
+
+            # SK KPA
+            'nomor_sk_kpa': self.txt_nomor_sk_kpa.text().strip(),
+            'tanggal_sk_kpa': self.date_sk_kpa.date().toPython(),
+            'perihal_sk_kpa': self.txt_perihal_sk_kpa.text().strip(),
 
             'tanggal_sk_tim': self.date_sk_tim.date().toPython(),
             'tanggal_mulai': self.date_mulai.date().toPython(),
@@ -971,6 +1005,7 @@ class GenerateSWDocumentDialog(QDialog):
     def generate(self):
         """Generate selected documents"""
         from app.templates.engine import get_template_engine
+        from app.core.config import WORD_TEMPLATES_DIR, EXCEL_TEMPLATES_DIR
 
         engine = get_template_engine()
         generated = []
@@ -997,31 +1032,33 @@ class GenerateSWDocumentDialog(QDialog):
         if self.chk_sk_tim.isChecked():
             docs_to_generate.append(('sk_tim_swakelola', 'SK_Tim_Pelaksana', 'word'))
         if self.chk_kuitansi_um.isChecked():
-            docs_to_generate.append(('kuitansi_uang_muka_swakelola', 'Kuitansi_Uang_Muka', 'word'))
+            docs_to_generate.append(('kuitansi_uang_muka', 'Kuitansi_Uang_Muka', 'word'))
         if self.chk_bap.isChecked():
             docs_to_generate.append(('bap_swakelola', 'BA_Pembayaran', 'word'))
         if self.chk_laporan.isChecked():
             docs_to_generate.append(('laporan_kemajuan', 'Laporan_Kemajuan', 'word'))
         if self.chk_kuitansi_rampung.isChecked():
-            docs_to_generate.append(('kuitansi_rampung_swakelola', 'Kuitansi_Rampung', 'word'))
+            docs_to_generate.append(('kuitansi_rampung', 'Kuitansi_Rampung', 'word'))
         if self.chk_bast.isChecked():
             docs_to_generate.append(('bast_swakelola', 'BAST_Swakelola', 'word'))
 
         for template_name, output_name, doc_type in docs_to_generate:
             try:
                 if doc_type == 'word':
+                    template_path = os.path.join(WORD_TEMPLATES_DIR, f"{template_name}.docx")
                     output_path = os.path.join(output_folder, f"{output_name}.docx")
-                    engine.generate_document(
-                        template_name=f"{template_name}.docx",
-                        output_path=output_path,
-                        placeholders=placeholders
+                    engine.merge_word(
+                        template_path=template_path,
+                        data=placeholders,
+                        output_path=output_path
                     )
                 elif doc_type == 'excel':
+                    template_path = os.path.join(EXCEL_TEMPLATES_DIR, f"{template_name}.xlsx")
                     output_path = os.path.join(output_folder, f"{output_name}.xlsx")
-                    engine.generate_excel_document(
-                        template_name=f"{template_name}.xlsx",
-                        output_path=output_path,
-                        placeholders=placeholders
+                    engine.merge_excel(
+                        template_path=template_path,
+                        data=placeholders,
+                        output_path=output_path
                     )
                 generated.append(output_name)
             except Exception as e:

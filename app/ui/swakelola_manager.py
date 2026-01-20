@@ -21,11 +21,46 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QMenu, QFileDialog, QDateEdit, QSpinBox,
     QDoubleSpinBox, QScrollArea
 )
-from PySide6.QtCore import Qt, Signal, QDate
+from PySide6.QtCore import Qt, Signal, QDate, QLocale
 from PySide6.QtGui import QAction, QColor
 
 from app.core.database_v4 import get_db_manager_v4
 from app.core.config import SATKER_DEFAULT, TAHUN_ANGGARAN, OUTPUT_DIR
+
+
+# ============================================================================
+# CUSTOM CURRENCY SPINBOX WITH THOUSAND SEPARATOR
+# ============================================================================
+
+class CurrencySpinBox(QDoubleSpinBox):
+    """Custom SpinBox for Indonesian currency with thousand separator"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setRange(0, 999999999999)
+        self.setDecimals(0)
+        self.setSingleStep(100000)
+
+        # Use Indonesian locale for thousand separator
+        locale = QLocale(QLocale.Indonesian, QLocale.Indonesia)
+        self.setLocale(locale)
+
+    def textFromValue(self, value: float) -> str:
+        """Format value with thousand separator"""
+        return f"Rp {value:,.0f}".replace(",", ".")
+
+    def valueFromText(self, text: str) -> float:
+        """Parse text to value"""
+        # Remove "Rp " prefix and thousand separators
+        clean = text.replace("Rp ", "").replace(".", "").replace(",", "").strip()
+        try:
+            return float(clean) if clean else 0
+        except ValueError:
+            return 0
+
+    def validate(self, text: str, pos: int):
+        """Validate input"""
+        return QDoubleSpinBox.validate(self, text, pos)
 
 
 # ============================================================================
@@ -154,11 +189,7 @@ class SwakelolaDialog(QDialog):
         self.txt_kode_akun.setPlaceholderText("521211")
         anggaran_form.addRow("Kode Akun/MAK:", self.txt_kode_akun)
 
-        self.spn_pagu = QDoubleSpinBox()
-        self.spn_pagu.setRange(0, 999999999999)
-        self.spn_pagu.setDecimals(0)
-        self.spn_pagu.setPrefix("Rp ")
-        self.spn_pagu.setSingleStep(1000000)
+        self.spn_pagu = CurrencySpinBox()
         anggaran_form.addRow("Pagu Swakelola:", self.spn_pagu)
 
         anggaran_group.setLayout(anggaran_form)
@@ -184,11 +215,7 @@ class SwakelolaDialog(QDialog):
         self.txt_pum_jabatan = QLineEdit()
         um_form.addRow("Jabatan PUM:", self.txt_pum_jabatan)
 
-        self.spn_uang_muka = QDoubleSpinBox()
-        self.spn_uang_muka.setRange(0, 999999999999)
-        self.spn_uang_muka.setDecimals(0)
-        self.spn_uang_muka.setPrefix("Rp ")
-        self.spn_uang_muka.setSingleStep(100000)
+        self.spn_uang_muka = CurrencySpinBox()
         um_form.addRow("Jumlah Uang Muka:", self.spn_uang_muka)
 
         self.date_uang_muka = QDateEdit()
@@ -203,11 +230,7 @@ class SwakelolaDialog(QDialog):
         rampung_group = QGroupBox("Realisasi / Kuitansi Rampung")
         rampung_form = QFormLayout()
 
-        self.spn_realisasi = QDoubleSpinBox()
-        self.spn_realisasi.setRange(0, 999999999999)
-        self.spn_realisasi.setDecimals(0)
-        self.spn_realisasi.setPrefix("Rp ")
-        self.spn_realisasi.setSingleStep(100000)
+        self.spn_realisasi = CurrencySpinBox()
         self.spn_realisasi.valueChanged.connect(self.update_selisih)
         rampung_form.addRow("Total Realisasi:", self.spn_realisasi)
 

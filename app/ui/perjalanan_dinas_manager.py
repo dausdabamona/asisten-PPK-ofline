@@ -20,11 +20,46 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QMenu, QFileDialog, QDateEdit, QSpinBox,
     QDoubleSpinBox, QScrollArea
 )
-from PySide6.QtCore import Qt, Signal, QDate
+from PySide6.QtCore import Qt, Signal, QDate, QLocale
 from PySide6.QtGui import QAction, QColor
 
 from app.core.database_v4 import get_db_manager_v4
 from app.core.config import SATKER_DEFAULT, TAHUN_ANGGARAN, OUTPUT_DIR
+
+
+# ============================================================================
+# CUSTOM CURRENCY SPINBOX WITH THOUSAND SEPARATOR
+# ============================================================================
+
+class CurrencySpinBox(QDoubleSpinBox):
+    """Custom SpinBox for Indonesian currency with thousand separator"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setRange(0, 999999999999)
+        self.setDecimals(0)
+        self.setSingleStep(100000)
+
+        # Use Indonesian locale for thousand separator
+        locale = QLocale(QLocale.Indonesian, QLocale.Indonesia)
+        self.setLocale(locale)
+
+    def textFromValue(self, value: float) -> str:
+        """Format value with thousand separator"""
+        return f"Rp {value:,.0f}".replace(",", ".")
+
+    def valueFromText(self, text: str) -> float:
+        """Parse text to value"""
+        # Remove "Rp " prefix and thousand separators
+        clean = text.replace("Rp ", "").replace(".", "").replace(",", "").strip()
+        try:
+            return float(clean) if clean else 0
+        except ValueError:
+            return 0
+
+    def validate(self, text: str, pos: int):
+        """Validate input"""
+        return QDoubleSpinBox.validate(self, text, pos)
 
 
 # ============================================================================
@@ -207,43 +242,23 @@ class PerjalananDinasDialog(QDialog):
         biaya_group = QGroupBox("Rincian Biaya")
         biaya_form = QFormLayout()
 
-        self.spn_biaya_transport = QDoubleSpinBox()
-        self.spn_biaya_transport.setRange(0, 99999999)
-        self.spn_biaya_transport.setDecimals(0)
-        self.spn_biaya_transport.setPrefix("Rp ")
-        self.spn_biaya_transport.setSingleStep(100000)
+        self.spn_biaya_transport = CurrencySpinBox()
         self.spn_biaya_transport.valueChanged.connect(self.update_total_biaya)
         biaya_form.addRow("Biaya Transport:", self.spn_biaya_transport)
 
-        self.spn_biaya_uang_harian = QDoubleSpinBox()
-        self.spn_biaya_uang_harian.setRange(0, 99999999)
-        self.spn_biaya_uang_harian.setDecimals(0)
-        self.spn_biaya_uang_harian.setPrefix("Rp ")
-        self.spn_biaya_uang_harian.setSingleStep(100000)
+        self.spn_biaya_uang_harian = CurrencySpinBox()
         self.spn_biaya_uang_harian.valueChanged.connect(self.update_total_biaya)
         biaya_form.addRow("Uang Harian:", self.spn_biaya_uang_harian)
 
-        self.spn_biaya_penginapan = QDoubleSpinBox()
-        self.spn_biaya_penginapan.setRange(0, 99999999)
-        self.spn_biaya_penginapan.setDecimals(0)
-        self.spn_biaya_penginapan.setPrefix("Rp ")
-        self.spn_biaya_penginapan.setSingleStep(100000)
+        self.spn_biaya_penginapan = CurrencySpinBox()
         self.spn_biaya_penginapan.valueChanged.connect(self.update_total_biaya)
         biaya_form.addRow("Biaya Penginapan:", self.spn_biaya_penginapan)
 
-        self.spn_biaya_representasi = QDoubleSpinBox()
-        self.spn_biaya_representasi.setRange(0, 99999999)
-        self.spn_biaya_representasi.setDecimals(0)
-        self.spn_biaya_representasi.setPrefix("Rp ")
-        self.spn_biaya_representasi.setSingleStep(100000)
+        self.spn_biaya_representasi = CurrencySpinBox()
         self.spn_biaya_representasi.valueChanged.connect(self.update_total_biaya)
         biaya_form.addRow("Uang Representasi:", self.spn_biaya_representasi)
 
-        self.spn_biaya_lain = QDoubleSpinBox()
-        self.spn_biaya_lain.setRange(0, 99999999)
-        self.spn_biaya_lain.setDecimals(0)
-        self.spn_biaya_lain.setPrefix("Rp ")
-        self.spn_biaya_lain.setSingleStep(100000)
+        self.spn_biaya_lain = CurrencySpinBox()
         self.spn_biaya_lain.valueChanged.connect(self.update_total_biaya)
         biaya_form.addRow("Biaya Lain-lain:", self.spn_biaya_lain)
 
@@ -256,11 +271,7 @@ class PerjalananDinasDialog(QDialog):
         self.lbl_total_biaya.setStyleSheet("font-weight: bold; font-size: 14px;")
         biaya_form.addRow("TOTAL BIAYA:", self.lbl_total_biaya)
 
-        self.spn_uang_muka = QDoubleSpinBox()
-        self.spn_uang_muka.setRange(0, 99999999)
-        self.spn_uang_muka.setDecimals(0)
-        self.spn_uang_muka.setPrefix("Rp ")
-        self.spn_uang_muka.setSingleStep(100000)
+        self.spn_uang_muka = CurrencySpinBox()
         biaya_form.addRow("Uang Muka Diterima:", self.spn_uang_muka)
 
         biaya_group.setLayout(biaya_form)

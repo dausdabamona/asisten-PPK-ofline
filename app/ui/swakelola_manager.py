@@ -509,6 +509,16 @@ class SwakelolaDialog(QDialog):
         data = self.cmb_bendahara.currentData()
         self._fill_pegawai_fields(data, self.txt_bendahara_nama, self.txt_bendahara_nip)
 
+    def _set_combo_by_id(self, combo: QComboBox, pegawai_id: int):
+        """Helper to set ComboBox selection by pegawai ID"""
+        if not pegawai_id:
+            return
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and isinstance(data, dict) and data.get('id') == pegawai_id:
+                combo.setCurrentIndex(i)
+                return
+
     def update_selisih(self):
         """Calculate difference between uang muka and realisasi"""
         uang_muka = self.spn_uang_muka.value()
@@ -555,7 +565,9 @@ class SwakelolaDialog(QDialog):
         self.txt_kode_akun.setText(d.get('kode_akun', '') or '')
         self.spn_pagu.setValue(d.get('pagu_swakelola', 0) or 0)
 
-        # Uang Muka
+        # Uang Muka - set ComboBox first, then text fields
+        if d.get('pum_id'):
+            self._set_combo_by_id(self.cmb_pum, d['pum_id'])
         self.txt_pum_nama.setText(d.get('pum_nama', '') or '')
         self.txt_pum_nip.setText(d.get('pum_nip', '') or '')
         self.txt_pum_jabatan.setText(d.get('pum_jabatan', '') or '')
@@ -568,24 +580,41 @@ class SwakelolaDialog(QDialog):
         if d.get('tanggal_rampung'):
             self.date_rampung.setDate(QDate.fromString(str(d['tanggal_rampung']), 'yyyy-MM-dd'))
 
-        # Tim
+        # Tim - set ComboBox first, then text fields
+        if d.get('ketua_id'):
+            self._set_combo_by_id(self.cmb_ketua, d['ketua_id'])
         self.txt_ketua_nama.setText(d.get('ketua_nama', '') or '')
         self.txt_ketua_nip.setText(d.get('ketua_nip', '') or '')
         self.txt_ketua_jabatan.setText(d.get('ketua_jabatan', '') or '')
+
+        if d.get('sekretaris_id'):
+            self._set_combo_by_id(self.cmb_sekretaris, d['sekretaris_id'])
         self.txt_sekretaris_nama.setText(d.get('sekretaris_nama', '') or '')
         self.txt_sekretaris_nip.setText(d.get('sekretaris_nip', '') or '')
         self.txt_anggota.setText(d.get('anggota_tim', '') or '')
 
-        # Pejabat
+        # Pejabat - set ComboBox first, then text fields
+        if d.get('ppk_id'):
+            self._set_combo_by_id(self.cmb_ppk, d['ppk_id'])
         self.txt_ppk_nama.setText(d.get('ppk_nama', '') or '')
         self.txt_ppk_nip.setText(d.get('ppk_nip', '') or '')
+
+        if d.get('bendahara_id'):
+            self._set_combo_by_id(self.cmb_bendahara, d['bendahara_id'])
         self.txt_bendahara_nama.setText(d.get('bendahara_nama', '') or '')
         self.txt_bendahara_nip.setText(d.get('bendahara_nip', '') or '')
 
         self.update_selisih()
 
     def get_data(self) -> dict:
-        """Get form data"""
+        """Get form data with foreign key IDs from ComboBox"""
+        # Get pegawai data from ComboBox selections
+        pum_data = self.cmb_pum.currentData()
+        ketua_data = self.cmb_ketua.currentData()
+        sekretaris_data = self.cmb_sekretaris.currentData()
+        ppk_data = self.cmb_ppk.currentData()
+        bendahara_data = self.cmb_bendahara.currentData()
+
         return {
             'nama_kegiatan': self.txt_nama_kegiatan.text().strip(),
             'tipe_swakelola': self.cmb_tipe_swakelola.currentIndex(),
@@ -610,7 +639,8 @@ class SwakelolaDialog(QDialog):
             'kode_akun': self.txt_kode_akun.text().strip(),
             'pagu_swakelola': self.spn_pagu.value(),
 
-            # Uang Muka
+            # Uang Muka - with foreign key ID
+            'pum_id': pum_data.get('id') if pum_data and isinstance(pum_data, dict) else None,
             'pum_nama': self.txt_pum_nama.text().strip(),
             'pum_nip': self.txt_pum_nip.text().strip(),
             'pum_jabatan': self.txt_pum_jabatan.text().strip(),
@@ -621,18 +651,22 @@ class SwakelolaDialog(QDialog):
             'total_realisasi': self.spn_realisasi.value(),
             'tanggal_rampung': self.date_rampung.date().toPython(),
 
-            # Tim
+            # Tim - with foreign key IDs
+            'ketua_id': ketua_data.get('id') if ketua_data and isinstance(ketua_data, dict) else None,
             'ketua_nama': self.txt_ketua_nama.text().strip(),
             'ketua_nip': self.txt_ketua_nip.text().strip(),
             'ketua_jabatan': self.txt_ketua_jabatan.text().strip(),
+            'sekretaris_id': sekretaris_data.get('id') if sekretaris_data and isinstance(sekretaris_data, dict) else None,
             'sekretaris_nama': self.txt_sekretaris_nama.text().strip(),
             'sekretaris_nip': self.txt_sekretaris_nip.text().strip(),
             'anggota_tim': self.txt_anggota.toPlainText().strip(),
 
-            # Pejabat
+            # Pejabat - with foreign key IDs
+            'ppk_id': ppk_data.get('id') if ppk_data and isinstance(ppk_data, dict) else None,
             'ppk_nama': self.txt_ppk_nama.text().strip(),
             'ppk_nip': self.txt_ppk_nip.text().strip(),
             'ppk_jabatan': self.txt_ppk_jabatan.text().strip(),
+            'bendahara_id': bendahara_data.get('id') if bendahara_data and isinstance(bendahara_data, dict) else None,
             'bendahara_nama': self.txt_bendahara_nama.text().strip(),
             'bendahara_nip': self.txt_bendahara_nip.text().strip(),
 
@@ -984,6 +1018,9 @@ class GenerateSWDocumentDialog(QDialog):
         self.chk_bast = QCheckBox("📄 BAST Swakelola")
         doc_layout.addWidget(self.chk_bast)
 
+        self.chk_daftar_hadir = QCheckBox("📋 Daftar Hadir")
+        doc_layout.addWidget(self.chk_daftar_hadir)
+
         doc_group.setLayout(doc_layout)
         layout.addWidget(doc_group)
 
@@ -1055,6 +1092,8 @@ class GenerateSWDocumentDialog(QDialog):
             docs_to_generate.append(('kuitansi_rampung', 'Kuitansi_Rampung', 'word'))
         if self.chk_bast.isChecked():
             docs_to_generate.append(('bast_swakelola', 'BAST_Swakelola', 'word'))
+        if self.chk_daftar_hadir.isChecked():
+            docs_to_generate.append(('daftar_hadir_swakelola', 'Daftar_Hadir', 'word'))
 
         if not docs_to_generate:
             QMessageBox.warning(self, "Peringatan", "Pilih minimal satu dokumen untuk di-generate!")
@@ -1171,6 +1210,9 @@ class GenerateSWDocumentDialog(QDialog):
             'tanggal_mulai': str(d.get('tanggal_mulai', '')),
             'tanggal_selesai': str(d.get('tanggal_selesai', '')),
             'jangka_waktu': str(d.get('jangka_waktu', 30)),
+            'waktu_mulai': d.get('waktu_mulai', '08:00'),
+            'waktu_selesai': d.get('waktu_selesai', 'selesai'),
+            'tempat_kegiatan': d.get('tempat_kegiatan', '') or satker.get('nama', ''),
 
             # Anggaran
             'pagu_swakelola': fmt_rp(d.get('pagu_swakelola', 0) or 0),

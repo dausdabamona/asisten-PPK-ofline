@@ -1251,6 +1251,136 @@ class DatabaseManagerV4:
                 except:
                     pass
 
+        # Migration: Add foreign key columns to perjalanan_dinas for normalization
+        cursor.execute("PRAGMA table_info(perjalanan_dinas)")
+        pd_columns = [col[1] for col in cursor.fetchall()]
+
+        pd_migrations = [
+            ('pelaksana_id', "ALTER TABLE perjalanan_dinas ADD COLUMN pelaksana_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE perjalanan_dinas ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE perjalanan_dinas ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in pd_migrations:
+            if col not in pd_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key columns to swakelola for normalization
+        swakelola_norm_migrations = [
+            ('ketua_id', "ALTER TABLE swakelola ADD COLUMN ketua_id INTEGER REFERENCES pegawai(id)"),
+            ('sekretaris_id', "ALTER TABLE swakelola ADD COLUMN sekretaris_id INTEGER REFERENCES pegawai(id)"),
+            ('pum_id', "ALTER TABLE swakelola ADD COLUMN pum_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE swakelola ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE swakelola ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in swakelola_norm_migrations:
+            if col not in swakelola_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key columns to jamuan_tamu for normalization
+        cursor.execute("PRAGMA table_info(jamuan_tamu)")
+        jt_columns = [col[1] for col in cursor.fetchall()]
+
+        jt_migrations = [
+            ('kpa_id', "ALTER TABLE jamuan_tamu ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE jamuan_tamu ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE jamuan_tamu ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in jt_migrations:
+            if col not in jt_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key columns to honorarium for normalization
+        cursor.execute("PRAGMA table_info(honorarium)")
+        hon_columns = [col[1] for col in cursor.fetchall()]
+
+        hon_migrations = [
+            ('kpa_id', "ALTER TABLE honorarium ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE honorarium ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE honorarium ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in hon_migrations:
+            if col not in hon_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key columns to honorarium_detail for normalization
+        cursor.execute("PRAGMA table_info(honorarium_detail)")
+        hond_columns = [col[1] for col in cursor.fetchall()]
+
+        hond_migrations = [
+            ('pegawai_id', "ALTER TABLE honorarium_detail ADD COLUMN pegawai_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in hond_migrations:
+            if col not in hond_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key columns to sk_kpa for normalization
+        cursor.execute("PRAGMA table_info(sk_kpa)")
+        sk_columns = [col[1] for col in cursor.fetchall()]
+
+        sk_migrations = [
+            ('kpa_id', "ALTER TABLE sk_kpa ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
+            ('ppk_id', "ALTER TABLE sk_kpa ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE sk_kpa ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in sk_migrations:
+            if col not in sk_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key to honorarium_pengelola for normalization
+        cursor.execute("PRAGMA table_info(honorarium_pengelola)")
+        hp_columns = [col[1] for col in cursor.fetchall()]
+
+        hp_migrations = [
+            ('pegawai_id', "ALTER TABLE honorarium_pengelola ADD COLUMN pegawai_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in hp_migrations:
+            if col not in hp_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add foreign key columns to pjlp for normalization
+        cursor.execute("PRAGMA table_info(pjlp)")
+        pjlp_columns = [col[1] for col in cursor.fetchall()]
+
+        pjlp_migrations = [
+            ('ppk_id', "ALTER TABLE pjlp ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
+            ('bendahara_id', "ALTER TABLE pjlp ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+        ]
+
+        for col, sql in pjlp_migrations:
+            if col not in pjlp_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
         cursor.execute("""
@@ -2292,23 +2422,24 @@ class DatabaseManagerV4:
                 INSERT INTO perjalanan_dinas (
                     tahun_anggaran, nama_kegiatan, maksud_perjalanan,
                     nomor_surat_tugas, nomor_sppd,
-                    pelaksana_nama, pelaksana_nip, pelaksana_pangkat,
+                    pelaksana_id, pelaksana_nama, pelaksana_nip, pelaksana_pangkat,
                     pelaksana_golongan, pelaksana_jabatan,
                     kota_asal, kota_tujuan, provinsi_tujuan, alamat_tujuan,
                     tanggal_surat_tugas, tanggal_berangkat, tanggal_kembali, lama_perjalanan,
                     sumber_dana, kode_akun,
                     biaya_transport, biaya_uang_harian, biaya_penginapan,
                     biaya_representasi, biaya_lain_lain, uang_muka,
-                    ppk_nama, ppk_nip, ppk_jabatan,
-                    bendahara_nama, bendahara_nip,
+                    ppk_id, ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_id, bendahara_nama, bendahara_nip,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran', TAHUN_ANGGARAN),
                 data.get('nama_kegiatan'),
                 data.get('maksud_perjalanan'),
                 data.get('nomor_surat_tugas'),
                 data.get('nomor_sppd'),
+                data.get('pelaksana_id'),
                 data.get('pelaksana_nama'),
                 data.get('pelaksana_nip'),
                 data.get('pelaksana_pangkat'),
@@ -2330,9 +2461,11 @@ class DatabaseManagerV4:
                 data.get('biaya_representasi', 0),
                 data.get('biaya_lain_lain', 0),
                 data.get('uang_muka', 0),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'draft')
@@ -2348,15 +2481,15 @@ class DatabaseManagerV4:
                 UPDATE perjalanan_dinas SET
                     nama_kegiatan = ?, maksud_perjalanan = ?,
                     nomor_surat_tugas = ?, nomor_sppd = ?,
-                    pelaksana_nama = ?, pelaksana_nip = ?, pelaksana_pangkat = ?,
+                    pelaksana_id = ?, pelaksana_nama = ?, pelaksana_nip = ?, pelaksana_pangkat = ?,
                     pelaksana_golongan = ?, pelaksana_jabatan = ?,
                     kota_asal = ?, kota_tujuan = ?, provinsi_tujuan = ?, alamat_tujuan = ?,
                     tanggal_surat_tugas = ?, tanggal_berangkat = ?, tanggal_kembali = ?, lama_perjalanan = ?,
                     sumber_dana = ?, kode_akun = ?,
                     biaya_transport = ?, biaya_uang_harian = ?, biaya_penginapan = ?,
                     biaya_representasi = ?, biaya_lain_lain = ?, uang_muka = ?,
-                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
-                    bendahara_nama = ?, bendahara_nip = ?,
+                    ppk_id = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?,
                     status = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
@@ -2364,6 +2497,7 @@ class DatabaseManagerV4:
                 data.get('maksud_perjalanan'),
                 data.get('nomor_surat_tugas'),
                 data.get('nomor_sppd'),
+                data.get('pelaksana_id'),
                 data.get('pelaksana_nama'),
                 data.get('pelaksana_nip'),
                 data.get('pelaksana_pangkat'),
@@ -2385,9 +2519,11 @@ class DatabaseManagerV4:
                 data.get('biaya_representasi', 0),
                 data.get('biaya_lain_lain', 0),
                 data.get('uang_muka', 0),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'draft'),
@@ -2397,27 +2533,52 @@ class DatabaseManagerV4:
             return cursor.rowcount > 0
 
     def get_perjalanan_dinas(self, pd_id: int) -> Optional[Dict]:
-        """Get single perjalanan dinas by ID"""
+        """Get single perjalanan dinas by ID with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM perjalanan_dinas WHERE id = ?", (pd_id,))
+            cursor.execute("""
+                SELECT pd.*,
+                    -- Pelaksana dari pegawai jika ada pelaksana_id
+                    COALESCE(pel.nama, pd.pelaksana_nama) as pelaksana_nama,
+                    COALESCE(pel.nip, pd.pelaksana_nip) as pelaksana_nip,
+                    COALESCE(pel.pangkat, pd.pelaksana_pangkat) as pelaksana_pangkat,
+                    COALESCE(pel.golongan, pd.pelaksana_golongan) as pelaksana_golongan,
+                    COALESCE(pel.jabatan, pd.pelaksana_jabatan) as pelaksana_jabatan,
+                    -- PPK dari pegawai jika ada ppk_id
+                    COALESCE(ppk.nama, pd.ppk_nama) as ppk_nama,
+                    COALESCE(ppk.nip, pd.ppk_nip) as ppk_nip,
+                    COALESCE(ppk.jabatan, pd.ppk_jabatan) as ppk_jabatan,
+                    -- Bendahara dari pegawai jika ada bendahara_id
+                    COALESCE(bend.nama, pd.bendahara_nama) as bendahara_nama,
+                    COALESCE(bend.nip, pd.bendahara_nip) as bendahara_nip
+                FROM perjalanan_dinas pd
+                LEFT JOIN pegawai pel ON pd.pelaksana_id = pel.id
+                LEFT JOIN pegawai ppk ON pd.ppk_id = ppk.id
+                LEFT JOIN pegawai bend ON pd.bendahara_id = bend.id
+                WHERE pd.id = ?
+            """, (pd_id,))
             row = cursor.fetchone()
             if row:
                 return dict(row)
             return None
 
     def get_all_perjalanan_dinas(self, tahun: int = None) -> List[Dict]:
-        """Get all perjalanan dinas"""
+        """Get all perjalanan dinas with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            sql = """
+                SELECT pd.*,
+                    COALESCE(pel.nama, pd.pelaksana_nama) as pelaksana_nama,
+                    COALESCE(pel.nip, pd.pelaksana_nip) as pelaksana_nip
+                FROM perjalanan_dinas pd
+                LEFT JOIN pegawai pel ON pd.pelaksana_id = pel.id
+            """
             if tahun:
-                cursor.execute("""
-                    SELECT * FROM perjalanan_dinas
-                    WHERE tahun_anggaran = ?
-                    ORDER BY created_at DESC
-                """, (tahun,))
+                sql += " WHERE pd.tahun_anggaran = ? ORDER BY pd.created_at DESC"
+                cursor.execute(sql, (tahun,))
             else:
-                cursor.execute("SELECT * FROM perjalanan_dinas ORDER BY created_at DESC")
+                sql += " ORDER BY pd.created_at DESC"
+                cursor.execute(sql)
             return [dict(row) for row in cursor.fetchall()]
 
     def delete_perjalanan_dinas(self, pd_id: int) -> bool:
@@ -2443,14 +2604,14 @@ class DatabaseManagerV4:
                     nomor_sk_kpa, tanggal_sk_kpa, perihal_sk_kpa,
                     tanggal_sk_tim, tanggal_mulai, tanggal_selesai, jangka_waktu,
                     sumber_dana, kode_akun, pagu_swakelola,
-                    pum_nama, pum_nip, pum_jabatan, uang_muka, tanggal_uang_muka,
+                    pum_id, pum_nama, pum_nip, pum_jabatan, uang_muka, tanggal_uang_muka,
                     total_realisasi, tanggal_rampung,
-                    ketua_nama, ketua_nip, ketua_jabatan,
-                    sekretaris_nama, sekretaris_nip, anggota_tim,
-                    ppk_nama, ppk_nip, ppk_jabatan,
-                    bendahara_nama, bendahara_nip,
+                    ketua_id, ketua_nama, ketua_nip, ketua_jabatan,
+                    sekretaris_id, sekretaris_nama, sekretaris_nip, anggota_tim,
+                    ppk_id, ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_id, bendahara_nama, bendahara_nip,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran', TAHUN_ANGGARAN),
                 data.get('nama_kegiatan'),
@@ -2470,6 +2631,7 @@ class DatabaseManagerV4:
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
                 data.get('pagu_swakelola', 0),
+                data.get('pum_id'),
                 data.get('pum_nama'),
                 data.get('pum_nip'),
                 data.get('pum_jabatan'),
@@ -2477,15 +2639,19 @@ class DatabaseManagerV4:
                 data.get('tanggal_uang_muka'),
                 data.get('total_realisasi', 0),
                 data.get('tanggal_rampung'),
+                data.get('ketua_id'),
                 data.get('ketua_nama'),
                 data.get('ketua_nip'),
                 data.get('ketua_jabatan'),
+                data.get('sekretaris_id'),
                 data.get('sekretaris_nama'),
                 data.get('sekretaris_nip'),
                 data.get('anggota_tim'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'draft')
@@ -2504,12 +2670,12 @@ class DatabaseManagerV4:
                     nomor_sk_kpa = ?, tanggal_sk_kpa = ?, perihal_sk_kpa = ?,
                     tanggal_sk_tim = ?, tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
                     sumber_dana = ?, kode_akun = ?, pagu_swakelola = ?,
-                    pum_nama = ?, pum_nip = ?, pum_jabatan = ?, uang_muka = ?, tanggal_uang_muka = ?,
+                    pum_id = ?, pum_nama = ?, pum_nip = ?, pum_jabatan = ?, uang_muka = ?, tanggal_uang_muka = ?,
                     total_realisasi = ?, tanggal_rampung = ?,
-                    ketua_nama = ?, ketua_nip = ?, ketua_jabatan = ?,
-                    sekretaris_nama = ?, sekretaris_nip = ?, anggota_tim = ?,
-                    ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
-                    bendahara_nama = ?, bendahara_nip = ?,
+                    ketua_id = ?, ketua_nama = ?, ketua_nip = ?, ketua_jabatan = ?,
+                    sekretaris_id = ?, sekretaris_nama = ?, sekretaris_nip = ?, anggota_tim = ?,
+                    ppk_id = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?,
                     status = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
@@ -2530,6 +2696,7 @@ class DatabaseManagerV4:
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
                 data.get('pagu_swakelola', 0),
+                data.get('pum_id'),
                 data.get('pum_nama'),
                 data.get('pum_nip'),
                 data.get('pum_jabatan'),
@@ -2537,15 +2704,19 @@ class DatabaseManagerV4:
                 data.get('tanggal_uang_muka'),
                 data.get('total_realisasi', 0),
                 data.get('tanggal_rampung'),
+                data.get('ketua_id'),
                 data.get('ketua_nama'),
                 data.get('ketua_nip'),
                 data.get('ketua_jabatan'),
+                data.get('sekretaris_id'),
                 data.get('sekretaris_nama'),
                 data.get('sekretaris_nip'),
                 data.get('anggota_tim'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'draft'),
@@ -2555,27 +2726,57 @@ class DatabaseManagerV4:
             return cursor.rowcount > 0
 
     def get_swakelola(self, sw_id: int) -> Optional[Dict]:
-        """Get single swakelola by ID"""
+        """Get single swakelola by ID with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM swakelola WHERE id = ?", (sw_id,))
+            cursor.execute("""
+                SELECT sw.*,
+                    -- PUM dari pegawai jika ada pum_id
+                    COALESCE(pum.nama, sw.pum_nama) as pum_nama,
+                    COALESCE(pum.nip, sw.pum_nip) as pum_nip,
+                    COALESCE(pum.jabatan, sw.pum_jabatan) as pum_jabatan,
+                    -- Ketua dari pegawai jika ada ketua_id
+                    COALESCE(ketua.nama, sw.ketua_nama) as ketua_nama,
+                    COALESCE(ketua.nip, sw.ketua_nip) as ketua_nip,
+                    COALESCE(ketua.jabatan, sw.ketua_jabatan) as ketua_jabatan,
+                    -- Sekretaris dari pegawai jika ada sekretaris_id
+                    COALESCE(sekr.nama, sw.sekretaris_nama) as sekretaris_nama,
+                    COALESCE(sekr.nip, sw.sekretaris_nip) as sekretaris_nip,
+                    -- PPK dari pegawai jika ada ppk_id
+                    COALESCE(ppk.nama, sw.ppk_nama) as ppk_nama,
+                    COALESCE(ppk.nip, sw.ppk_nip) as ppk_nip,
+                    COALESCE(ppk.jabatan, sw.ppk_jabatan) as ppk_jabatan,
+                    -- Bendahara dari pegawai jika ada bendahara_id
+                    COALESCE(bend.nama, sw.bendahara_nama) as bendahara_nama,
+                    COALESCE(bend.nip, sw.bendahara_nip) as bendahara_nip
+                FROM swakelola sw
+                LEFT JOIN pegawai pum ON sw.pum_id = pum.id
+                LEFT JOIN pegawai ketua ON sw.ketua_id = ketua.id
+                LEFT JOIN pegawai sekr ON sw.sekretaris_id = sekr.id
+                LEFT JOIN pegawai ppk ON sw.ppk_id = ppk.id
+                LEFT JOIN pegawai bend ON sw.bendahara_id = bend.id
+                WHERE sw.id = ?
+            """, (sw_id,))
             row = cursor.fetchone()
             if row:
                 return dict(row)
             return None
 
     def get_all_swakelola(self, tahun: int = None) -> List[Dict]:
-        """Get all swakelola activities"""
+        """Get all swakelola activities with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            sql = """
+                SELECT sw.*,
+                    COALESCE(ketua.nama, sw.ketua_nama) as ketua_nama
+                FROM swakelola sw
+                LEFT JOIN pegawai ketua ON sw.ketua_id = ketua.id
+            """
             if tahun:
-                cursor.execute("""
-                    SELECT * FROM swakelola
-                    WHERE tahun_anggaran = ?
-                    ORDER BY created_at DESC
-                """, (tahun,))
+                sql += " WHERE sw.tahun_anggaran = ?"
+                cursor.execute(sql + " ORDER BY sw.created_at DESC", (tahun,))
             else:
-                cursor.execute("SELECT * FROM swakelola ORDER BY created_at DESC")
+                cursor.execute(sql + " ORDER BY sw.created_at DESC")
             return [dict(row) for row in cursor.fetchall()]
 
     def delete_swakelola(self, sw_id: int) -> bool:
@@ -2600,9 +2801,10 @@ class DatabaseManagerV4:
                     nama_pekerjaan, nama_pjlp, nik, npwp, alamat, telepon, email,
                     no_rekening, nama_bank, tanggal_mulai, tanggal_selesai,
                     jangka_waktu, honor_bulanan, total_nilai_kontrak,
-                    sumber_dana, kode_akun, ppk_nama, ppk_nip, ppk_jabatan,
-                    bendahara_nama, bendahara_nip, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    sumber_dana, kode_akun,
+                    ppk_id, ppk_nama, ppk_nip, ppk_jabatan,
+                    bendahara_id, bendahara_nama, bendahara_nip, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran'),
                 data.get('nomor_kontrak'),
@@ -2623,9 +2825,11 @@ class DatabaseManagerV4:
                 data.get('total_nilai_kontrak', 0),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'aktif')
@@ -2644,8 +2848,9 @@ class DatabaseManagerV4:
                     alamat = ?, telepon = ?, email = ?, no_rekening = ?, nama_bank = ?,
                     tanggal_mulai = ?, tanggal_selesai = ?, jangka_waktu = ?,
                     honor_bulanan = ?, total_nilai_kontrak = ?, sumber_dana = ?,
-                    kode_akun = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
-                    bendahara_nama = ?, bendahara_nip = ?, status = ?,
+                    kode_akun = ?,
+                    ppk_id = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
+                    bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?, status = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
@@ -2668,9 +2873,11 @@ class DatabaseManagerV4:
                 data.get('total_nilai_kontrak', 0),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
                 data.get('ppk_jabatan'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('status', 'aktif'),
@@ -2680,10 +2887,21 @@ class DatabaseManagerV4:
             return cursor.rowcount > 0
 
     def get_pjlp(self, pjlp_id: int) -> Optional[Dict]:
-        """Get single PJLP by ID"""
+        """Get single PJLP by ID with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM pjlp WHERE id = ?", (pjlp_id,))
+            cursor.execute("""
+                SELECT p.*,
+                    COALESCE(ppk.nama, p.ppk_nama) as ppk_nama,
+                    COALESCE(ppk.nip, p.ppk_nip) as ppk_nip,
+                    COALESCE(ppk.jabatan, p.ppk_jabatan) as ppk_jabatan,
+                    COALESCE(bend.nama, p.bendahara_nama) as bendahara_nama,
+                    COALESCE(bend.nip, p.bendahara_nip) as bendahara_nip
+                FROM pjlp p
+                LEFT JOIN pegawai ppk ON p.ppk_id = ppk.id
+                LEFT JOIN pegawai bend ON p.bendahara_id = bend.id
+                WHERE p.id = ?
+            """, (pjlp_id,))
             row = cursor.fetchone()
             if row:
                 return dict(row)
@@ -2969,9 +3187,10 @@ class DatabaseManagerV4:
                     nomor_sk_kpa, tanggal_sk_kpa, nomor_spt, tanggal_spt,
                     nomor_kuitansi, tanggal_kuitansi, bulan, periode_mulai, periode_selesai,
                     sumber_dana, kode_akun, mak,
-                    kpa_nama, kpa_nip, ppk_nama, ppk_nip, bendahara_nama, bendahara_nip,
+                    kpa_id, kpa_nama, kpa_nip, ppk_id, ppk_nama, ppk_nip,
+                    bendahara_id, bendahara_nama, bendahara_nip,
                     total_bruto, total_pajak, total_netto, status, keterangan
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran'),
                 data.get('nama_kegiatan'),
@@ -2989,10 +3208,13 @@ class DatabaseManagerV4:
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
                 data.get('mak'),
+                data.get('kpa_id'),
                 data.get('kpa_nama'),
                 data.get('kpa_nip'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('total_bruto', 0),
@@ -3005,10 +3227,23 @@ class DatabaseManagerV4:
             return cursor.lastrowid
 
     def get_honorarium(self, hon_id: int) -> Optional[Dict]:
-        """Get honorarium by ID"""
+        """Get honorarium by ID with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM honorarium WHERE id = ?", (hon_id,))
+            cursor.execute("""
+                SELECT h.*,
+                    COALESCE(kpa.nama, h.kpa_nama) as kpa_nama,
+                    COALESCE(kpa.nip, h.kpa_nip) as kpa_nip,
+                    COALESCE(ppk.nama, h.ppk_nama) as ppk_nama,
+                    COALESCE(ppk.nip, h.ppk_nip) as ppk_nip,
+                    COALESCE(bend.nama, h.bendahara_nama) as bendahara_nama,
+                    COALESCE(bend.nip, h.bendahara_nip) as bendahara_nip
+                FROM honorarium h
+                LEFT JOIN pegawai kpa ON h.kpa_id = kpa.id
+                LEFT JOIN pegawai ppk ON h.ppk_id = ppk.id
+                LEFT JOIN pegawai bend ON h.bendahara_id = bend.id
+                WHERE h.id = ?
+            """, (hon_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -3039,8 +3274,9 @@ class DatabaseManagerV4:
                     nomor_kuitansi = ?, tanggal_kuitansi = ?,
                     bulan = ?, periode_mulai = ?, periode_selesai = ?,
                     sumber_dana = ?, kode_akun = ?, mak = ?,
-                    kpa_nama = ?, kpa_nip = ?, ppk_nama = ?, ppk_nip = ?,
-                    bendahara_nama = ?, bendahara_nip = ?,
+                    kpa_id = ?, kpa_nama = ?, kpa_nip = ?,
+                    ppk_id = ?, ppk_nama = ?, ppk_nip = ?,
+                    bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?,
                     total_bruto = ?, total_pajak = ?, total_netto = ?,
                     status = ?, keterangan = ?,
                     updated_at = CURRENT_TIMESTAMP
@@ -3061,10 +3297,13 @@ class DatabaseManagerV4:
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
                 data.get('mak'),
+                data.get('kpa_id'),
                 data.get('kpa_nama'),
                 data.get('kpa_nip'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('total_bruto', 0),
@@ -3184,10 +3423,11 @@ class DatabaseManagerV4:
                     nomor_sk_kpa, tanggal_sk_kpa, nomor_nota_dinas, tanggal_nota_dinas,
                     nomor_kuitansi, tanggal_kuitansi,
                     sumber_dana, kode_akun, mak,
-                    kpa_nama, kpa_nip, ppk_nama, ppk_nip, bendahara_nama, bendahara_nip,
+                    kpa_id, kpa_nama, kpa_nip, ppk_id, ppk_nama, ppk_nip,
+                    bendahara_id, bendahara_nama, bendahara_nip,
                     biaya_konsumsi, biaya_akomodasi, biaya_transportasi, biaya_lainnya, total_biaya,
                     status, keterangan
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran'),
                 data.get('nama_kegiatan'),
@@ -3207,10 +3447,13 @@ class DatabaseManagerV4:
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
                 data.get('mak'),
+                data.get('kpa_id'),
                 data.get('kpa_nama'),
                 data.get('kpa_nip'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('biaya_konsumsi', 0),
@@ -3225,10 +3468,23 @@ class DatabaseManagerV4:
             return cursor.lastrowid
 
     def get_jamuan_tamu(self, jt_id: int) -> Optional[Dict]:
-        """Get jamuan tamu by ID"""
+        """Get jamuan tamu by ID with pegawai data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM jamuan_tamu WHERE id = ?", (jt_id,))
+            cursor.execute("""
+                SELECT jt.*,
+                    COALESCE(kpa.nama, jt.kpa_nama) as kpa_nama,
+                    COALESCE(kpa.nip, jt.kpa_nip) as kpa_nip,
+                    COALESCE(ppk.nama, jt.ppk_nama) as ppk_nama,
+                    COALESCE(ppk.nip, jt.ppk_nip) as ppk_nip,
+                    COALESCE(bend.nama, jt.bendahara_nama) as bendahara_nama,
+                    COALESCE(bend.nip, jt.bendahara_nip) as bendahara_nip
+                FROM jamuan_tamu jt
+                LEFT JOIN pegawai kpa ON jt.kpa_id = kpa.id
+                LEFT JOIN pegawai ppk ON jt.ppk_id = ppk.id
+                LEFT JOIN pegawai bend ON jt.bendahara_id = bend.id
+                WHERE jt.id = ?
+            """, (jt_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -3260,8 +3516,9 @@ class DatabaseManagerV4:
                     nomor_nota_dinas = ?, tanggal_nota_dinas = ?,
                     nomor_kuitansi = ?, tanggal_kuitansi = ?,
                     sumber_dana = ?, kode_akun = ?, mak = ?,
-                    kpa_nama = ?, kpa_nip = ?, ppk_nama = ?, ppk_nip = ?,
-                    bendahara_nama = ?, bendahara_nip = ?,
+                    kpa_id = ?, kpa_nama = ?, kpa_nip = ?,
+                    ppk_id = ?, ppk_nama = ?, ppk_nip = ?,
+                    bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?,
                     biaya_konsumsi = ?, biaya_akomodasi = ?,
                     biaya_transportasi = ?, biaya_lainnya = ?, total_biaya = ?,
                     status = ?, keterangan = ?,
@@ -3285,10 +3542,13 @@ class DatabaseManagerV4:
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
                 data.get('mak'),
+                data.get('kpa_id'),
                 data.get('kpa_nama'),
                 data.get('kpa_nip'),
+                data.get('ppk_id'),
                 data.get('ppk_nama'),
                 data.get('ppk_nip'),
+                data.get('bendahara_id'),
                 data.get('bendahara_nama'),
                 data.get('bendahara_nip'),
                 data.get('biaya_konsumsi', 0),

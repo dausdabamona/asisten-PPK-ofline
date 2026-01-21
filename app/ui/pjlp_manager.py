@@ -235,35 +235,50 @@ class PJLPDialog(QDialog):
         tab_pejabat = QWidget()
         form2 = QVBoxLayout(tab_pejabat)
 
-        # PPK
+        # Get default pejabat from database
+        pejabat_default = self.db.get_satker_pejabat()
+
+        # PPK - Hybrid approach dengan ComboBox dan editable text
         ppk_group = QGroupBox("Pejabat Pembuat Komitmen (PPK)")
         ppk_form = QFormLayout()
 
+        self.cmb_ppk = QComboBox()
+        self.cmb_ppk.setEditable(True)
+        self._load_ppk_combo()
+        self.cmb_ppk.currentIndexChanged.connect(self._on_ppk_selected)
+        ppk_form.addRow("Pilih PPK:", self.cmb_ppk)
+
         self.txt_ppk_nama = QLineEdit()
-        self.txt_ppk_nama.setText(SATKER_DEFAULT.get('ppk_nama', ''))
+        self.txt_ppk_nama.setText(pejabat_default.get('ppk_nama', ''))
         ppk_form.addRow("Nama PPK:", self.txt_ppk_nama)
 
         self.txt_ppk_nip = QLineEdit()
-        self.txt_ppk_nip.setText(SATKER_DEFAULT.get('ppk_nip', ''))
+        self.txt_ppk_nip.setText(pejabat_default.get('ppk_nip', ''))
         ppk_form.addRow("NIP:", self.txt_ppk_nip)
 
         self.txt_ppk_jabatan = QLineEdit()
-        self.txt_ppk_jabatan.setText(SATKER_DEFAULT.get('ppk_jabatan', 'Pejabat Pembuat Komitmen'))
+        self.txt_ppk_jabatan.setText(pejabat_default.get('ppk_jabatan', 'Pejabat Pembuat Komitmen'))
         ppk_form.addRow("Jabatan:", self.txt_ppk_jabatan)
 
         ppk_group.setLayout(ppk_form)
         form2.addWidget(ppk_group)
 
-        # Bendahara
+        # Bendahara - Hybrid approach dengan ComboBox dan editable text
         bendahara_group = QGroupBox("Bendahara Pengeluaran")
         bendahara_form = QFormLayout()
 
+        self.cmb_bendahara = QComboBox()
+        self.cmb_bendahara.setEditable(True)
+        self._load_bendahara_combo()
+        self.cmb_bendahara.currentIndexChanged.connect(self._on_bendahara_selected)
+        bendahara_form.addRow("Pilih Bendahara:", self.cmb_bendahara)
+
         self.txt_bendahara_nama = QLineEdit()
-        self.txt_bendahara_nama.setText(SATKER_DEFAULT.get('bendahara_nama', ''))
+        self.txt_bendahara_nama.setText(pejabat_default.get('bendahara_nama', ''))
         bendahara_form.addRow("Nama:", self.txt_bendahara_nama)
 
         self.txt_bendahara_nip = QLineEdit()
-        self.txt_bendahara_nip.setText(SATKER_DEFAULT.get('bendahara_nip', ''))
+        self.txt_bendahara_nip.setText(pejabat_default.get('bendahara_nip', ''))
         bendahara_form.addRow("NIP:", self.txt_bendahara_nip)
 
         bendahara_group.setLayout(bendahara_form)
@@ -308,6 +323,62 @@ class PJLPDialog(QDialog):
         bulan = self.spn_jangka_waktu.value()
         self.spn_total_kontrak.setValue(honor * bulan)
 
+    def _load_ppk_combo(self):
+        """Load PPK pegawai into combo box"""
+        self.cmb_ppk.clear()
+        self.cmb_ppk.addItem("-- Pilih PPK --", None)
+        try:
+            pegawai_list = self.db.get_pegawai_by_role('ppk')
+            for p in pegawai_list:
+                nama = self._format_nama(p)
+                self.cmb_ppk.addItem(nama, p)
+        except Exception as e:
+            print(f"Error loading PPK: {e}")
+
+    def _load_bendahara_combo(self):
+        """Load Bendahara pegawai into combo box"""
+        self.cmb_bendahara.clear()
+        self.cmb_bendahara.addItem("-- Pilih Bendahara --", None)
+        try:
+            pegawai_list = self.db.get_pegawai_by_role('bendahara')
+            for p in pegawai_list:
+                nama = self._format_nama(p)
+                self.cmb_bendahara.addItem(nama, p)
+        except Exception as e:
+            print(f"Error loading Bendahara: {e}")
+
+    def _format_nama(self, p: dict) -> str:
+        """Format nama pegawai dengan gelar"""
+        nama = p.get('nama', '')
+        if p.get('gelar_depan'):
+            nama = f"{p['gelar_depan']} {nama}"
+        if p.get('gelar_belakang'):
+            nama = f"{nama}, {p['gelar_belakang']}"
+        return nama
+
+    def _on_ppk_selected(self, index):
+        data = self.cmb_ppk.currentData()
+        if data and isinstance(data, dict):
+            self.txt_ppk_nama.setText(self._format_nama(data))
+            self.txt_ppk_nip.setText(data.get('nip', '') or '')
+            self.txt_ppk_jabatan.setText(data.get('jabatan', '') or 'Pejabat Pembuat Komitmen')
+
+    def _on_bendahara_selected(self, index):
+        data = self.cmb_bendahara.currentData()
+        if data and isinstance(data, dict):
+            self.txt_bendahara_nama.setText(self._format_nama(data))
+            self.txt_bendahara_nip.setText(data.get('nip', '') or '')
+
+    def _set_combo_by_id(self, combo: QComboBox, pegawai_id: int):
+        """Helper to set ComboBox selection by pegawai ID"""
+        if not pegawai_id:
+            return
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and isinstance(data, dict) and data.get('id') == pegawai_id:
+                combo.setCurrentIndex(i)
+                return
+
     def load_data(self):
         """Load existing PJLP data"""
         d = self.pjlp_data
@@ -340,9 +411,15 @@ class PJLPDialog(QDialog):
         self.spn_honor_bulanan.setValue(d.get('honor_bulanan', 0))
         self.spn_total_kontrak.setValue(d.get('total_nilai_kontrak', 0))
 
+        # Set ComboBox first if _id exists, then text fields
+        if d.get('ppk_id'):
+            self._set_combo_by_id(self.cmb_ppk, d['ppk_id'])
         self.txt_ppk_nama.setText(d.get('ppk_nama', ''))
         self.txt_ppk_nip.setText(d.get('ppk_nip', ''))
         self.txt_ppk_jabatan.setText(d.get('ppk_jabatan', ''))
+
+        if d.get('bendahara_id'):
+            self._set_combo_by_id(self.cmb_bendahara, d['bendahara_id'])
         self.txt_bendahara_nama.setText(d.get('bendahara_nama', ''))
         self.txt_bendahara_nip.setText(d.get('bendahara_nip', ''))
 
@@ -357,6 +434,10 @@ class PJLPDialog(QDialog):
         if not self.txt_nama_pekerjaan.text().strip():
             QMessageBox.warning(self, "Peringatan", "Nama Pekerjaan harus diisi!")
             return
+
+        # Get pegawai data from ComboBox selections
+        ppk_data = self.cmb_ppk.currentData()
+        bendahara_data = self.cmb_bendahara.currentData()
 
         data = {
             'tahun_anggaran': self.spn_tahun.value(),
@@ -378,9 +459,12 @@ class PJLPDialog(QDialog):
             'total_nilai_kontrak': self.spn_total_kontrak.value(),
             'sumber_dana': self.cmb_sumber_dana.currentText(),
             'kode_akun': self.txt_kode_akun.text(),
+            # Pejabat dengan foreign key _id
+            'ppk_id': ppk_data.get('id') if ppk_data and isinstance(ppk_data, dict) else None,
             'ppk_nama': self.txt_ppk_nama.text(),
             'ppk_nip': self.txt_ppk_nip.text(),
             'ppk_jabatan': self.txt_ppk_jabatan.text(),
+            'bendahara_id': bendahara_data.get('id') if bendahara_data and isinstance(bendahara_data, dict) else None,
             'bendahara_nama': self.txt_bendahara_nama.text(),
             'bendahara_nip': self.txt_bendahara_nip.text(),
             'status': self.cmb_status.currentText()

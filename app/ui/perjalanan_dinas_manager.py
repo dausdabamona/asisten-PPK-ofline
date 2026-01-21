@@ -496,6 +496,9 @@ class PerjalananDinasDialog(QDialog):
         self.txt_nomor_surat_tugas.setText(d.get('nomor_surat_tugas', '') or '')
         self.txt_nomor_sppd.setText(d.get('nomor_sppd', '') or '')
 
+        # Set pelaksana combo berdasarkan pelaksana_id jika ada
+        if d.get('pelaksana_id'):
+            self._set_combo_by_id(self.cmb_pelaksana, d['pelaksana_id'])
         self.txt_pelaksana_nama.setText(d.get('pelaksana_nama', '') or '')
         self.txt_pelaksana_nip.setText(d.get('pelaksana_nip', '') or '')
         self.txt_pelaksana_pangkat.setText(d.get('pelaksana_pangkat', '') or '')
@@ -524,21 +527,43 @@ class PerjalananDinasDialog(QDialog):
         self.spn_biaya_lain.setValue(d.get('biaya_lain_lain', 0) or 0)
         self.spn_uang_muka.setValue(d.get('uang_muka', 0) or 0)
 
+        # Set PPK combo berdasarkan ppk_id jika ada
+        if d.get('ppk_id'):
+            self._set_combo_by_id(self.cmb_ppk, d['ppk_id'])
         self.txt_ppk_nama.setText(d.get('ppk_nama', '') or '')
         self.txt_ppk_nip.setText(d.get('ppk_nip', '') or '')
+
+        # Set Bendahara combo berdasarkan bendahara_id jika ada
+        if d.get('bendahara_id'):
+            self._set_combo_by_id(self.cmb_bendahara, d['bendahara_id'])
         self.txt_bendahara_nama.setText(d.get('bendahara_nama', '') or '')
         self.txt_bendahara_nip.setText(d.get('bendahara_nip', '') or '')
 
         self.update_total_biaya()
 
+    def _set_combo_by_id(self, combo: QComboBox, pegawai_id: int):
+        """Set combo selection by pegawai ID"""
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and isinstance(data, dict) and data.get('id') == pegawai_id:
+                combo.setCurrentIndex(i)
+                return
+
     def get_data(self) -> dict:
         """Get form data"""
+        # Get pegawai IDs from ComboBox selections
+        pelaksana_data = self.cmb_pelaksana.currentData()
+        ppk_data = self.cmb_ppk.currentData()
+        bendahara_data = self.cmb_bendahara.currentData()
+
         return {
             'nama_kegiatan': self.txt_nama_kegiatan.text().strip(),
             'maksud_perjalanan': self.txt_maksud.toPlainText().strip(),
             'nomor_surat_tugas': self.txt_nomor_surat_tugas.text().strip(),
             'nomor_sppd': self.txt_nomor_sppd.text().strip(),
 
+            # Pelaksana - simpan ID dan data text
+            'pelaksana_id': pelaksana_data.get('id') if pelaksana_data else None,
             'pelaksana_nama': self.txt_pelaksana_nama.text().strip(),
             'pelaksana_nip': self.txt_pelaksana_nip.text().strip(),
             'pelaksana_pangkat': self.txt_pelaksana_pangkat.text().strip(),
@@ -565,9 +590,12 @@ class PerjalananDinasDialog(QDialog):
             'biaya_lain_lain': self.spn_biaya_lain.value(),
             'uang_muka': self.spn_uang_muka.value(),
 
+            # Pejabat - simpan ID dan data text
+            'ppk_id': ppk_data.get('id') if ppk_data else None,
             'ppk_nama': self.txt_ppk_nama.text().strip(),
             'ppk_nip': self.txt_ppk_nip.text().strip(),
             'ppk_jabatan': self.txt_ppk_jabatan.text().strip(),
+            'bendahara_id': bendahara_data.get('id') if bendahara_data else None,
             'bendahara_nama': self.txt_bendahara_nama.text().strip(),
             'bendahara_nip': self.txt_bendahara_nip.text().strip(),
 

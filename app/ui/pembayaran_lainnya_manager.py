@@ -1302,9 +1302,22 @@ class GenerateJTDocumentDialog(QDialog):
         info_group.setLayout(info_form)
         layout.addWidget(info_group)
 
-        # Document checkboxes
-        doc_group = QGroupBox("Pilih Dokumen yang akan di-generate")
+        # Document checkboxes - sesuai Kepmen KP 56/2025
+        doc_group = QGroupBox("Pilih Dokumen (Kepmen KP 56/2025)")
         doc_layout = QVBoxLayout()
+
+        # Info label
+        info_label = QLabel("Checklist kelengkapan dokumen Jamuan Tamu:")
+        info_label.setStyleSheet("font-style: italic; color: #7f8c8d;")
+        doc_layout.addWidget(info_label)
+
+        self.chk_nota_dinas = QCheckBox("📝 Nota Dinas Permohonan")
+        self.chk_nota_dinas.setChecked(True)
+        doc_layout.addWidget(self.chk_nota_dinas)
+
+        self.chk_sk_kpa = QCheckBox("📄 SK KPA Jamuan Tamu")
+        self.chk_sk_kpa.setChecked(True)
+        doc_layout.addWidget(self.chk_sk_kpa)
 
         self.chk_kuitansi = QCheckBox("💰 Kuitansi Jamuan Tamu")
         self.chk_kuitansi.setChecked(True)
@@ -1313,6 +1326,27 @@ class GenerateJTDocumentDialog(QDialog):
         self.chk_daftar_hadir = QCheckBox("📋 Daftar Hadir")
         self.chk_daftar_hadir.setChecked(True)
         doc_layout.addWidget(self.chk_daftar_hadir)
+
+        self.chk_laporan = QCheckBox("📊 Laporan Kegiatan Jamuan Tamu")
+        self.chk_laporan.setChecked(True)
+        doc_layout.addWidget(self.chk_laporan)
+
+        # Separator
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("color: #bdc3c7;")
+        doc_layout.addWidget(line)
+
+        # Catatan dokumen pendukung
+        note_label = QLabel("Dokumen pendukung (disiapkan manual):")
+        note_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
+        doc_layout.addWidget(note_label)
+
+        note_items = QLabel("• Faktur/Nota/Bon dari restoran/katering\n"
+                           "• Dokumentasi foto kegiatan\n"
+                           "• Undangan (jika ada)")
+        note_items.setStyleSheet("color: #7f8c8d; margin-left: 10px;")
+        doc_layout.addWidget(note_items)
 
         doc_group.setLayout(doc_layout)
         layout.addWidget(doc_group)
@@ -1368,12 +1402,18 @@ class GenerateJTDocumentDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Gagal membuat folder output:\n{str(e)}")
             return
 
-        # Generate each selected document
+        # Generate each selected document - sesuai Kepmen KP 56/2025
         docs_to_generate = []
+        if self.chk_nota_dinas.isChecked():
+            docs_to_generate.append(('nota_dinas_jamuan_tamu', 'Nota_Dinas_Permohonan', 'word'))
+        if self.chk_sk_kpa.isChecked():
+            docs_to_generate.append(('sk_kpa_jamuan_tamu', 'SK_KPA_Jamuan_Tamu', 'word'))
         if self.chk_kuitansi.isChecked():
             docs_to_generate.append(('kuitansi_jamuan_tamu', 'Kuitansi_Jamuan_Tamu', 'word'))
         if self.chk_daftar_hadir.isChecked():
             docs_to_generate.append(('daftar_hadir_jamuan_tamu', 'Daftar_Hadir', 'word'))
+        if self.chk_laporan.isChecked():
+            docs_to_generate.append(('laporan_jamuan_tamu', 'Laporan_Kegiatan', 'word'))
 
         if not docs_to_generate:
             QMessageBox.warning(self, "Peringatan", "Pilih minimal satu dokumen untuk di-generate!")
@@ -1446,6 +1486,8 @@ class GenerateJTDocumentDialog(QDialog):
             'satker_alamat': satker.get('alamat', ''),
             'satker_kota': satker.get('kota', ''),
             'satker_provinsi': satker.get('provinsi', ''),
+            'kementerian': satker.get('kementerian', ''),
+            'eselon1': satker.get('eselon1', ''),
             'tahun_anggaran': str(TAHUN_ANGGARAN),
 
             # Kegiatan

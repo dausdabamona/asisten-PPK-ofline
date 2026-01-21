@@ -1018,6 +1018,9 @@ class GenerateSWDocumentDialog(QDialog):
         self.chk_bast = QCheckBox("📄 BAST Swakelola")
         doc_layout.addWidget(self.chk_bast)
 
+        self.chk_daftar_hadir = QCheckBox("📋 Daftar Hadir")
+        doc_layout.addWidget(self.chk_daftar_hadir)
+
         doc_group.setLayout(doc_layout)
         layout.addWidget(doc_group)
 
@@ -1089,6 +1092,8 @@ class GenerateSWDocumentDialog(QDialog):
             docs_to_generate.append(('kuitansi_rampung', 'Kuitansi_Rampung', 'word'))
         if self.chk_bast.isChecked():
             docs_to_generate.append(('bast_swakelola', 'BAST_Swakelola', 'word'))
+        if self.chk_daftar_hadir.isChecked():
+            docs_to_generate.append(('daftar_hadir_swakelola', 'Daftar_Hadir', 'word'))
 
         if not docs_to_generate:
             QMessageBox.warning(self, "Peringatan", "Pilih minimal satu dokumen untuk di-generate!")
@@ -1205,6 +1210,9 @@ class GenerateSWDocumentDialog(QDialog):
             'tanggal_mulai': str(d.get('tanggal_mulai', '')),
             'tanggal_selesai': str(d.get('tanggal_selesai', '')),
             'jangka_waktu': str(d.get('jangka_waktu', 30)),
+            'waktu_mulai': d.get('waktu_mulai', '08:00'),
+            'waktu_selesai': d.get('waktu_selesai', 'selesai'),
+            'tempat_kegiatan': d.get('tempat_kegiatan', '') or satker.get('nama', ''),
 
             # Anggaran
             'pagu_swakelola': fmt_rp(d.get('pagu_swakelola', 0) or 0),

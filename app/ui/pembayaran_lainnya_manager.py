@@ -1275,6 +1275,231 @@ class ImportFADialog(QDialog):
 
 
 # ============================================================================
+# GENERATE JAMUAN TAMU DOCUMENT DIALOG
+# ============================================================================
+
+class GenerateJTDocumentDialog(QDialog):
+    """Dialog for generating Jamuan Tamu documents"""
+
+    def __init__(self, jt_data: dict, parent=None):
+        super().__init__(parent)
+        self.jt_data = jt_data
+        self.db = get_db_manager_v4()
+
+        self.setWindowTitle("Generate Dokumen Jamuan Tamu")
+        self.setMinimumWidth(450)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Info
+        info_group = QGroupBox("Informasi Jamuan Tamu")
+        info_form = QFormLayout()
+        info_form.addRow("Kegiatan:", QLabel(self.jt_data.get('nama_kegiatan', '-')))
+        info_form.addRow("Tanggal:", QLabel(str(self.jt_data.get('tanggal_kegiatan', '-'))))
+        info_form.addRow("Tamu:", QLabel(self.jt_data.get('nama_tamu', '-')))
+        info_group.setLayout(info_form)
+        layout.addWidget(info_group)
+
+        # Document checkboxes
+        doc_group = QGroupBox("Pilih Dokumen yang akan di-generate")
+        doc_layout = QVBoxLayout()
+
+        self.chk_kuitansi = QCheckBox("💰 Kuitansi Jamuan Tamu")
+        self.chk_kuitansi.setChecked(True)
+        doc_layout.addWidget(self.chk_kuitansi)
+
+        self.chk_daftar_hadir = QCheckBox("📋 Daftar Hadir")
+        self.chk_daftar_hadir.setChecked(True)
+        doc_layout.addWidget(self.chk_daftar_hadir)
+
+        doc_group.setLayout(doc_layout)
+        layout.addWidget(doc_group)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+
+        btn_generate = QPushButton("🖨️ Generate Dokumen")
+        btn_generate.setStyleSheet("background-color: #27ae60; color: white; padding: 10px 20px;")
+        btn_generate.clicked.connect(self.generate)
+        btn_layout.addWidget(btn_generate)
+
+        btn_cancel = QPushButton("Batal")
+        btn_cancel.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancel)
+
+        layout.addLayout(btn_layout)
+
+    def generate(self):
+        """Generate selected documents"""
+        import os
+        import traceback
+        from app.core.config import WORD_TEMPLATES_DIR, OUTPUT_DIR, TAHUN_ANGGARAN
+
+        generated = []
+        errors = []
+
+        try:
+            from app.templates.engine import get_template_engine
+            engine = get_template_engine()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal load template engine:\n{str(e)}\n\n{traceback.format_exc()}")
+            return
+
+        # Prepare placeholders
+        try:
+            placeholders = self._prepare_placeholders()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal menyiapkan data:\n{str(e)}\n\n{traceback.format_exc()}")
+            return
+
+        # Output folder
+        try:
+            output_folder = os.path.join(
+                OUTPUT_DIR,
+                str(TAHUN_ANGGARAN),
+                "Jamuan_Tamu",
+                f"JT_{self.jt_data['id']}_{self.jt_data.get('nama_kegiatan', 'unknown')[:20]}"
+            )
+            os.makedirs(output_folder, exist_ok=True)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal membuat folder output:\n{str(e)}")
+            return
+
+        # Generate each selected document
+        docs_to_generate = []
+        if self.chk_kuitansi.isChecked():
+            docs_to_generate.append(('kuitansi_jamuan_tamu', 'Kuitansi_Jamuan_Tamu', 'word'))
+        if self.chk_daftar_hadir.isChecked():
+            docs_to_generate.append(('daftar_hadir_jamuan_tamu', 'Daftar_Hadir', 'word'))
+
+        if not docs_to_generate:
+            QMessageBox.warning(self, "Peringatan", "Pilih minimal satu dokumen untuk di-generate!")
+            return
+
+        for template_name, output_name, doc_type in docs_to_generate:
+            try:
+                template_path = os.path.join(WORD_TEMPLATES_DIR, f"{template_name}.docx")
+                output_path = os.path.join(output_folder, f"{output_name}.docx")
+
+                # Check if template exists
+                if not os.path.exists(template_path):
+                    errors.append(f"{output_name}: Template tidak ditemukan di {template_path}")
+                    continue
+
+                engine.merge_word(
+                    template_path=template_path,
+                    data=placeholders,
+                    output_path=output_path
+                )
+                generated.append(output_name)
+            except Exception as e:
+                errors.append(f"{output_name}: {str(e)}\n{traceback.format_exc()}")
+
+        # Show result
+        if generated:
+            msg = f"Berhasil generate {len(generated)} dokumen:\n"
+            msg += "\n".join([f"✅ {d}" for d in generated])
+            if errors:
+                msg += f"\n\n⚠️ Error:\n" + "\n".join(errors)
+            msg += f"\n\n📁 Output: {output_folder}"
+
+            QMessageBox.information(self, "Generate Selesai", msg)
+
+            # Open folder
+            import sys
+            if sys.platform == 'win32':
+                os.startfile(output_folder)
+            elif sys.platform == 'darwin':
+                os.system(f'open "{output_folder}"')
+            else:
+                os.system(f'xdg-open "{output_folder}"')
+
+            self.accept()
+        else:
+            error_msg = "Tidak ada dokumen yang berhasil di-generate."
+            if errors:
+                error_msg += "\n\n" + "\n".join(errors)
+            QMessageBox.warning(self, "Error", error_msg)
+
+    def _prepare_placeholders(self) -> dict:
+        """Prepare placeholders from jamuan tamu data"""
+        from app.core.config import TAHUN_ANGGARAN
+        from app.templates.engine import terbilang
+
+        d = self.jt_data
+
+        # Format currency
+        def fmt_rp(value):
+            return f"Rp {value:,.0f}".replace(',', '.')
+
+        # Get satker data from database
+        satker = self.db.get_satker()
+        pejabat = self.db.get_satker_pejabat()
+
+        return {
+            # Satker
+            'satker_kode': satker.get('kode', ''),
+            'satker_nama': satker.get('nama', ''),
+            'satker_alamat': satker.get('alamat', ''),
+            'satker_kota': satker.get('kota', ''),
+            'satker_provinsi': satker.get('provinsi', ''),
+            'tahun_anggaran': str(TAHUN_ANGGARAN),
+
+            # Kegiatan
+            'nama_kegiatan': d.get('nama_kegiatan', ''),
+            'tanggal_kegiatan': str(d.get('tanggal_kegiatan', '')),
+            'tempat_kegiatan': d.get('tempat', ''),
+            'waktu_mulai': d.get('waktu_mulai', '08:00'),
+            'kategori': d.get('kategori', ''),
+
+            # Tamu
+            'nama_tamu': d.get('nama_tamu', ''),
+            'instansi_tamu': d.get('instansi_tamu', ''),
+            'jabatan_tamu': d.get('jabatan_tamu', ''),
+            'jumlah_tamu': str(d.get('jumlah_tamu', 1)),
+
+            # Dokumen
+            'nomor_sk_kpa': d.get('nomor_sk_kpa', ''),
+            'tanggal_sk_kpa': str(d.get('tanggal_sk_kpa', '')),
+            'nomor_nd': d.get('nomor_nd', ''),
+            'tanggal_nd': str(d.get('tanggal_nd', '')),
+            'nomor_kuitansi': d.get('nomor_kuitansi', ''),
+            'tanggal_kuitansi': str(d.get('tanggal_kuitansi', '')),
+
+            # Sumber Dana
+            'sumber_dana': d.get('sumber_dana', 'DIPA'),
+            'kode_akun': d.get('kode_akun', ''),
+            'mak': d.get('mak', ''),
+
+            # Biaya
+            'biaya_konsumsi': fmt_rp(d.get('biaya_konsumsi', 0) or 0),
+            'biaya_akomodasi': fmt_rp(d.get('biaya_akomodasi', 0) or 0),
+            'biaya_transportasi': fmt_rp(d.get('biaya_transportasi', 0) or 0),
+            'biaya_lainnya': fmt_rp(d.get('biaya_lainnya', 0) or 0),
+            'total_biaya': fmt_rp(d.get('total_biaya', 0) or 0),
+            'total_biaya_terbilang': terbilang(d.get('total_biaya', 0) or 0),
+
+            # Pejabat
+            'kpa_nama': pejabat.get('kpa_nama', ''),
+            'kpa_nip': pejabat.get('kpa_nip', ''),
+            'ppk_nama': d.get('ppk_nama', '') or pejabat.get('ppk_nama', ''),
+            'ppk_nip': d.get('ppk_nip', '') or pejabat.get('ppk_nip', ''),
+            'ppk_jabatan': 'Pejabat Pembuat Komitmen',
+            'bendahara_nama': d.get('bendahara_nama', '') or pejabat.get('bendahara_nama', ''),
+            'bendahara_nip': d.get('bendahara_nip', '') or pejabat.get('bendahara_nip', ''),
+
+            # Penanggung Jawab (bisa diisi dari data atau default)
+            'pj_nama': d.get('pj_nama', '') or pejabat.get('ppk_nama', ''),
+            'pj_nip': d.get('pj_nip', '') or pejabat.get('ppk_nip', ''),
+
+            'keterangan': d.get('keterangan', ''),
+        }
+
+
+# ============================================================================
 # PEMBAYARAN LAINNYA MANAGER (Main Widget)
 # ============================================================================
 
@@ -1650,6 +1875,11 @@ class PembayaranLainnyaManager(QWidget):
             btn_del.clicked.connect(lambda checked, r=row: self.delete_jamuan_tamu(r))
             btn_layout.addWidget(btn_del)
 
+            btn_gen = QPushButton("Cetak")
+            btn_gen.setStyleSheet("background: #27ae60; color: white; padding: 2px 8px;")
+            btn_gen.clicked.connect(lambda checked, r=row: self.generate_jamuan_tamu(r))
+            btn_layout.addWidget(btn_gen)
+
             self.tbl_jt.setCellWidget(row, 7, btn_widget)
 
     def add_jamuan_tamu(self):
@@ -1673,6 +1903,14 @@ class PembayaranLainnyaManager(QWidget):
         if reply == QMessageBox.Yes:
             if self.db.delete_jamuan_tamu(jt_id):
                 self.refresh_jamuan_tamu()
+
+    def generate_jamuan_tamu(self, row):
+        """Generate documents for selected Jamuan Tamu"""
+        jt_id = int(self.tbl_jt.item(row, 0).text())
+        jt_data = self.db.get_jamuan_tamu(jt_id)
+        if jt_data:
+            dialog = GenerateJTDocumentDialog(jt_data, parent=self)
+            dialog.exec()
 
     # =========================================================================
     # HONORARIUM PENGELOLA KEUANGAN

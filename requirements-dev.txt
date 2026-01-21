@@ -1,0 +1,8 @@
+# PPK Document Factory - Development Dependencies
+# Install dengan: pip install -r requirements-dev.txt
+
+# Runtime dependencies
+-r requirements.txt
+
+# Build tools
+pyinstaller>=5.0

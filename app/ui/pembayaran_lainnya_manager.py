@@ -1311,14 +1311,6 @@ class GenerateJTDocumentDialog(QDialog):
         info_label.setStyleSheet("font-style: italic; color: #7f8c8d;")
         doc_layout.addWidget(info_label)
 
-        self.chk_nota_dinas = QCheckBox("📝 Nota Dinas Permohonan")
-        self.chk_nota_dinas.setChecked(True)
-        doc_layout.addWidget(self.chk_nota_dinas)
-
-        self.chk_sk_kpa = QCheckBox("📄 SK KPA Jamuan Tamu")
-        self.chk_sk_kpa.setChecked(True)
-        doc_layout.addWidget(self.chk_sk_kpa)
-
         self.chk_kuitansi = QCheckBox("💰 Kuitansi Jamuan Tamu")
         self.chk_kuitansi.setChecked(True)
         doc_layout.addWidget(self.chk_kuitansi)
@@ -1343,8 +1335,8 @@ class GenerateJTDocumentDialog(QDialog):
         doc_layout.addWidget(note_label)
 
         note_items = QLabel("• Faktur/Nota/Bon dari restoran/katering\n"
-                           "• Dokumentasi foto kegiatan\n"
-                           "• Undangan (jika ada)")
+                           "• Foto tagging menu makanan\n"
+                           "• Foto tagging jumlah peserta")
         note_items.setStyleSheet("color: #7f8c8d; margin-left: 10px;")
         doc_layout.addWidget(note_items)
 
@@ -1404,10 +1396,6 @@ class GenerateJTDocumentDialog(QDialog):
 
         # Generate each selected document - sesuai Kepmen KP 56/2025
         docs_to_generate = []
-        if self.chk_nota_dinas.isChecked():
-            docs_to_generate.append(('nota_dinas_jamuan_tamu', 'Nota_Dinas_Permohonan', 'word'))
-        if self.chk_sk_kpa.isChecked():
-            docs_to_generate.append(('sk_kpa_jamuan_tamu', 'SK_KPA_Jamuan_Tamu', 'word'))
         if self.chk_kuitansi.isChecked():
             docs_to_generate.append(('kuitansi_jamuan_tamu', 'Kuitansi_Jamuan_Tamu', 'word'))
         if self.chk_daftar_hadir.isChecked():

@@ -1878,8 +1878,9 @@ class DashboardWindow(QMainWindow):
             dialog = SurveyTokoManager(self.current_paket_id, self)
             dialog.data_changed.connect(lambda: self.load_paket_detail(self.current_paket_id))
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def open_checklist_spj(self):
         """Open Checklist SPJ / Kelengkapan Dokumen Manager"""
@@ -1891,8 +1892,9 @@ class DashboardWindow(QMainWindow):
             from app.ui.checklist_spj_manager import ChecklistDialog
             dialog = ChecklistDialog(self.current_paket_id, self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def open_foto_dokumentasi(self, jenis: str = 'BAHP'):
         """Open Foto Dokumentasi Manager untuk BAHP/BAST"""
@@ -1904,8 +1906,9 @@ class DashboardWindow(QMainWindow):
             from app.ui.foto_dokumentasi_manager import FotoDokumentasiDialog
             dialog = FotoDokumentasiDialog(self.current_paket_id, jenis, self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def open_paket_folder(self):
         if not self.current_paket_id:
@@ -1966,8 +1969,9 @@ class DashboardWindow(QMainWindow):
             dialog = PegawaiManager(self)
             dialog.pegawai_changed.connect(self.load_paket_list)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
     
     def open_penyedia_manager(self):
         """Open Master Data Penyedia"""
@@ -1976,8 +1980,9 @@ class DashboardWindow(QMainWindow):
             dialog = PenyediaManager(self)
             dialog.penyedia_changed.connect(self.load_paket_list)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def open_satker_manager(self):
         """Open Master Data Satker"""
@@ -1985,8 +1990,9 @@ class DashboardWindow(QMainWindow):
             from .satker_manager import SatkerManager
             dialog = SatkerManager(self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
     
     def import_pegawai_csv(self):
         """Import pegawai from CSV file"""
@@ -1995,8 +2001,9 @@ class DashboardWindow(QMainWindow):
             dialog = PegawaiManager(self)
             dialog.import_csv()
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
     
     def open_paket_pejabat(self):
         """Open Paket Pejabat Manager"""
@@ -2009,8 +2016,9 @@ class DashboardWindow(QMainWindow):
             dialog = PaketPejabatManager(self.current_paket_id, self)
             dialog.pejabat_changed.connect(lambda: self.load_paket_detail(self.current_paket_id))
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
     
     def open_harga_lifecycle(self):
         """Open Harga Lifecycle Manager"""
@@ -2023,8 +2031,9 @@ class DashboardWindow(QMainWindow):
             dialog = HargaLifecycleManager(self.current_paket_id, self)
             dialog.data_changed.connect(lambda: self.load_paket_detail(self.current_paket_id))
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
     
     def open_master_data(self):
         """Open Master Data (legacy - redirect to pegawai)"""
@@ -2103,8 +2112,9 @@ class DashboardWindow(QMainWindow):
             from .perjalanan_dinas_manager import PerjalananDinasDialog
             dialog = PerjalananDinasDialog(parent=self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def list_perjalanan_dinas(self):
         """List all Perjalanan Dinas"""
@@ -2112,8 +2122,9 @@ class DashboardWindow(QMainWindow):
             from .perjalanan_dinas_manager import PerjalananDinasManager
             dialog = PerjalananDinasManager(self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def generate_pd_doc(self, doc_type: str):
         """Generate Perjalanan Dinas document"""
@@ -2122,8 +2133,9 @@ class DashboardWindow(QMainWindow):
             from .perjalanan_dinas_manager import PerjalananDinasManager
             dialog = PerjalananDinasManager(self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def create_swakelola(self):
         """Create new Swakelola activity"""
@@ -2131,8 +2143,9 @@ class DashboardWindow(QMainWindow):
             from .swakelola_manager import SwakelolaDialog
             dialog = SwakelolaDialog(parent=self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def list_swakelola(self):
         """List all Swakelola activities"""
@@ -2140,8 +2153,9 @@ class DashboardWindow(QMainWindow):
             from .swakelola_manager import SwakelolaManager
             dialog = SwakelolaManager(self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def generate_sw_doc(self, doc_type: str):
         """Generate Swakelola document"""
@@ -2150,8 +2164,9 @@ class DashboardWindow(QMainWindow):
             from .swakelola_manager import SwakelolaManager
             dialog = SwakelolaManager(self)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def create_pjlp(self):
         """Create new PJLP contract"""
@@ -2160,8 +2175,9 @@ class DashboardWindow(QMainWindow):
             dialog = PJLPDialog(parent=self)
             if dialog.exec() == QDialog.Accepted:
                 QMessageBox.information(self, "Sukses", "Kontrak PJLP berhasil dibuat!")
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def list_pjlp(self):
         """List all PJLP contracts"""
@@ -2174,8 +2190,9 @@ class DashboardWindow(QMainWindow):
             manager = PJLPManager(dialog)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def pembayaran_pjlp(self):
         """Open PJLP payment tab"""
@@ -2189,8 +2206,9 @@ class DashboardWindow(QMainWindow):
             manager.tabs.setCurrentIndex(1)  # Switch to Monitoring Pembayaran tab
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def rekap_pjlp(self):
         """Open PJLP monthly recap tab"""
@@ -2204,8 +2222,9 @@ class DashboardWindow(QMainWindow):
             manager.tabs.setCurrentIndex(2)  # Switch to Rekap Bulanan tab
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def manage_sk_kpa(self):
         """Manage SK KPA"""
@@ -2219,8 +2238,9 @@ class DashboardWindow(QMainWindow):
             manager.tabs.setCurrentIndex(0)  # SK KPA tab
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def manage_honorarium(self, kategori=None):
         """Manage Honorarium"""
@@ -2238,8 +2258,9 @@ class DashboardWindow(QMainWindow):
                     manager.cmb_hon_kategori.setCurrentIndex(idx)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def manage_jamuan_tamu(self, kategori=None):
         """Manage Jamuan Tamu"""
@@ -2257,8 +2278,9 @@ class DashboardWindow(QMainWindow):
                     manager.cmb_jt_kategori.setCurrentIndex(idx)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Gagal membuka Jamuan Tamu:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def manage_pembayaran_lainnya(self):
         """Manage all other payments"""
@@ -2271,8 +2293,9 @@ class DashboardWindow(QMainWindow):
             manager = PembayaranLainnyaManager(dialog)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Gagal membuka Pembayaran Lainnya:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def manage_fa_detail(self):
         """Manage FA Detail / Pagu Anggaran"""
@@ -2285,8 +2308,9 @@ class DashboardWindow(QMainWindow):
             manager = FADetailManager(dialog)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Gagal membuka FA Detail:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def import_fa_excel(self):
         """Import pagu anggaran from Excel file"""
@@ -2301,8 +2325,9 @@ class DashboardWindow(QMainWindow):
             # Trigger import after dialog opens
             QTimer.singleShot(100, manager.import_excel)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def rekap_fa_akun(self):
         """Show FA Detail rekap per akun"""
@@ -2317,8 +2342,9 @@ class DashboardWindow(QMainWindow):
             manager.tab_widget.setCurrentIndex(1)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def monitoring_realisasi(self):
         """Show FA Detail monitoring realisasi"""
@@ -2333,8 +2359,9 @@ class DashboardWindow(QMainWindow):
             manager.tab_widget.setCurrentIndex(2)
             layout.addWidget(manager)
             dialog.exec()
-        except ImportError as e:
-            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "Error", f"Terjadi error:\n{str(e)}\n\n{traceback.format_exc()}")
 
     def show_about(self):
         QMessageBox.about(

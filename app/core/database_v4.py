@@ -1015,15 +1015,22 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
     is_locked INTEGER DEFAULT 0,
     is_blokir INTEGER DEFAULT 0,
 
+    -- Nomor MAK (Mata Anggaran Kegiatan) = kode_akun.kode_detail
+    nomor_mak TEXT,
+
     -- Keterangan
     keterangan TEXT,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Unique constraint untuk update/replace
+    UNIQUE(tahun_anggaran, kode_full)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pagu_tahun ON pagu_anggaran(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_full ON pagu_anggaran(kode_full);
+CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_akun ON pagu_anggaran(kode_akun);
 CREATE INDEX IF NOT EXISTS idx_pagu_level ON pagu_anggaran(level_kode);
 CREATE INDEX IF NOT EXISTS idx_pagu_parent ON pagu_anggaran(parent_id);
@@ -1376,6 +1383,21 @@ class DatabaseManagerV4:
 
         for col, sql in pjlp_migrations:
             if col not in pjlp_columns:
+                try:
+                    cursor.execute(sql)
+                except:
+                    pass
+
+        # Migration: Add nomor_mak column to pagu_anggaran
+        cursor.execute("PRAGMA table_info(pagu_anggaran)")
+        pagu_columns = [col[1] for col in cursor.fetchall()]
+
+        pagu_migrations = [
+            ('nomor_mak', "ALTER TABLE pagu_anggaran ADD COLUMN nomor_mak TEXT"),
+        ]
+
+        for col, sql in pagu_migrations:
+            if col not in pagu_columns:
                 try:
                     cursor.execute(sql)
                 except:
@@ -3793,25 +3815,87 @@ class DatabaseManagerV4:
             conn.commit()
             return cursor.rowcount
 
-    def bulk_insert_pagu(self, data_list: List[Dict]) -> int:
-        """Bulk insert pagu anggaran"""
+    def bulk_insert_pagu(self, data_list: List[Dict], upsert: bool = False) -> int:
+        """Bulk insert atau update pagu anggaran
+
+        Args:
+            data_list: List of pagu data dictionaries
+            upsert: Jika True, update data yang sudah ada berdasarkan kode_full
+        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             count = 0
+            updated = 0
+
             for data in data_list:
                 jumlah = data.get('jumlah', 0) or 0
                 realisasi = data.get('realisasi', 0) or 0
                 sisa = jumlah - realisasi
                 persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
 
+                # Generate nomor_mak dari kode_akun + kode_detail
+                kode_akun = data.get('kode_akun', '')
+                kode_detail = data.get('kode_detail', '')
+                nomor_mak = f"{kode_akun}.{kode_detail}" if kode_akun and kode_detail else ''
+
+                if upsert:
+                    # Cek apakah data sudah ada
+                    cursor.execute("""
+                        SELECT id, realisasi FROM pagu_anggaran
+                        WHERE tahun_anggaran = ? AND kode_full = ?
+                    """, (data.get('tahun_anggaran'), data.get('kode_full')))
+                    existing = cursor.fetchone()
+
+                    if existing:
+                        # Update data yang ada, pertahankan realisasi jika tidak di-set
+                        existing_realisasi = existing[1] or 0
+                        if realisasi == 0 and existing_realisasi > 0:
+                            realisasi = existing_realisasi
+                            sisa = jumlah - realisasi
+                            persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
+
+                        cursor.execute("""
+                            UPDATE pagu_anggaran SET
+                                kode_program = ?, kode_kegiatan = ?, kode_kro = ?, kode_ro = ?,
+                                kode_komponen = ?, kode_sub_komponen = ?, kode_akun = ?, kode_detail = ?,
+                                level_kode = ?, uraian = ?, volume = ?, satuan = ?,
+                                harga_satuan = ?, jumlah = ?, realisasi = ?, sisa = ?, persen_realisasi = ?,
+                                sumber_dana = ?, nomor_mak = ?, updated_at = CURRENT_TIMESTAMP
+                            WHERE id = ?
+                        """, (
+                            data.get('kode_program'),
+                            data.get('kode_kegiatan'),
+                            data.get('kode_kro'),
+                            data.get('kode_ro'),
+                            data.get('kode_komponen'),
+                            data.get('kode_sub_komponen'),
+                            kode_akun,
+                            kode_detail,
+                            data.get('level_kode', 8),
+                            data.get('uraian'),
+                            data.get('volume', 0),
+                            data.get('satuan'),
+                            data.get('harga_satuan', 0),
+                            jumlah,
+                            realisasi,
+                            sisa,
+                            persen,
+                            data.get('sumber_dana', 'RM'),
+                            nomor_mak,
+                            existing[0]
+                        ))
+                        updated += 1
+                        continue
+
+                # Insert baru
                 cursor.execute("""
                     INSERT INTO pagu_anggaran (
                         tahun_anggaran, kode_program, kode_kegiatan, kode_kro, kode_ro,
                         kode_komponen, kode_sub_komponen, kode_akun, kode_detail, kode_full,
                         level_kode, parent_id, uraian, volume, satuan,
                         harga_satuan, jumlah, realisasi, sisa, persen_realisasi,
-                        sumber_dana, is_locked, is_blokir, keterangan
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        sumber_dana, is_locked, is_blokir, nomor_mak, keterangan
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     data.get('tahun_anggaran'),
                     data.get('kode_program'),
@@ -3820,8 +3904,8 @@ class DatabaseManagerV4:
                     data.get('kode_ro'),
                     data.get('kode_komponen'),
                     data.get('kode_sub_komponen'),
-                    data.get('kode_akun'),
-                    data.get('kode_detail'),
+                    kode_akun,
+                    kode_detail,
                     data.get('kode_full'),
                     data.get('level_kode', 8),
                     data.get('parent_id'),
@@ -3836,11 +3920,12 @@ class DatabaseManagerV4:
                     data.get('sumber_dana', 'RM'),
                     data.get('is_locked', 0),
                     data.get('is_blokir', 0),
+                    nomor_mak,
                     data.get('keterangan')
                 ))
                 count += 1
             conn.commit()
-            return count
+            return count + updated
 
     # Realisasi tracking
     def add_realisasi(self, data: Dict) -> int:

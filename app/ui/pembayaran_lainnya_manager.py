@@ -1371,7 +1371,8 @@ class GenerateJTDocumentDialog(QDialog):
         # Generate each selected document
         docs_to_generate = []
         if self.chk_kuitansi.isChecked():
-            docs_to_generate.append(('kuitansi_jamuan_tamu', 'Kuitansi_Jamuan_Tamu', 'word'))
+            # Gunakan template kuitansi biasa untuk jamuan tamu
+            docs_to_generate.append(('kuitansi', 'Kuitansi_Jamuan_Tamu', 'word'))
         if self.chk_daftar_hadir.isChecked():
             docs_to_generate.append(('daftar_hadir_jamuan_tamu', 'Daftar_Hadir', 'word'))
 
@@ -1439,6 +1440,8 @@ class GenerateJTDocumentDialog(QDialog):
         satker = self.db.get_satker()
         pejabat = self.db.get_satker_pejabat()
 
+        total = d.get('total_biaya', 0) or 0
+
         return {
             # Satker
             'satker_kode': satker.get('kode', ''),
@@ -1479,8 +1482,20 @@ class GenerateJTDocumentDialog(QDialog):
             'biaya_akomodasi': fmt_rp(d.get('biaya_akomodasi', 0) or 0),
             'biaya_transportasi': fmt_rp(d.get('biaya_transportasi', 0) or 0),
             'biaya_lainnya': fmt_rp(d.get('biaya_lainnya', 0) or 0),
-            'total_biaya': fmt_rp(d.get('total_biaya', 0) or 0),
-            'total_biaya_terbilang': terbilang(d.get('total_biaya', 0) or 0),
+            'total_biaya': fmt_rp(total),
+            'total_biaya_terbilang': terbilang(total),
+
+            # Kompatibilitas dengan template kuitansi biasa
+            'nama_paket': f"Biaya Jamuan Tamu - {d.get('nama_kegiatan', '')}",
+            'nilai_bersih': total,
+            'nilai_kontrak': total,
+            'nilai_ppn': 0,
+            'nilai_pph': 0,
+            'jenis_pph': '-',
+            'nomor_spk': d.get('nomor_nota_dinas', '') or d.get('nomor_sk_kpa', ''),
+            'tanggal_spk': d.get('tanggal_nota_dinas', '') or d.get('tanggal_sk_kpa', ''),
+            'direktur_nama': d.get('pj_nama', '') or pejabat.get('ppk_nama', ''),
+            'penyedia_nama': '',
 
             # Pejabat
             'kpa_nama': pejabat.get('kpa_nama', ''),

@@ -1141,8 +1141,11 @@ class DatabaseManagerV4:
     def _init_db(self):
         """Initialize database and create/update tables"""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
+
         with self.get_connection() as conn:
+            # Pre-migration: Clean up any problematic views that might reference removed columns
+            self._cleanup_legacy_views(conn)
+
             conn.executescript(SCHEMA_V4_SQL)
             
             # Migrations
@@ -1156,10 +1159,39 @@ class DatabaseManagerV4:
             
             conn.commit()
     
+    def _cleanup_legacy_views(self, conn):
+        """Clean up any legacy views that might reference removed/renamed columns"""
+        cursor = conn.cursor()
+        try:
+            # Get all views in the database
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='view'")
+            views = cursor.fetchall()
+
+            # Drop all views (we don't use views in current schema)
+            for (view_name,) in views:
+                try:
+                    cursor.execute(f"DROP VIEW IF EXISTS {view_name}")
+                except Exception:
+                    pass
+
+            # Also clean up any triggers that might be problematic
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='trigger'")
+            triggers = cursor.fetchall()
+
+            for (trigger_name,) in triggers:
+                try:
+                    cursor.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+                except Exception:
+                    pass
+
+            conn.commit()
+        except Exception:
+            pass  # Ignore errors during cleanup
+
     def _run_migrations(self, conn):
         """Run database migrations"""
         cursor = conn.cursor()
-        
+
         # Migration: Add new columns to pegawai if not exist
         cursor.execute("PRAGMA table_info(pegawai)")
         columns = [col[1] for col in cursor.fetchall()]
@@ -1249,6 +1281,9 @@ class DatabaseManagerV4:
             ('nomor_sk_kpa', "ALTER TABLE swakelola ADD COLUMN nomor_sk_kpa TEXT"),
             ('tanggal_sk_kpa', "ALTER TABLE swakelola ADD COLUMN tanggal_sk_kpa DATE"),
             ('perihal_sk_kpa', "ALTER TABLE swakelola ADD COLUMN perihal_sk_kpa TEXT"),
+            # Legacy compatibility - add mak/nomor_mak columns if expected by old data
+            ('mak', "ALTER TABLE swakelola ADD COLUMN mak TEXT"),
+            ('nomor_mak', "ALTER TABLE swakelola ADD COLUMN nomor_mak TEXT"),
         ]
 
         for col, sql in swakelola_migrations:
@@ -1299,6 +1334,8 @@ class DatabaseManagerV4:
             ('kpa_id', "ALTER TABLE jamuan_tamu ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
             ('ppk_id', "ALTER TABLE jamuan_tamu ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
             ('bendahara_id', "ALTER TABLE jamuan_tamu ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+            # Legacy compatibility - add nomor_mak column if expected by old data
+            ('nomor_mak', "ALTER TABLE jamuan_tamu ADD COLUMN nomor_mak TEXT"),
         ]
 
         for col, sql in jt_migrations:
@@ -1316,6 +1353,8 @@ class DatabaseManagerV4:
             ('kpa_id', "ALTER TABLE honorarium ADD COLUMN kpa_id INTEGER REFERENCES pegawai(id)"),
             ('ppk_id', "ALTER TABLE honorarium ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
             ('bendahara_id', "ALTER TABLE honorarium ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+            # Legacy compatibility - add nomor_mak column if expected by old data
+            ('nomor_mak', "ALTER TABLE honorarium ADD COLUMN nomor_mak TEXT"),
         ]
 
         for col, sql in hon_migrations:

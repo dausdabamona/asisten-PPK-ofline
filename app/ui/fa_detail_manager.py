@@ -402,23 +402,24 @@ class FADetailManager(QWidget):
 
         # Table
         self.tbl_pagu = QTableWidget()
-        self.tbl_pagu.setColumnCount(10)
+        self.tbl_pagu.setColumnCount(11)
         self.tbl_pagu.setHorizontalHeaderLabels([
-            "ID", "Kode Akun", "Uraian", "Volume", "Satuan",
+            "ID", "Nomor MAK", "Kode Akun", "Uraian", "Volume", "Satuan",
             "Harga Satuan", "Jumlah", "Realisasi", "Sisa", "Aksi"
         ])
         self.tbl_pagu.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_pagu.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_pagu.horizontalHeader().setStretchLastSection(True)
-        self.tbl_pagu.setColumnWidth(0, 50)
-        self.tbl_pagu.setColumnWidth(1, 100)
-        self.tbl_pagu.setColumnWidth(2, 300)
-        self.tbl_pagu.setColumnWidth(3, 60)
-        self.tbl_pagu.setColumnWidth(4, 80)
-        self.tbl_pagu.setColumnWidth(5, 120)
-        self.tbl_pagu.setColumnWidth(6, 120)
-        self.tbl_pagu.setColumnWidth(7, 120)
-        self.tbl_pagu.setColumnWidth(8, 120)
+        self.tbl_pagu.setColumnWidth(0, 50)   # ID
+        self.tbl_pagu.setColumnWidth(1, 100)  # Nomor MAK
+        self.tbl_pagu.setColumnWidth(2, 100)  # Kode Akun
+        self.tbl_pagu.setColumnWidth(3, 280)  # Uraian
+        self.tbl_pagu.setColumnWidth(4, 60)   # Volume
+        self.tbl_pagu.setColumnWidth(5, 80)   # Satuan
+        self.tbl_pagu.setColumnWidth(6, 120)  # Harga Satuan
+        self.tbl_pagu.setColumnWidth(7, 120)  # Jumlah
+        self.tbl_pagu.setColumnWidth(8, 120)  # Realisasi
+        self.tbl_pagu.setColumnWidth(9, 120)  # Sisa
         self.tbl_pagu.setAlternatingRowColors(True)
         list_layout.addWidget(self.tbl_pagu)
 
@@ -538,17 +539,27 @@ class FADetailManager(QWidget):
 
         for row, d in enumerate(data):
             self.tbl_pagu.setItem(row, 0, QTableWidgetItem(str(d['id'])))
-            self.tbl_pagu.setItem(row, 1, QTableWidgetItem(d.get('kode_akun', '')))
+
+            # Nomor MAK - dari field nomor_mak atau generate dari kode_akun.kode_detail
+            nomor_mak = d.get('nomor_mak', '')
+            if not nomor_mak:
+                kode_akun_val = d.get('kode_akun', '')
+                kode_detail_val = d.get('kode_detail', '')
+                if kode_akun_val and kode_detail_val:
+                    nomor_mak = f"{kode_akun_val}.{kode_detail_val}"
+            self.tbl_pagu.setItem(row, 1, QTableWidgetItem(nomor_mak))
+
+            self.tbl_pagu.setItem(row, 2, QTableWidgetItem(d.get('kode_akun', '')))
 
             # Uraian (truncate if too long)
             uraian = d.get('uraian', '')[:100]
-            self.tbl_pagu.setItem(row, 2, QTableWidgetItem(uraian))
+            self.tbl_pagu.setItem(row, 3, QTableWidgetItem(uraian))
 
-            self.tbl_pagu.setItem(row, 3, QTableWidgetItem(str(d.get('volume', 0) or 0)))
-            self.tbl_pagu.setItem(row, 4, QTableWidgetItem(d.get('satuan', '')))
-            self.tbl_pagu.setItem(row, 5, QTableWidgetItem(self.format_currency(d.get('harga_satuan', 0) or 0)))
-            self.tbl_pagu.setItem(row, 6, QTableWidgetItem(self.format_currency(d.get('jumlah', 0) or 0)))
-            self.tbl_pagu.setItem(row, 7, QTableWidgetItem(self.format_currency(d.get('realisasi', 0) or 0)))
+            self.tbl_pagu.setItem(row, 4, QTableWidgetItem(str(d.get('volume', 0) or 0)))
+            self.tbl_pagu.setItem(row, 5, QTableWidgetItem(d.get('satuan', '')))
+            self.tbl_pagu.setItem(row, 6, QTableWidgetItem(self.format_currency(d.get('harga_satuan', 0) or 0)))
+            self.tbl_pagu.setItem(row, 7, QTableWidgetItem(self.format_currency(d.get('jumlah', 0) or 0)))
+            self.tbl_pagu.setItem(row, 8, QTableWidgetItem(self.format_currency(d.get('realisasi', 0) or 0)))
 
             # Sisa with color
             sisa = d.get('sisa', 0) or 0
@@ -557,7 +568,7 @@ class FADetailManager(QWidget):
                 sisa_item.setBackground(QColor('#f8d7da'))
             elif sisa == 0:
                 sisa_item.setBackground(QColor('#d4edda'))
-            self.tbl_pagu.setItem(row, 8, sisa_item)
+            self.tbl_pagu.setItem(row, 9, sisa_item)
 
             # Actions
             btn_widget = QWidget()
@@ -574,7 +585,7 @@ class FADetailManager(QWidget):
             btn_del.clicked.connect(lambda checked, r=row: self.delete_pagu(r))
             btn_layout.addWidget(btn_del)
 
-            self.tbl_pagu.setCellWidget(row, 9, btn_widget)
+            self.tbl_pagu.setCellWidget(row, 10, btn_widget)
 
     def refresh_rekap(self):
         tahun = self.cmb_tahun.currentData()
@@ -596,7 +607,7 @@ class FADetailManager(QWidget):
     def filter_table(self):
         search = self.txt_search.text().lower()
         for row in range(self.tbl_pagu.rowCount()):
-            item = self.tbl_pagu.item(row, 2)  # Uraian column
+            item = self.tbl_pagu.item(row, 3)  # Uraian column (now at index 3)
             if item:
                 self.tbl_pagu.setRowHidden(row, search not in item.text().lower())
 
@@ -647,19 +658,29 @@ class FADetailManager(QWidget):
 
             tahun = self.cmb_tahun.currentData()
 
-            # Ask to replace or append
-            reply = QMessageBox.question(
-                self, "Konfirmasi Import",
-                f"Hapus data pagu tahun {tahun} yang sudah ada?\n\n"
-                "Ya = Hapus dan import baru\n"
-                "Tidak = Tambahkan ke data yang ada",
-                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            # Ask import mode - with update option
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Konfirmasi Import")
+            msg.setText(f"Pilih mode import data pagu tahun {tahun}:")
+            msg.setInformativeText(
+                "• Hapus & Import Baru = Hapus semua data lama, import data baru\n"
+                "• Update = Update data yang ada, tambah data baru (RECOMMENDED)\n"
+                "• Tambah Saja = Tambahkan tanpa update data yang ada"
             )
+            btn_replace = msg.addButton("Hapus && Import Baru", QMessageBox.DestructiveRole)
+            btn_update = msg.addButton("Update", QMessageBox.AcceptRole)
+            btn_append = msg.addButton("Tambah Saja", QMessageBox.ActionRole)
+            btn_cancel = msg.addButton("Batal", QMessageBox.RejectRole)
+            msg.setDefaultButton(btn_update)
+            msg.exec()
 
-            if reply == QMessageBox.Cancel:
+            clicked = msg.clickedButton()
+            if clicked == btn_cancel:
                 return
 
-            if reply == QMessageBox.Yes:
+            use_upsert = (clicked == btn_update)
+
+            if clicked == btn_replace:
                 deleted = self.db.delete_all_pagu_tahun(tahun)
                 QMessageBox.information(self, "Info", f"Deleted {deleted} existing records")
 
@@ -670,35 +691,85 @@ class FADetailManager(QWidget):
                     continue
 
                 # Try to parse columns - adjust based on your Excel format
-                # Expected: Kode, Uraian, Volume, Satuan, Harga Satuan, Jumlah
+                # Expected: Kode, Uraian, Volume, Satuan, Harga Satuan, Jumlah, [Realisasi]
                 try:
                     kode = str(row[0]).strip() if row[0] else ''
                     uraian = str(row[1]).strip() if len(row) > 1 and row[1] else ''
 
-                    # Parse kode to get akun
+                    # Parse kode hierarchically
+                    # Format: 054.01.WA.4621.QEB.001.001.A.521211.1
+                    # Parts: Program.Kegiatan.KRO.RO.Komponen.SubKomponen.Akun.Detail
                     kode_parts = kode.split('.')
                     kode_akun = ''
-                    for part in kode_parts:
+                    kode_detail = ''
+                    kode_program = ''
+                    kode_kegiatan = ''
+                    kode_kro = ''
+                    kode_ro = ''
+                    kode_komponen = ''
+                    kode_sub_komponen = ''
+
+                    # Find kode_akun (6-digit number) and kode_detail (after akun)
+                    akun_idx = -1
+                    for idx, part in enumerate(kode_parts):
                         if part.isdigit() and len(part) == 6:
                             kode_akun = part
+                            akun_idx = idx
                             break
+
+                    # Get detail code (after akun)
+                    if akun_idx >= 0 and akun_idx < len(kode_parts) - 1:
+                        kode_detail = kode_parts[akun_idx + 1]
+
+                    # Parse other hierarchy codes if available
+                    if len(kode_parts) >= 2:
+                        kode_program = '.'.join(kode_parts[:2]) if len(kode_parts) > 1 else kode_parts[0]
+                    if len(kode_parts) >= 3:
+                        kode_kegiatan = kode_parts[2] if len(kode_parts) > 2 else ''
+                    if len(kode_parts) >= 4:
+                        kode_kro = kode_parts[3] if len(kode_parts) > 3 else ''
+                    if len(kode_parts) >= 5:
+                        kode_ro = kode_parts[4] if len(kode_parts) > 4 else ''
 
                     volume = float(row[2]) if len(row) > 2 and row[2] else 0
                     satuan = str(row[3]).strip() if len(row) > 3 and row[3] else ''
                     harga_satuan = float(row[4]) if len(row) > 4 and row[4] else 0
                     jumlah = float(row[5]) if len(row) > 5 and row[5] else volume * harga_satuan
 
+                    # Parse realisasi if available (column 7 or 8)
+                    realisasi = 0
+                    if len(row) > 6 and row[6]:
+                        try:
+                            realisasi = float(row[6])
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Determine level_kode based on kode structure
+                    level_kode = 8  # Default to detail level
+                    if kode_detail:
+                        level_kode = 8  # Detail level
+                    elif kode_akun:
+                        level_kode = 7  # Akun level
+
                     if uraian:  # Only add if has uraian
                         data_list.append({
                             'tahun_anggaran': tahun,
                             'kode_full': kode,
+                            'kode_program': kode_program,
+                            'kode_kegiatan': kode_kegiatan,
+                            'kode_kro': kode_kro,
+                            'kode_ro': kode_ro,
+                            'kode_komponen': kode_komponen,
+                            'kode_sub_komponen': kode_sub_komponen,
                             'kode_akun': kode_akun,
+                            'kode_detail': kode_detail,
                             'uraian': uraian,
                             'volume': volume,
                             'satuan': satuan,
                             'harga_satuan': harga_satuan,
                             'jumlah': jumlah,
-                            'level_kode': 8,
+                            'realisasi': realisasi,
+                            'level_kode': level_kode,
                             'sumber_dana': 'RM'
                         })
                 except Exception as e:
@@ -706,11 +777,12 @@ class FADetailManager(QWidget):
                     continue
 
             if data_list:
-                count = self.db.bulk_insert_pagu(data_list)
+                count = self.db.bulk_insert_pagu(data_list, upsert=use_upsert)
                 self.refresh_all()
+                mode_text = "diupdate/ditambah" if use_upsert else "ditambahkan"
                 QMessageBox.information(
                     self, "Sukses",
-                    f"Berhasil import {count} item pagu anggaran!"
+                    f"Berhasil {mode_text} {count} item pagu anggaran!"
                 )
             else:
                 QMessageBox.warning(self, "Peringatan", "Tidak ada data yang bisa diimport!")

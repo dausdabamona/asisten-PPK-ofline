@@ -72,200 +72,437 @@ def add_huruf(doc, huruf, text):
 # SPK BARANG
 # =============================================================================
 def create_spk_barang():
-    """Create SPK template for Pengadaan Barang"""
+    """Create SPK template for Pengadaan Barang - Format Tabel"""
     doc = Document()
-    
+
     # Set margins
     for section in doc.sections:
         section.top_margin = Cm(2)
         section.bottom_margin = Cm(2)
         section.left_margin = Cm(2.5)
         section.right_margin = Cm(2)
-    
-    # Header
+
+    # Title
     title = doc.add_paragraph()
-    title.add_run("SURAT PERINTAH KERJA (SPK)").bold = True
+    run = title.add_run("RANCANGAN SURAT PERINTAH KERJA (SPK)")
+    run.bold = True
+    run.font.size = Pt(14)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    subtitle = doc.add_paragraph()
-    subtitle.add_run("PENGADAAN BARANG").bold = True
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    nomor = doc.add_paragraph()
-    nomor.add_run("Nomor: {{nomor_spk}}")
-    nomor.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
+
     doc.add_paragraph()
-    
-    # Info table
-    info = doc.add_paragraph()
-    info.add_run("Pada hari ini {{hari_spk}} tanggal {{tanggal_spk_terbilang}} bulan {{bulan_spk}} tahun {{tahun_spk_terbilang}} ({{tanggal_spk_fmt}}), kami yang bertanda tangan di bawah ini:")
-    
+
+    # Main table with border
+    main_table = doc.add_table(rows=4, cols=2)
+    main_table.style = 'Table Grid'
+
+    # Set column widths
+    for row in main_table.rows:
+        row.cells[0].width = Cm(7)
+        row.cells[1].width = Cm(9)
+
+    # Row 1: Header SPK and Satuan Kerja info
+    cell_0_0 = main_table.rows[0].cells[0]
+    cell_0_0.text = ""
+    p = cell_0_0.paragraphs[0]
+    run = p.add_run("SURAT PERINTAH KERJA (SPK)")
+    run.bold = True
+
+    cell_0_1 = main_table.rows[0].cells[1]
+    cell_0_1.text = ""
+    p = cell_0_1.paragraphs[0]
+    p.add_run("SATUAN KERJA").bold = True
+    p.add_run(" : {{satker_nama}}")
+    cell_0_1.add_paragraph()
+    p2 = cell_0_1.add_paragraph()
+    p2.add_run("NOMOR DAN TANGGAL SPK").bold = True
+    p2.add_run(" : ")
+    cell_0_1.add_paragraph("{{nomor_spk}} tanggal {{tanggal_spk}}")
+
+    # Row 2: Nama Pejabat Penandatangan Kontrak
+    cell_1_0 = main_table.rows[1].cells[0]
+    cell_1_0.text = ""
+    p = cell_1_0.paragraphs[0]
+    p.add_run("Nama Pejabat Penandatangan Kontrak").bold = True
+    p.add_run(":")
+
+    cell_1_1 = main_table.rows[1].cells[1]
+    cell_1_1.text = "{{ppk_nama}}"
+
+    # Row 3: Nama Penyedia
+    cell_2_0 = main_table.rows[2].cells[0]
+    cell_2_0.text = ""
+    p = cell_2_0.paragraphs[0]
+    p.add_run("Nama Penyedia").bold = True
+    p.add_run(":")
+
+    cell_2_1 = main_table.rows[2].cells[1]
+    cell_2_1.text = "{{penyedia_nama}}"
+
+    # Row 4: Paket Pengadaan and Document Numbers
+    cell_3_0 = main_table.rows[3].cells[0]
+    cell_3_0.text = ""
+    p = cell_3_0.paragraphs[0]
+    p.add_run("PAKET PENGADAAN").bold = True
+    p.add_run(" :")
+    cell_3_0.add_paragraph("{{nama_paket}}")
+
+    cell_3_1 = main_table.rows[3].cells[1]
+    cell_3_1.text = ""
+    # Add document info
+    p = cell_3_1.paragraphs[0]
+    p.add_run("NOMOR SURAT UNDANGAN PENGADAAN LANGSUNG").bold = True
+    p.add_run(" :")
+    cell_3_1.add_paragraph("{{nomor_undangan}}")
+    cell_3_1.add_paragraph()
+    p2 = cell_3_1.add_paragraph()
+    p2.add_run("TANGGAL SURAT UNDANGAN PENGADAAN LANGSUNG").bold = True
+    p2.add_run(" :")
+    cell_3_1.add_paragraph("{{tanggal_undangan}}")
+    cell_3_1.add_paragraph()
+    p3 = cell_3_1.add_paragraph()
+    p3.add_run("NOMOR BERITA ACARA HASIL PENGADAAN LANGSUNG").bold = True
+    p3.add_run(" :")
+    cell_3_1.add_paragraph("{{nomor_ba_pl}}")
+    cell_3_1.add_paragraph()
+    p4 = cell_3_1.add_paragraph()
+    p4.add_run("TANGGAL BERITA ACARA HASIL PENGADAAN LANGSUNG").bold = True
+    p4.add_run(" :")
+    cell_3_1.add_paragraph("{{tanggal_ba_pl}}")
+
     doc.add_paragraph()
-    
-    # PPK Info
-    ppk_table = doc.add_table(rows=4, cols=3)
-    ppk_data = [
-        ("Nama", ":", "{{ppk_nama}}"),
-        ("NIP", ":", "{{ppk_nip}}"),
-        ("Jabatan", ":", "Pejabat Pembuat Komitmen"),
-        ("Alamat", ":", "{{satker_nama}}, {{satker_alamat}}"),
-    ]
-    for i, (label, sep, val) in enumerate(ppk_data):
-        ppk_table.rows[i].cells[0].text = label
-        ppk_table.rows[i].cells[1].text = sep
-        ppk_table.rows[i].cells[2].text = val
-    
-    p_ppk = doc.add_paragraph()
-    p_ppk.add_run("selanjutnya disebut sebagai ").italic = True
-    p_ppk.add_run("PIHAK KESATU").bold = True
-    
+
+    # Sumber Dana
+    p_sumber = doc.add_paragraph()
+    p_sumber.add_run("SUMBER DANA: ").bold = True
+    p_sumber.add_run("[sebagai contoh, cantumkan \"dibebankan atas DIPA/DPA ")
+    p_sumber.add_run("{{satker_nama}}")
+    p_sumber.add_run(" Tahun Anggaran ")
+    p_sumber.add_run("{{tahun_anggaran}}")
+    p_sumber.add_run(" untuk mata anggaran kegiatan ")
+    p_sumber.add_run("{{kode_akun}}")
+    p_sumber.add_run("\"]")
+
     doc.add_paragraph()
-    
-    # Penyedia Info  
-    penyedia_table = doc.add_table(rows=5, cols=3)
-    penyedia_data = [
-        ("Nama Perusahaan", ":", "{{penyedia_nama}}"),
-        ("Nama Direktur", ":", "{{direktur_nama}}"),
-        ("Alamat", ":", "{{penyedia_alamat}}"),
-        ("NPWP", ":", "{{penyedia_npwp}}"),
-        ("Rekening", ":", "{{penyedia_rekening}} - {{penyedia_bank}}"),
-    ]
-    for i, (label, sep, val) in enumerate(penyedia_data):
-        penyedia_table.rows[i].cells[0].text = label
-        penyedia_table.rows[i].cells[1].text = sep
-        penyedia_table.rows[i].cells[2].text = val
-    
-    p_penyedia = doc.add_paragraph()
-    p_penyedia.add_run("selanjutnya disebut sebagai ").italic = True
-    p_penyedia.add_run("PIHAK KEDUA").bold = True
-    
+
+    # Nilai Kontrak
+    p_nilai = doc.add_paragraph()
+    p_nilai.add_run("Nilai Kontrak termasuk Pajak Pertambahan Nilai (PPN) adalah sebesar ")
+    p_nilai.add_run("{{nilai_kontrak_fmt}}").bold = True
+    p_nilai.add_run(" (")
+    p_nilai.add_run("{{nilai_kontrak_terbilang}}")
+    p_nilai.add_run(" rupiah).")
+
     doc.add_paragraph()
-    
-    # Isi SPK
-    doc.add_paragraph("PIHAK KESATU dan PIHAK KEDUA secara bersama-sama disebut PARA PIHAK, sepakat dan setuju untuk mengikatkan diri dalam Surat Perintah Kerja Pengadaan Barang dengan ketentuan sebagai berikut:")
-    
-    doc.add_paragraph()
-    
-    # Pasal 1 - Lingkup Pekerjaan
-    add_pasal(doc, 1, "LINGKUP PEKERJAAN")
-    add_ayat(doc, 1, "PIHAK KESATU memberikan pekerjaan kepada PIHAK KEDUA dan PIHAK KEDUA menerima pekerjaan tersebut, yaitu:")
-    
-    lingkup_table = doc.add_table(rows=3, cols=3)
-    lingkup_table.style = 'Table Grid'
-    lingkup_data = [
-        ("a.", "Nama Paket", "{{nama_paket}}"),
-        ("b.", "Lokasi Pekerjaan", "{{lokasi_pekerjaan}}"),
-        ("c.", "Kode RUP", "{{kode_rup}}"),
-    ]
-    for i, (no, label, val) in enumerate(lingkup_data):
-        lingkup_table.rows[i].cells[0].text = no
-        lingkup_table.rows[i].cells[1].text = label
-        lingkup_table.rows[i].cells[2].text = val
-    
-    add_ayat(doc, 2, "Rincian barang yang harus disediakan oleh PIHAK KEDUA adalah sebagaimana tercantum dalam Lampiran SPK ini yang merupakan bagian tidak terpisahkan dari SPK.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 2 - Nilai Kontrak
-    add_pasal(doc, 2, "NILAI KONTRAK")
-    add_ayat(doc, 1, "Nilai Kontrak termasuk PPN adalah sebesar:")
-    
-    nilai_table = doc.add_table(rows=3, cols=2)
-    nilai_table.style = 'Table Grid'
-    nilai_table.rows[0].cells[0].text = "Nilai Kontrak"
-    nilai_table.rows[0].cells[1].text = "{{nilai_kontrak_fmt}}"
-    nilai_table.rows[1].cells[0].text = "Terbilang"
-    nilai_table.rows[1].cells[1].text = "{{nilai_kontrak_terbilang}}"
-    nilai_table.rows[2].cells[0].text = "Sudah Termasuk"
-    nilai_table.rows[2].cells[1].text = "PPN 11%, ongkos kirim, biaya pemasangan (jika ada)"
-    
-    add_ayat(doc, 2, "Nilai kontrak sudah memperhitungkan keuntungan, biaya umum (overhead), dan pajak-pajak yang berlaku.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 3 - Jangka Waktu
-    add_pasal(doc, 3, "JANGKA WAKTU PELAKSANAAN")
-    add_ayat(doc, 1, "Jangka waktu pelaksanaan/penyerahan barang adalah selama {{jangka_waktu}} ({{jangka_waktu_terbilang}}) hari kalender.")
-    add_ayat(doc, 2, "Tanggal mulai: {{tanggal_mulai_fmt}}")
-    add_ayat(doc, 3, "Tanggal selesai: {{tanggal_selesai_fmt}}")
-    add_ayat(doc, 4, "PIHAK KEDUA harus menyerahkan seluruh barang dalam kondisi baik dan sesuai spesifikasi paling lambat pada tanggal selesai.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 4 - Cara Pembayaran
-    add_pasal(doc, 4, "CARA PEMBAYARAN")
-    add_ayat(doc, 1, "Pembayaran dilakukan setelah barang diterima dengan lengkap dan sesuai spesifikasi.")
-    add_ayat(doc, 2, "Pembayaran dilakukan secara Langsung (LS) ke rekening PIHAK KEDUA setelah:")
-    add_huruf(doc, "a", "Barang diterima dan diperiksa oleh Pejabat Penerima Hasil Pekerjaan (PPHP);")
-    add_huruf(doc, "b", "Berita Acara Serah Terima (BAST) ditandatangani;")
-    add_huruf(doc, "c", "Dokumen tagihan lengkap dan benar.")
-    add_ayat(doc, 3, "Pembayaran dipotong pajak sesuai ketentuan perpajakan yang berlaku.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 5 - Garansi
-    add_pasal(doc, 5, "GARANSI/JAMINAN")
-    add_ayat(doc, 1, "PIHAK KEDUA menjamin bahwa barang yang diserahkan adalah baru, asli, dan sesuai spesifikasi teknis.")
-    add_ayat(doc, 2, "Masa garansi barang adalah {{masa_garansi}} bulan sejak BAST ditandatangani.")
-    add_ayat(doc, 3, "Selama masa garansi, PIHAK KEDUA bertanggung jawab memperbaiki atau mengganti barang yang rusak/cacat tanpa biaya tambahan.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 6 - Sanksi/Denda
-    add_pasal(doc, 6, "SANKSI DAN DENDA")
-    add_ayat(doc, 1, "Apabila PIHAK KEDUA terlambat menyerahkan barang, dikenakan denda keterlambatan sebesar 1/1000 (satu per seribu) dari nilai kontrak untuk setiap hari keterlambatan.")
-    add_ayat(doc, 2, "Denda maksimal adalah 5% (lima persen) dari nilai kontrak.")
-    add_ayat(doc, 3, "Apabila keterlambatan melebihi 50 (lima puluh) hari kalender, PIHAK KESATU dapat memutuskan kontrak secara sepihak.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 7 - Penyelesaian Perselisihan
-    add_pasal(doc, 7, "PENYELESAIAN PERSELISIHAN")
-    add_ayat(doc, 1, "Apabila terjadi perselisihan, PARA PIHAK sepakat menyelesaikan secara musyawarah untuk mufakat.")
-    add_ayat(doc, 2, "Apabila musyawarah tidak tercapai, penyelesaian melalui Pengadilan Negeri {{satker_kota}}.")
-    
-    doc.add_paragraph()
-    
-    # Pasal 8 - Lain-lain
-    add_pasal(doc, 8, "KETENTUAN LAIN-LAIN")
-    add_ayat(doc, 1, "Hal-hal yang belum diatur dalam SPK ini akan ditetapkan kemudian oleh PARA PIHAK.")
-    add_ayat(doc, 2, "SPK ini dibuat dalam rangkap 2 (dua), masing-masing mempunyai kekuatan hukum yang sama.")
-    
+
+    # Waktu Pelaksanaan
+    p_waktu = doc.add_paragraph()
+    p_waktu.add_run("WAKTU PELAKSANAAN PEKERJAAN: ").bold = True
+    p_waktu.add_run("{{jangka_waktu}}").bold = True
+    p_waktu.add_run(" (")
+    p_waktu.add_run("{{jangka_waktu_terbilang}}")
+    p_waktu.add_run(") hari kalender")
+
     doc.add_paragraph()
     doc.add_paragraph()
-    
-    # Tanda tangan
-    ttd_table = doc.add_table(rows=6, cols=2)
-    ttd_table.rows[0].cells[0].text = "PIHAK KEDUA"
-    ttd_table.rows[0].cells[1].text = "PIHAK KESATU"
-    ttd_table.rows[1].cells[0].text = "{{penyedia_nama}}"
-    ttd_table.rows[1].cells[1].text = "Pejabat Pembuat Komitmen"
-    ttd_table.rows[4].cells[0].text = "{{direktur_nama}}"
-    ttd_table.rows[4].cells[1].text = "{{ppk_nama}}"
-    ttd_table.rows[5].cells[0].text = "Direktur"
-    ttd_table.rows[5].cells[1].text = "NIP. {{ppk_nip}}"
-    
-    for row in ttd_table.rows:
-        for cell in row.cells:
-            for para in cell.paragraphs:
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    # Bold dan underline nama
-    for para in ttd_table.rows[4].cells[0].paragraphs:
-        for run in para.runs:
-            run.bold = True
-            run.underline = True
-    for para in ttd_table.rows[4].cells[1].paragraphs:
-        for run in para.runs:
-            run.bold = True
-            run.underline = True
-    
+
+    # Signature table
+    ttd_table = doc.add_table(rows=7, cols=2)
+
+    # Headers
+    cell_left = ttd_table.rows[0].cells[0]
+    cell_left.text = ""
+    p = cell_left.paragraphs[0]
+    p.add_run("Untuk dan atas nama").bold = True
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    p2 = cell_left.add_paragraph()
+    p2.add_run("Pejabat Penandatangan Kontrak").bold = True
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    cell_right = ttd_table.rows[0].cells[1]
+    cell_right.text = ""
+    p = cell_right.paragraphs[0]
+    p.add_run("Untuk dan atas nama Penyedia").bold = True
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Note for PPK side
+    note_left = ttd_table.rows[1].cells[0]
+    note_left.text = ""
+    p = note_left.paragraphs[0]
+    p.add_run("[tanda tangan dan cap (jika salinan asli ini untuk Penyedia maka rekatkan meterai Rp 10.000,-)]").font.size = Pt(9)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Note for Penyedia side
+    note_right = ttd_table.rows[1].cells[1]
+    note_right.text = ""
+    p = note_right.paragraphs[0]
+    p.add_run("[tanda tangan dan cap (jika salinan asli ini untuk proyek/satuan kerja Pejabat Penandatangan Kontrak maka rekatkan meterai Rp 10.000,-)]").font.size = Pt(9)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Empty rows for signature space
+    for i in range(2, 5):
+        ttd_table.rows[i].cells[0].text = ""
+        ttd_table.rows[i].cells[1].text = ""
+
+    # Names
+    name_left = ttd_table.rows[5].cells[0]
+    name_left.text = ""
+    p = name_left.paragraphs[0]
+    run = p.add_run("{{ppk_nama}}")
+    run.bold = True
+    run.underline = True
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    name_right = ttd_table.rows[5].cells[1]
+    name_right.text = ""
+    p = name_right.paragraphs[0]
+    run = p.add_run("{{direktur_nama}}")
+    run.bold = True
+    run.underline = True
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Positions
+    pos_left = ttd_table.rows[6].cells[0]
+    pos_left.text = ""
+    p = pos_left.paragraphs[0]
+    p.add_run("{{ppk_jabatan}}")
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    pos_right = ttd_table.rows[6].cells[1]
+    pos_right.text = ""
+    p = pos_right.paragraphs[0]
+    p.add_run("{{direktur_jabatan}}")
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Add page break for Syarat Umum
+    doc.add_page_break()
+
+    # =========================================================================
+    # SYARAT UMUM SPK
+    # =========================================================================
+    su_title = doc.add_paragraph()
+    run = su_title.add_run("SYARAT UMUM")
+    run.bold = True
+    run.font.size = Pt(14)
+    su_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    su_subtitle = doc.add_paragraph()
+    run = su_subtitle.add_run("SURAT PERINTAH KERJA (SPK)")
+    run.bold = True
+    run.font.size = Pt(14)
+    su_subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    doc.add_paragraph()
+
+    # 1. LINGKUP PEKERJAAN
+    add_su_item(doc, 1, "LINGKUP PEKERJAAN",
+        "Penyedia yang ditunjuk berkewajiban untuk menyelesaikan pekerjaan dalam jangka waktu yang ditentukan sesuai dengan volume, spesifikasi teknis dan harga yang tercantum dalam SPK.")
+
+    # 2. HUKUM YANG BERLAKU
+    add_su_item(doc, 2, "HUKUM YANG BERLAKU",
+        "Keabsahan, interpretasi, dan pelaksanaan SPK ini didasarkan kepada hukum Republik Indonesia.")
+
+    # 3. HARGA SPK
+    p = doc.add_paragraph()
+    p.add_run("3.\tHARGA SPK").bold = True
+    doc.add_paragraph("a.\tPejabat Penandatangan Kontrak membayar kepada penyedia sebesar harga SPK.")
+    doc.add_paragraph("b.\tHarga SPK telah memperhitungkan keuntungan, beban pajak dan biaya overhead serta biaya asuransi (apabila dipersyaratkan).")
+    doc.add_paragraph("c.\tRincian harga SPK sesuai dengan rincian yang tercantum dalam daftar kuantitas dan harga.")
+    doc.add_paragraph()
+
+    # 4. HAK KEPEMILIKAN
+    p = doc.add_paragraph()
+    p.add_run("4.\tHAK KEPEMILIKAN").bold = True
+    doc.add_paragraph("a.\tPejabat Penandatangan Kontrak berhak atas kepemilikan semua barang/bahan yang terkait langsung atau disediakan sehubungan dengan jasa yang diberikan oleh penyedia kepada Pejabat Penandatangan Kontrak. Jika diminta oleh Pejabat Penandatangan Kontrak maka penyedia berkewajiban untuk membantu secara optimal pengalihan hak kepemilikan tersebut kepada Pejabat Penandatangan Kontrak sesuai dengan hukum yang berlaku.")
+    doc.add_paragraph("b.\tHak kepemilikan atas peralatan dan barang/bahan yang disediakan oleh Pejabat Penandatangan Kontrak tetap pada Pejabat Penandatangan Kontrak, dan semua peralatan tersebut harus dikembalikan kepada Pejabat Penandatangan Kontrak pada saat SPK berakhir atau jika tidak diperlukan lagi oleh penyedia. Semua peralatan tersebut harus dikembalikan dalam kondisi yang sama pada saat diberikan kepada penyedia dengan pengecualian keausan akibat pemakaian yang wajar.")
+    doc.add_paragraph()
+
+    # 5. CACAT MUTU
+    add_su_item(doc, 5, "CACAT MUTU",
+        "Pejabat Penandatangan Kontrak akan memeriksa setiap hasil pekerjaan penyedia dan memberitahukan secara tertulis penyedia atas setiap cacat mutu yang ditemukan. Pejabat Penandatangan Kontrak dapat memerintahkan penyedia untuk menguji pekerjaan yang dianggap oleh Pejabat Penandatangan Kontrak mengandung cacat mutu. Penyedia bertanggung jawab atas cacat mutu selama masa garansi.")
+
+    # 6. PERPAJAKAN
+    add_su_item(doc, 6, "PERPAJAKAN",
+        "Penyedia berkewajiban untuk membayar semua pajak, bea, retribusi, dan pungutan lain yang sah yang dibebankan oleh hukum yang berlaku atas pelaksanaan SPK. Semua pengeluaran perpajakan ini dianggap telah termasuk dalam harga SPK.")
+
+    # 7. PENGALIHAN DAN/ATAU SUBKONTRAK
+    add_su_item(doc, 7, "PENGALIHAN DAN/ATAU SUBKONTRAK",
+        "Penyedia dilarang untuk mengalihkan dan/atau mensubkontrakkan sebagian atau seluruh pekerjaan. Pengalihan seluruh pekerjaan hanya diperbolehkan dalam hal pergantian nama penyedia, baik sebagai akibat peleburan (merger) atau akibat lainnya.")
+
+    # 8. JADWAL
+    p = doc.add_paragraph()
+    p.add_run("8.\tJADWAL").bold = True
+    doc.add_paragraph("a.\tSPK ini berlaku efektif pada tanggal penandatanganan oleh para pihak atau pada tanggal yang ditetapkan dalam Surat Perintah Pengiriman.")
+    doc.add_paragraph("b.\tWaktu pelaksanaan SPK adalah sejak tanggal mulai kerja yang tercantum dalam Surat Perintah Pengiriman.")
+    doc.add_paragraph("c.\tPenyedia harus menyelesaikan pekerjaan sesuai jadwal yang ditentukan.")
+    doc.add_paragraph("d.\tApabila penyedia tidak dapat menyelesaikan pekerjaan sesuai jadwal karena keadaan diluar pengendaliannya dan penyedia telah melaporkan kejadian tersebut kepada Pejabat Penandatangan Kontrak, maka Pejabat Penandatangan Kontrak dapat melakukan penjadwalan kembali pelaksanaan tugas penyedia dengan adendum SPK.")
+    doc.add_paragraph()
+
+    # 9. ASURANSI
+    p = doc.add_paragraph()
+    p.add_run("9.\tASURANSI").bold = True
+    doc.add_paragraph("a.\tApabila dipersyaratkan, penyedia wajib menyediakan asuransi sejak Surat Perintah Pengiriman sampai dengan tanggal selesainya pemeliharaan untuk:")
+    doc.add_paragraph("\t1)\tsemua barang dan peralatan yang mempunyai risiko tinggi terjadinya kecelakaan, pelaksanaan pekerjaan, serta pekerja untuk pelaksanaan pekerjaan, atas segala risiko terhadap kecelakaan, kerusakan, kehilangan, serta risiko lain yang tidak dapat diduga;")
+    doc.add_paragraph("\t2)\tpihak ketiga sebagai akibat kecelakaan di tempat kerjanya; dan")
+    doc.add_paragraph("b.\tBesarnya asuransi sudah diperhitungkan dalam penawaran dan termasuk dalam harga SPK.")
+    doc.add_paragraph()
+
+    # 10. PENANGGUNGAN DAN RISIKO
+    p = doc.add_paragraph()
+    p.add_run("10.\tPENANGGUNGAN DAN RISIKO").bold = True
+    doc.add_paragraph("a.\tPenyedia berkewajiban untuk melindungi, membebaskan, dan menanggung tanpa batas Pejabat Penandatangan Kontrak beserta instansinya terhadap semua bentuk tuntutan, tanggung jawab, kewajiban, kehilangan, kerugian, denda, gugatan atau tuntutan hukum, proses pemeriksaan hukum, dan biaya yang dikenakan terhadap Pejabat Penandatangan Kontrak beserta instansinya sehubungan dengan klaim yang timbul dari hal-hal berikut terhitung sejak tanggal mulai kerja sampai dengan tanggal penandatanganan berita acara penyerahan akhir.")
+    doc.add_paragraph("b.\tTerhitung sejak tanggal mulai kerja sampai dengan tanggal penandatanganan berita acara serah terima, semua risiko kehilangan atau kerusakan hasil pekerjaan ini merupakan risiko penyedia, kecuali kerugian atau kerusakan tersebut diakibatkan oleh kesalahan atau kelalaian Pejabat Penandatangan Kontrak.")
+    doc.add_paragraph("c.\tPertanggungan asuransi yang dimiliki oleh penyedia tidak membatasi kewajiban penanggungan dalam syarat ini.")
+    doc.add_paragraph("d.\tKehilangan atau kerusakan terhadap hasil pekerjaan sejak tanggal mulai kerja sampai batas akhir garansi, harus diperbaiki, diganti atau dilengkapi oleh penyedia atas tanggungannya sendiri jika kehilangan atau kerusakan tersebut terjadi akibat tindakan atau kelalaian penyedia.")
+    doc.add_paragraph()
+
+    # 11. PENGAWASAN DAN PEMERIKSAAN
+    add_su_item(doc, 11, "PENGAWASAN DAN PEMERIKSAAN",
+        "Pejabat Penandatangan Kontrak berwenang melakukan pengawasan dan pemeriksaan terhadap pelaksanaan pekerjaan yang dilaksanakan oleh penyedia. Pejabat Penandatangan Kontrak dapat memerintahkan kepada pihak lain untuk melakukan pengawasan dan pemeriksaan atas semua pelaksanaan pekerjaan yang dilaksanakan oleh penyedia.")
+
+    # 12. PENGUJIAN
+    add_su_item(doc, 12, "PENGUJIAN",
+        "Jika Pejabat Penandatangan Kontrak atau Pengawas Pekerjaan memerintahkan penyedia untuk melakukan pengujian Cacat Mutu yang tidak tercantum dalam Spesifikasi Teknis dan Gambar, dan hasil uji coba menunjukkan adanya Cacat Mutu maka penyedia berkewajiban untuk menanggung biaya pengujian tersebut. Jika tidak ditemukan adanya Cacat Mutu maka uji coba tersebut dianggap sebagai Peristiwa Kompensasi.")
+
+    # 13. LAPORAN HASIL PEKERJAAN
+    p = doc.add_paragraph()
+    p.add_run("13.\tLAPORAN HASIL PEKERJAAN").bold = True
+    doc.add_paragraph("a.\tPemeriksaan pekerjaan dilakukan selama pelaksanaan Kontrak terhadap kemajuan pekerjaan dalam rangka pengawasan kualitas dan waktu pelaksanaan pekerjaan. Hasil pemeriksaan pekerjaan dituangkan dalam laporan kemajuan hasil pekerjaan.")
+    doc.add_paragraph("b.\tUntuk merekam pelaksanaan pekerjaan, Pejabat Penandatangan Kontrak dapat menugaskan Pengawas Pekerjaan dan/atau tim teknis membuat foto-foto dokumentasi pelaksanaan pekerjaan di lokasi pekerjaan.")
+    doc.add_paragraph()
+
+    # 14. WAKTU PENYELESAIAN PEKERJAAN
+    p = doc.add_paragraph()
+    p.add_run("14.\tWAKTU PENYELESAIAN PEKERJAAN").bold = True
+    doc.add_paragraph("a.\tKecuali SPK diputuskan lebih awal, penyedia berkewajiban untuk memulai pelaksanaan pekerjaan pada tanggal mulai kerja, dan melaksanakan pekerjaan sesuai dengan program mutu, serta menyelesaikan pekerjaan selambat-lambatnya pada tanggal penyelesaian yang ditetapkan dalam surat perintah pengiriman.")
+    doc.add_paragraph("b.\tJika pekerjaan tidak selesai pada tanggal penyelesaian disebabkan karena kesalahan atau kelalaian penyedia maka penyedia dikenakan sanksi berupa denda keterlambatan.")
+    doc.add_paragraph("c.\tJika keterlambatan tersebut disebabkan oleh Peristiwa Kompensasi maka Pejabat Penandatangan Kontrak memberikan tambahan perpanjangan waktu penyelesaian pekerjaan.")
+    doc.add_paragraph("d.\tTanggal penyelesaian yang dimaksud dalam ketentuan ini adalah tanggal penyelesaian semua pekerjaan.")
+    doc.add_paragraph()
+
+    # 15. SERAH TERIMA PEKERJAAN
+    p = doc.add_paragraph()
+    p.add_run("15.\tSERAH TERIMA PEKERJAAN").bold = True
+    doc.add_paragraph("a.\tSetelah pekerjaan selesai 100% (seratus persen), penyedia mengajukan permintaan secara tertulis kepada Pejabat Penandatangan Kontrak untuk penyerahan pekerjaan.")
+    doc.add_paragraph("b.\tSebelum dilakukan serah terima, Pejabat Penandatangan Kontrak melakukan pemeriksaan terhadap hasil pekerjaan.")
+    doc.add_paragraph("c.\tPejabat Penandatangan Kontrak dalam melakukan pemeriksaan hasil pekerjaan dapat dibantu oleh pengawas pekerjaan dan/atau tim teknis.")
+    doc.add_paragraph("d.\tApabila terdapat kekurangan-kekurangan dan/atau cacat hasil pekerjaan, penyedia wajib memperbaiki/menyelesaikannya, atas perintah Pejabat Penandatangan Kontrak.")
+    doc.add_paragraph("e.\tPejabat Penandatangan Kontrak menerima hasil pekerjaan setelah seluruh hasil pekerjaan dilaksanakan sesuai dengan ketentuan SPK.")
+    doc.add_paragraph("f.\tPembayaran dilakukan sebesar 100% (seratus persen) dari harga SPK dan penyedia harus menyerahkan Sertifikat Garansi.")
+    doc.add_paragraph()
+
+    # 16. JAMINAN BEBAS CACAT MUTU/GARANSI
+    p = doc.add_paragraph()
+    p.add_run("16.\tJAMINAN BEBAS CACAT MUTU/GARANSI").bold = True
+    doc.add_paragraph("a.\tPenyedia dengan jaminan pabrikan dari produsen pabrikan (jika ada) berkewajiban untuk menjamin bahwa selama penggunaan secara wajar, Barang tidak mengandung cacat mutu yang disebabkan oleh tindakan atau kelalaian Penyedia, atau cacat mutu akibat desain, bahan, dan cara kerja.")
+    doc.add_paragraph("b.\tJaminan bebas cacat mutu ini berlaku selama masa garansi berlaku.")
+    doc.add_paragraph("c.\tPejabat Penandatangan Kontrak akan menyampaikan pemberitahuan cacat mutu kepada Penyedia segera setelah ditemukan cacat mutu tersebut selama masa garansi berlaku.")
+    doc.add_paragraph("d.\tTerhadap pemberitahuan cacat mutu oleh Pejabat Penandatangan Kontrak, Penyedia berkewajiban untuk memperbaiki, mengganti, dan/atau melengkapi Barang dalam jangka waktu sesuai dengan syarat dan ketentuan dalam Sertifikat Garansi.")
+    doc.add_paragraph("e.\tJika Penyedia tidak memperbaiki, mengganti, atau melengkapi Barang akibat cacat mutu dalam jangka waktu sesuai dengan syarat dan ketentuan dalam Sertifikat Garansi, Pejabat Penandatangan Kontrak akan menghitung biaya perbaikan yang diperlukan, dan Pejabat Penandatangan Kontrak secara langsung atau melalui pihak ketiga yang ditunjuk oleh Pejabat Penandatangan Kontrak akan melakukan perbaikan tersebut.")
+    doc.add_paragraph("f.\tSelain kewajiban penggantian biaya, Penyedia yang lalai memperbaiki cacat mutu dikenakan Sanksi Daftar Hitam.")
+    doc.add_paragraph()
+
+    # 17. PERUBAHAN SPK
+    p = doc.add_paragraph()
+    p.add_run("17.\tPERUBAHAN SPK").bold = True
+    doc.add_paragraph("a.\tSPK hanya dapat diubah melalui adendum SPK.")
+    doc.add_paragraph("b.\tPerubahan SPK dapat dilaksanakan dalam hal terdapat perbedaan antara kondisi lapangan pada saat pelaksanaan dengan SPK dan disetujui oleh para pihak, meliputi:")
+    doc.add_paragraph("\t1)\tMenambah atau mengurangi volume yang tercantum dalam SPK;")
+    doc.add_paragraph("\t2)\tMenambah dan/atau mengurangi jenis kegiatan;")
+    doc.add_paragraph("\t3)\tMengubah spesifikasi teknis sesuai dengan kondisi lapangan; dan/atau")
+    doc.add_paragraph("\t4)\tMengubah jadwal pelaksanaan pekerjaan.")
+    doc.add_paragraph("c.\tUntuk kepentingan perubahan SPK, Pejabat Penandatangan Kontrak dapat dibantu Pejabat Peneliti Pelaksanaan Kontrak.")
+    doc.add_paragraph()
+
+    # 18. PERISTIWA KOMPENSASI
+    p = doc.add_paragraph()
+    p.add_run("18.\tPERISTIWA KOMPENSASI").bold = True
+    doc.add_paragraph("a.\tPeristiwa Kompensasi dapat diberikan kepada penyedia dalam hal sebagai berikut:")
+    doc.add_paragraph("\t1)\tPejabat Penandatangan Kontrak mengubah jadwal yang dapat mempengaruhi pelaksanaan pekerjaan;")
+    doc.add_paragraph("\t2)\tKeterlambatan pembayaran kepada penyedia;")
+    doc.add_paragraph("\t3)\tPejabat Penandatangan Kontrak tidak memberikan gambar-gambar, spesifikasi dan/atau instruksi sesuai jadwal yang dibutuhkan;")
+    doc.add_paragraph("\t4)\tPenyedia belum bisa masuk ke lokasi sesuai jadwal;")
+    doc.add_paragraph("\t5)\tPejabat Penandatangan Kontrak menginstruksikan kepada pihak penyedia untuk melakukan pengujian tambahan yang setelah dilaksanakan pengujian ternyata tidak ditemukan kerusakan/kegagalan/penyimpangan;")
+    doc.add_paragraph("\t6)\tPejabat Penandatangan Kontrak memerintahkan penundaan pelaksanaan pekerjaan;")
+    doc.add_paragraph("\t7)\tPejabat Penandatangan Kontrak memerintahkan untuk mengatasi kondisi tertentu yang tidak dapat diduga sebelumnya dan disebabkan oleh Pejabat Penandatangan Kontrak;")
+    doc.add_paragraph("\t8)\tKetentuan lain dalam SPK.")
+    doc.add_paragraph("b.\tJika Peristiwa Kompensasi mengakibatkan pengeluaran tambahan dan/atau keterlambatan penyelesaian pekerjaan maka Pejabat Penandatangan Kontrak berkewajiban untuk membayar ganti rugi dan/atau memberikan perpanjangan waktu penyelesaian pekerjaan.")
+    doc.add_paragraph("c.\tGanti rugi hanya dapat dibayarkan jika berdasarkan data penunjang dan perhitungan kompensasi yang diajukan oleh penyedia kepada Pejabat Penandatangan Kontrak, dapat dibuktikan kerugian nyata akibat Peristiwa Kompensasi.")
+    doc.add_paragraph("d.\tPerpanjangan waktu penyelesaian pekerjaan hanya dapat diberikan jika berdasarkan data penunjang dan perhitungan kompensasi yang diajukan oleh penyedia kepada Pejabat Penandatangan Kontrak, dapat dibuktikan perlunya tambahan waktu akibat Peristiwa Kompensasi.")
+    doc.add_paragraph("e.\tPenyedia tidak berhak atas ganti rugi dan/atau perpanjangan waktu penyelesaian pekerjaan jika penyedia gagal atau lalai untuk memberikan peringatan dini dalam mengantisipasi atau mengatasi dampak Peristiwa Kompensasi.")
+    doc.add_paragraph()
+
+    # 19. PERPANJANGAN WAKTU
+    p = doc.add_paragraph()
+    p.add_run("19.\tPERPANJANGAN WAKTU").bold = True
+    doc.add_paragraph("a.\tJika terjadi Peristiwa Kompensasi sehingga penyelesaian pekerjaan akan melampaui tanggal penyelesaian maka penyedia berhak untuk meminta perpanjangan tanggal penyelesaian berdasarkan data penunjang. Pejabat Penandatangan Kontrak berdasarkan pertimbangan Pengawas Pekerjaan memperpanjang tanggal penyelesaian pekerjaan secara tertulis. Perpanjangan tanggal penyelesaian harus dilakukan melalui adendum SPK.")
+    doc.add_paragraph("b.\tPejabat Penandatangan Kontrak dapat menyetujui perpanjangan waktu pelaksanaan setelah melakukan penelitian terhadap usulan tertulis yang diajukan oleh penyedia.")
+    doc.add_paragraph()
+
+    # 20. PENGHENTIAN DAN PEMUTUSAN SPK
+    p = doc.add_paragraph()
+    p.add_run("20.\tPENGHENTIAN DAN PEMUTUSAN SPK").bold = True
+    doc.add_paragraph("a.\tPenghentian SPK dapat dilakukan karena terjadi Keadaan Kahar.")
+    doc.add_paragraph("b.\tDalam hal SPK dihentikan, Pejabat Penandatangan Kontrak wajib membayar kepada penyedia sesuai dengan prestasi pekerjaan yang telah dicapai.")
+    doc.add_paragraph("c.\tPemutusan SPK dapat dilakukan oleh pihak Pejabat Penandatangan Kontrak atau pihak penyedia.")
+    doc.add_paragraph("d.\tMenyimpang dari Pasal 1266 dan 1267 Kitab Undang-Undang Hukum Perdata, pemutusan SPK melalui pemberitahuan tertulis dapat dilakukan apabila:")
+    doc.add_paragraph("\t1)\tPenyedia terbukti melakukan KKN, kecurangan dan/atau pemalsuan dalam proses Pengadaan yang diputuskan oleh instansi yang berwenang;")
+    doc.add_paragraph("\t2)\tPengaduan tentang penyimpangan prosedur, dugaan KKN dan/atau pelanggaran persaingan sehat dalam pelaksanaan pengadaan dinyatakan benar oleh instansi yang berwenang;")
+    doc.add_paragraph("\t3)\tPenyedia lalai/cidera janji dalam melaksanakan kewajibannya dan tidak memperbaiki kelalaiannya dalam jangka waktu yang telah ditetapkan;")
+    doc.add_paragraph("\t4)\tPenyedia tanpa persetujuan Pejabat Penandatangan Kontrak, tidak memulai pelaksanaan pekerjaan;")
+    doc.add_paragraph("\t5)\tPenyedia menghentikan pekerjaan dan penghentian ini tidak tercantum dalam program mutu serta tanpa persetujuan Pejabat Penandatangan Kontrak;")
+    doc.add_paragraph("\t6)\tPenyedia berada dalam keadaan pailit;")
+    doc.add_paragraph("\t7)\tPenyedia gagal memperbaiki kinerja setelah mendapat Surat Peringatan sebanyak 3 (tiga) kali;")
+    doc.add_paragraph("\t8)\tPenyedia selama Masa SPK gagal memperbaiki Cacat Mutu dalam jangka waktu yang ditetapkan oleh Pejabat Penandatangan Kontrak;")
+    doc.add_paragraph("\t9)\tPejabat Penandatangan Kontrak memerintahkan penyedia untuk menunda pelaksanaan atau kelanjutan pekerjaan, dan perintah tersebut tidak ditarik selama 28 (dua puluh delapan) hari; dan/atau")
+    doc.add_paragraph("\t10)\tPejabat Penandatangan Kontrak tidak menerbitkan surat perintah pembayaran untuk pembayaran tagihan angsuran sesuai dengan yang disepakati sebagaimana tercantum dalam SPK.")
+    doc.add_paragraph("e.\tDalam hal pemutusan SPK dilakukan karena kesalahan penyedia:")
+    doc.add_paragraph("\t1)\tSisa uang muka harus dilunasi oleh Penyedia atau Jaminan Uang Muka dicairkan (apabila diberikan);")
+    doc.add_paragraph("\t2)\tPenyedia membayar denda keterlambatan (apabila ada); dan/atau")
+    doc.add_paragraph("\t3)\tPenyedia dikenakan Sanksi Daftar Hitam.")
+    doc.add_paragraph("f.\tDalam hal pemutusan SPK dilakukan karena Pejabat Penandatangan Kontrak terlibat penyimpangan prosedur, melakukan KKN dan/atau pelanggaran persaingan sehat dalam pelaksanaan pengadaan, maka Pejabat Penandatangan Kontrak dikenakan sanksi berdasarkan peraturan perundang-undangan.")
+    doc.add_paragraph()
+
+    # 21. PEMBAYARAN
+    p = doc.add_paragraph()
+    p.add_run("21.\tPEMBAYARAN").bold = True
+    doc.add_paragraph("a.\tPembayaran prestasi hasil pekerjaan yang disepakati dilakukan oleh Pejabat Penandatangan Kontrak, dengan ketentuan:")
+    doc.add_paragraph("\t1)\tPenyedia telah mengajukan tagihan disertai laporan kemajuan hasil pekerjaan;")
+    doc.add_paragraph("\t2)\tPembayaran dilakukan dengan [sistem termin/pembayaran secara sekaligus];")
+    doc.add_paragraph("\t3)\tPembayaran harus dipotong denda (apabila ada), dan pajak;")
+    doc.add_paragraph("b.\tPembayaran terakhir hanya dilakukan setelah pekerjaan selesai 100% (seratus persen) dan Berita Acara Serah Terima ditandatangani.")
+    doc.add_paragraph("c.\tPejabat Penandatangan Kontrak dalam kurun waktu 7 (tujuh) hari kerja setelah pengajuan permintaan pembayaran dari penyedia harus sudah mengajukan surat permintaan pembayaran kepada Pejabat Penandatangan Surat Perintah Membayar (PPSPM).")
+    doc.add_paragraph("d.\tBila terdapat ketidaksesuaian dalam perhitungan angsuran, tidak akan menjadi alasan untuk menunda pembayaran. Pejabat Penandatangan Kontrak dapat meminta penyedia untuk menyampaikan perhitungan prestasi sementara dengan mengesampingkan hal-hal yang sedang menjadi perselisihan.")
+    doc.add_paragraph()
+
+    # 22. DENDA
+    p = doc.add_paragraph()
+    p.add_run("22.\tDENDA").bold = True
+    doc.add_paragraph("a.\tJika pekerjaan tidak dapat diselesaikan dalam jangka waktu pelaksanaan pekerjaan karena kesalahan atau kelalaian Penyedia maka Penyedia berkewajiban untuk membayar denda kepada Pejabat Penandatangan Kontrak sebesar 1/1000 (satu permil) dari nilai SPK (tidak termasuk PPN) untuk setiap hari keterlambatan atau 1/1000 (satu permil) dari nilai bagian SPK yang tercantum dalam SPK (tidak termasuk PPN).")
+    doc.add_paragraph("b.\tPejabat Penandatangan Kontrak mengenakan Denda dengan memotong pembayaran prestasi pekerjaan penyedia. Pembayaran Denda tidak mengurangi tanggung jawab kontraktual penyedia.")
+    doc.add_paragraph()
+
+    # 23. PENYELESAIAN PERSELISIHAN
+    add_su_item(doc, 23, "PENYELESAIAN PERSELISIHAN",
+        "Pejabat Penandatangan Kontrak dan penyedia berkewajiban untuk berupaya sungguh-sungguh menyelesaikan secara damai semua perselisihan yang timbul dari atau berhubungan dengan SPK ini atau interpretasinya selama atau setelah pelaksanaan pekerjaan. Jika perselisihan tidak dapat diselesaikan secara musyawarah maka perselisihan akan diselesaikan melalui Layanan Penyelesaian Sengketa, arbitrase atau Pengadilan Negeri.")
+
+    # 24. LARANGAN PEMBERIAN KOMISI
+    add_su_item(doc, 24, "LARANGAN PEMBERIAN KOMISI",
+        "Penyedia menjamin bahwa tidak satu pun personel satuan kerja Pejabat Penandatangan Kontrak telah atau akan menerima komisi atau keuntungan tidak sah lainnya baik langsung maupun tidak langsung dari SPK ini. Penyedia menyetujui bahwa pelanggaran syarat ini merupakan pelanggaran yang mendasar terhadap SPK ini.")
+
     # Save
     filepath = os.path.join(TEMPLATES_DIR, "spk_barang.docx")
     doc.save(filepath)
     print(f"✅ Created: {filepath}")
     return filepath
+
+
+def add_su_item(doc, nomor, judul, isi):
+    """Helper function to add Syarat Umum item"""
+    p = doc.add_paragraph()
+    p.add_run(f"{nomor}.\t{judul}").bold = True
+    doc.add_paragraph(isi)
+    doc.add_paragraph()
 
 
 # =============================================================================

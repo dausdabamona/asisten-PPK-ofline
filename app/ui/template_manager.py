@@ -25,7 +25,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import (
     DOCUMENT_TEMPLATES, ALL_PLACEHOLDERS, PLACEHOLDERS,
-    WORD_TEMPLATES_DIR, EXCEL_TEMPLATES_DIR, BACKUP_TEMPLATES_DIR
+    WORD_TEMPLATES_DIR, EXCEL_TEMPLATES_DIR, BACKUP_TEMPLATES_DIR,
+    PHASE_TEMPLATE_GROUPS
 )
 from app.templates.engine import get_template_manager
 
@@ -36,6 +37,8 @@ class TemplateManagerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.template_manager = get_template_manager()
+        self.phase_tables = {}
+        self.phase_progress = {}
         
         self.setWindowTitle("📄 Template Manager")
         self.setMinimumSize(1000, 700)
@@ -178,6 +181,47 @@ PANDUAN MEMBUAT TEMPLATE:
         self.load_placeholders()
         
         tabs.addTab(placeholder_tab, "🔤 Daftar Placeholder")
+
+        # Tab 4: Checklist per Fase
+        phase_tab = QWidget()
+        phase_layout = QVBoxLayout(phase_tab)
+        phase_layout.addWidget(QLabel("Checklist ketersediaan template per fase"))
+        phase_layout.addWidget(QLabel("Progress bar menghitung jumlah template yang sudah ada (uploaded/default)."))
+        
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        phase_container = QWidget()
+        phase_container_layout = QVBoxLayout(phase_container)
+        phase_container_layout.setContentsMargins(0, 0, 0, 0)
+        
+        for group in PHASE_TEMPLATE_GROUPS:
+            box = QGroupBox(f"✅ {group['name']}")
+            box_layout = QVBoxLayout(box)
+            desc = QLabel(group.get('description', ''))
+            desc.setStyleSheet("color: #7f8c8d;")
+            box_layout.addWidget(desc)
+            
+            progress = QProgressBar()
+            progress.setMaximum(len(group['documents']))
+            progress.setFormat("0/0 tersedia")
+            self.phase_progress[group['id']] = progress
+            box_layout.addWidget(progress)
+            
+            table = QTableWidget()
+            table.setColumnCount(4)
+            table.setHorizontalHeaderLabels(["Dokumen", "Kode", "Status", "Aksi"])
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            table.setSelectionBehavior(QTableWidget.SelectRows)
+            self.phase_tables[group['id']] = table
+            box_layout.addWidget(table)
+            
+            phase_container_layout.addWidget(box)
+        
+        phase_container_layout.addStretch()
+        scroll.setWidget(phase_container)
+        phase_layout.addWidget(scroll)
+        
+        tabs.addTab(phase_tab, "✅ Checklist Fase")
         
         # Tab 4: Preview
         preview_tab = QWidget()
@@ -281,6 +325,86 @@ PANDUAN MEMBUAT TEMPLATE:
             btn_layout.addWidget(btn_upload)
             
             self.template_table.setCellWidget(row, 5, btn_widget)
+
+        # Refresh phase checklist progress
+        self.load_phase_checklists()
+
+    def load_phase_checklists(self):
+        """Render checklist per fase berdasarkan ketersediaan template"""
+        status_list = self.template_manager.get_all_templates_status()
+        status_map = {item['code']: item for item in status_list}
+
+        for group in PHASE_TEMPLATE_GROUPS:
+            table = self.phase_tables.get(group['id'])
+            progress = self.phase_progress.get(group['id'])
+            if not table or not progress:
+                continue
+
+            table.setRowCount(0)
+            total_docs = len(group['documents'])
+            available = 0
+
+            for doc in group['documents']:
+                row = table.rowCount()
+                table.insertRow(row)
+
+                label_item = QTableWidgetItem(doc.get('label', '-'))
+                code = doc.get('code')
+                code_item = QTableWidgetItem(code or '-')
+                table.setItem(row, 0, label_item)
+                table.setItem(row, 1, code_item)
+
+                status_text = "❌ Belum ada template"
+                color = QColor("#e74c3c")
+                filepath = None
+
+                if code:
+                    info = status_map.get(code)
+                    if info:
+                        status_value = info.get('status')
+                        if status_value in ['uploaded', 'exists']:
+                            available += 1
+                            if status_value == 'uploaded':
+                                status_text = "✅ Uploaded"
+                                color = QColor("#27ae60")
+                            else:
+                                status_text = "📁 Default"
+                                color = QColor("#3498db")
+                            filepath = info.get('filepath')
+                        else:
+                            status_text = "❌ Missing"
+                            color = QColor("#e74c3c")
+                    else:
+                        status_text = "⚠️ Belum terdaftar"
+                        color = QColor("#e67e22")
+
+                status_item = QTableWidgetItem(status_text)
+                status_item.setForeground(color)
+                table.setItem(row, 2, status_item)
+
+                btn_widget = QWidget()
+                btn_layout = QHBoxLayout(btn_widget)
+                btn_layout.setContentsMargins(2, 2, 2, 2)
+
+                if filepath:
+                    btn_open = QPushButton("📂")
+                    btn_open.setToolTip("Buka file")
+                    btn_open.setMaximumWidth(30)
+                    btn_open.clicked.connect(lambda checked, fp=filepath: self.open_file(fp))
+                    btn_layout.addWidget(btn_open)
+
+                if code:
+                    btn_upload = QPushButton("⬆️")
+                    btn_upload.setToolTip("Upload/replace")
+                    btn_upload.setMaximumWidth(30)
+                    btn_upload.clicked.connect(lambda checked, c=code: self.quick_upload(c))
+                    btn_layout.addWidget(btn_upload)
+
+                table.setCellWidget(row, 3, btn_widget)
+
+            progress.setMaximum(total_docs if total_docs else 1)
+            progress.setValue(available)
+            progress.setFormat(f"{available}/{total_docs} tersedia")
     
     def load_placeholders(self, category: str = None):
         """Load placeholder list"""

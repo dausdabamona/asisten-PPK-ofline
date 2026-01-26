@@ -843,6 +843,93 @@ DOCUMENT_TEMPLATES = {
 }
 
 # ============================================================================
+# PHASE → DOCUMENT CHECKLIST MAPPING
+# ============================================================================
+
+PHASE_TEMPLATE_GROUPS = [
+    {
+        'id': 'PERENCANAAN',
+        'name': 'Perencanaan',
+        'description': 'Dokumen dasar sebelum pemilihan',
+        'documents': [
+            {'code': 'SPESIFIKASI', 'label': 'Spesifikasi Teknis'},
+            {'code': 'SURVEY_HARGA', 'label': 'Survey Harga (Excel)'},
+            {'code': 'BA_SURVEY_HARGA', 'label': 'BA Survey Harga'},
+            {'code': 'HPS', 'label': 'HPS'},
+            {'code': 'KAK', 'label': 'KAK/TOR'},
+            {'code': 'NOTA_DINAS_PP', 'label': 'Nota Dinas PP'},
+            {'code': 'SURAT_PERMINTAAN', 'label': 'Surat Permintaan Pengadaan'},
+        ],
+    },
+    {
+        'id': 'PEMILIHAN',
+        'name': 'Pemilihan',
+        'description': 'Undangan dan hasil pemilihan/negosiasi',
+        'documents': [
+            {'code': 'UNDANGAN_PL', 'label': 'Undangan Pengadaan Langsung'},
+            {'code': 'BAHPL', 'label': 'BA Hasil Pengadaan Langsung'},
+        ],
+    },
+    {
+        'id': 'KONTRAK',
+        'name': 'Kontrak',
+        'description': 'Kontrak/SPK dan surat perjanjian',
+        'documents': [
+            {'code': 'SPK', 'label': 'SPK (default)'},
+            {'code': 'SPK_BARANG', 'label': 'SPK Barang'},
+            {'code': 'SPK_JASA_LAINNYA', 'label': 'SPK Jasa Lainnya'},
+            {'code': 'SPK_KONSTRUKSI', 'label': 'SPK Konstruksi'},
+            {'code': 'SURAT_PESANAN', 'label': 'Surat Pesanan'},
+            {'code': 'PERJANJIAN_BARANG', 'label': 'Surat Perjanjian Barang'},
+            {'code': 'PERJANJIAN_JASA_LAINNYA', 'label': 'Surat Perjanjian Jasa Lainnya'},
+            {'code': 'PERJANJIAN_KONSTRUKSI', 'label': 'Surat Perjanjian Konstruksi'},
+        ],
+    },
+    {
+        'id': 'PELAKSANAAN',
+        'name': 'Pelaksanaan',
+        'description': 'Perintah mulai dan berita acara pemeriksaan',
+        'documents': [
+            {'code': 'SPMK', 'label': 'SPMK (default)'},
+            {'code': 'SPMK_JASA_LAINNYA', 'label': 'SPMK Jasa Lainnya'},
+            {'code': 'SPMK_KONSTRUKSI', 'label': 'SPMK Konstruksi'},
+            {'code': 'BAHP', 'label': 'BAHP (default)'},
+            {'code': 'BAHP_BARANG', 'label': 'BAHP Barang'},
+            {'code': 'BAHP_JASA_LAINNYA', 'label': 'BAHP Jasa Lainnya'},
+            {'code': 'BAHP_KONSTRUKSI', 'label': 'BAHP Konstruksi'},
+        ],
+    },
+    {
+        'id': 'PEMBAYARAN',
+        'name': 'Pembayaran',
+        'description': 'Serah terima, BAP, dan dokumen bayar',
+        'documents': [
+            {'code': 'BAST', 'label': 'BAST (default)'},
+            {'code': 'BAST_BARANG', 'label': 'BAST Barang'},
+            {'code': 'BAST_JASA_LAINNYA', 'label': 'BAST Jasa Lainnya'},
+            {'code': 'BAST_KONSTRUKSI_PHO', 'label': 'BAST Konstruksi PHO'},
+            {'code': 'BAST_KONSTRUKSI_FHO', 'label': 'BAST Konstruksi FHO'},
+            {'code': 'BAP_TERMIN', 'label': 'BAP Termin'},
+            {'code': 'BAP_SEKALIGUS', 'label': 'BAP Sekaligus'},
+            {'code': 'SPP_LS', 'label': 'SPP-LS'},
+            {'code': 'DRPP', 'label': 'DRPP'},
+            {'code': 'KUITANSI', 'label': 'Kuitansi'},
+            {'code': 'SSP_PPN', 'label': 'SSP PPN (Excel)'},
+            {'code': 'SSP_PPH', 'label': 'SSP PPh (Excel)'},
+        ],
+    },
+    {
+        'id': 'PENUTUP',
+        'name': 'Penutup/Audit',
+        'description': 'Arsip akhir dan jejak audit',
+        'documents': [
+            {'code': None, 'label': 'Checklist arsip akhir (belum ada template)'},
+            {'code': None, 'label': 'Log aktivitas/audit trail (belum ada template)'},
+        ],
+    },
+]
+
+# ============================================================================
 # TAX CONFIGURATION
 # ============================================================================
 

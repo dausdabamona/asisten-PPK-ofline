@@ -700,6 +700,12 @@ class PerjalananDinasManager(QDialog):
 
         toolbar.addStretch()
 
+        # Checklist SPJ
+        btn_checklist = QPushButton("📋 Checklist SPJ")
+        btn_checklist.setStyleSheet("background-color: #9b59b6; color: white; padding: 8px 16px; border-radius: 4px;")
+        btn_checklist.clicked.connect(self.open_checklist)
+        toolbar.addWidget(btn_checklist)
+
         # Generate documents
         btn_generate = QPushButton("📄 Generate Dokumen")
         btn_generate.setStyleSheet("background-color: #27ae60; color: white; padding: 8px 16px; border-radius: 4px;")
@@ -714,7 +720,7 @@ class PerjalananDinasManager(QDialog):
         self.table.setHorizontalHeaderLabels([
             "No", "Nama Kegiatan", "Pelaksana", "Tujuan",
             "Tgl Berangkat", "Tgl Kembali", "Total Biaya",
-            "Status", "Dokumen", "ID"
+            "Status", "SPJ", "ID"
         ])
 
         self.table.setColumnHidden(9, True)  # Hide ID
@@ -813,9 +819,30 @@ class PerjalananDinasManager(QDialog):
                 status_item.setForeground(QColor('#f39c12'))
             self.table.setItem(row, 7, status_item)
 
-            # Dokumen
-            doc_count = pd.get('doc_count', 0)
-            self.table.setItem(row, 8, QTableWidgetItem(f"{doc_count} dok"))
+            # SPJ Checklist Progress
+            try:
+                progress = self.db.get_checklist_progress(pd['id'])
+                if progress['total_wajib'] > 0:
+                    pct = progress['progress']
+                    if pct == 100:
+                        spj_text = "✅ Lengkap"
+                        spj_color = QColor('#27ae60')
+                    elif pct >= 50:
+                        spj_text = f"📝 {pct}%"
+                        spj_color = QColor('#f39c12')
+                    else:
+                        spj_text = f"🔲 {pct}%"
+                        spj_color = QColor('#95a5a6')
+                else:
+                    spj_text = "- belum"
+                    spj_color = QColor('#bdc3c7')
+            except:
+                spj_text = "- belum"
+                spj_color = QColor('#bdc3c7')
+
+            spj_item = QTableWidgetItem(spj_text)
+            spj_item.setForeground(spj_color)
+            self.table.setItem(row, 8, spj_item)
 
             # ID (hidden)
             self.table.setItem(row, 9, QTableWidgetItem(str(pd['id'])))
@@ -890,6 +917,17 @@ class PerjalananDinasManager(QDialog):
         dialog = GeneratePDDocumentDialog(pd_data, parent=self)
         if dialog.exec():
             self.load_data()
+
+    def open_checklist(self):
+        """Open checklist dialog for selected perjalanan dinas"""
+        pd_id = self.get_selected_id()
+        if not pd_id:
+            QMessageBox.warning(self, "Peringatan", "Pilih perjalanan dinas terlebih dahulu!")
+            return
+
+        from app.ui.checklist_perjalanan_dinas_manager import ChecklistPerjalananDinasDialog
+        dialog = ChecklistPerjalananDinasDialog(pd_id, parent=self)
+        dialog.exec()
 
 
 # ============================================================================

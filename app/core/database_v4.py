@@ -1049,7 +1049,7 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
 
 CREATE INDEX IF NOT EXISTS idx_pagu_tahun ON pagu_anggaran(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_full ON pagu_anggaran(kode_full);
-CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak);
+-- idx_pagu_nomor_mak dibuat di _run_migrations setelah migrasi kolom
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_akun ON pagu_anggaran(kode_akun);
 CREATE INDEX IF NOT EXISTS idx_pagu_level ON pagu_anggaran(level_kode);
 CREATE INDEX IF NOT EXISTS idx_pagu_parent ON pagu_anggaran(parent_id);
@@ -1477,6 +1477,12 @@ class DatabaseManagerV4:
                     cursor.execute(sql)
                 except:
                     pass
+
+        # Create index for nomor_mak after migration ensures column exists
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak)")
+        except:
+            pass
 
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""

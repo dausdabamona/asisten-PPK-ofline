@@ -45,10 +45,13 @@ CHECKLIST_CONFIG_PD = {
         ('KUITANSI_UM', 'Kuitansi Uang Muka', 'PERSIAPAN', False, 'uang_muka'),
     ],
     'PELAKSANAAN': [
-        ('TIKET_TRANSPORT', 'Tiket Transportasi (PP)', 'PELAKSANAAN', False, 'biaya_transport'),
-        ('BOARDING_PASS', 'Boarding Pass', 'PELAKSANAAN', False, 'biaya_transport'),
-        ('BILL_HOTEL', 'Bill/Invoice Hotel', 'PELAKSANAAN', False, 'biaya_penginapan'),
-        ('BUKTI_TRANSPORT_LOKAL', 'Bukti Transport Lokal', 'PELAKSANAAN', False, None),
+        ('TIKET_PERGI', 'Tiket Pergi (Pesawat/Kereta/Bus)', 'PELAKSANAAN', False, 'tiket_pergi'),
+        ('TIKET_PULANG', 'Tiket Pulang (Pesawat/Kereta/Bus)', 'PELAKSANAAN', False, 'tiket_pulang'),
+        ('BOARDING_PASS_PERGI', 'Boarding Pass Pergi', 'PELAKSANAAN', False, 'tiket_pergi'),
+        ('BOARDING_PASS_PULANG', 'Boarding Pass Pulang', 'PELAKSANAAN', False, 'tiket_pulang'),
+        ('BILL_HOTEL', 'Bill/Invoice Hotel', 'PELAKSANAAN', False, 'tarif_penginapan'),
+        ('BUKTI_TRANSPORT_LOKAL', 'Bukti Transport Lokal di Tujuan', 'PELAKSANAAN', False, 'transport_lokal'),
+        ('BUKTI_TRANSPORT_BANDARA', 'Bukti Transport ke/dari Bandara/Stasiun', 'PELAKSANAAN', False, 'transport_bandara_pergi'),
     ],
     'PERTANGGUNGJAWABAN': [
         ('LAPORAN_PD', 'Laporan Perjalanan Dinas', 'PERTANGGUNGJAWABAN', True, None),

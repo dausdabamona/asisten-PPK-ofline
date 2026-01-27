@@ -240,46 +240,168 @@ class PerjalananDinasDialog(QDialog):
         anggaran_group.setLayout(anggaran_form)
         form2.addWidget(anggaran_group)
 
-        # Biaya
-        biaya_group = QGroupBox("Rincian Biaya")
-        biaya_form = QFormLayout()
+        tabs.addTab(tab_waktu, "Waktu & Anggaran")
 
-        self.spn_biaya_transport = CurrencySpinBox()
-        self.spn_biaya_transport.valueChanged.connect(self.update_total_biaya)
-        biaya_form.addRow("Biaya Transport:", self.spn_biaya_transport)
+        # ========== TAB 3: BIAYA TRANSPORT ==========
+        tab_transport = QWidget()
+        form_transport = QVBoxLayout(tab_transport)
 
-        self.spn_biaya_uang_harian = CurrencySpinBox()
-        self.spn_biaya_uang_harian.valueChanged.connect(self.update_total_biaya)
-        biaya_form.addRow("Uang Harian:", self.spn_biaya_uang_harian)
+        # Jenis Transport
+        transport_type_group = QGroupBox("Jenis Transportasi")
+        transport_type_form = QFormLayout()
 
-        self.spn_biaya_penginapan = CurrencySpinBox()
-        self.spn_biaya_penginapan.valueChanged.connect(self.update_total_biaya)
-        biaya_form.addRow("Biaya Penginapan:", self.spn_biaya_penginapan)
+        self.cmb_jenis_transport = QComboBox()
+        self.cmb_jenis_transport.addItems(['PESAWAT', 'KERETA', 'BUS', 'DARAT'])
+        self.cmb_jenis_transport.currentTextChanged.connect(self.on_transport_type_changed)
+        transport_type_form.addRow("Jenis Transport:", self.cmb_jenis_transport)
+
+        transport_type_group.setLayout(transport_type_form)
+        form_transport.addWidget(transport_type_group)
+
+        # Tiket
+        tiket_group = QGroupBox("Biaya Tiket")
+        tiket_form = QFormLayout()
+
+        self.spn_tiket_pergi = CurrencySpinBox()
+        self.spn_tiket_pergi.valueChanged.connect(self.update_total_biaya)
+        tiket_form.addRow("Tiket Pergi:", self.spn_tiket_pergi)
+
+        self.spn_tiket_pulang = CurrencySpinBox()
+        self.spn_tiket_pulang.valueChanged.connect(self.update_total_biaya)
+        tiket_form.addRow("Tiket Pulang:", self.spn_tiket_pulang)
+
+        self.lbl_subtotal_tiket = QLabel("Rp 0")
+        self.lbl_subtotal_tiket.setStyleSheet("font-weight: bold; color: #3498db;")
+        tiket_form.addRow("Subtotal Tiket:", self.lbl_subtotal_tiket)
+
+        tiket_group.setLayout(tiket_form)
+        form_transport.addWidget(tiket_group)
+
+        # Transport Lokal
+        lokal_group = QGroupBox("Biaya Transport Lokal")
+        lokal_form = QFormLayout()
+
+        self.spn_transport_bandara_pergi = CurrencySpinBox()
+        self.spn_transport_bandara_pergi.valueChanged.connect(self.update_total_biaya)
+        lokal_form.addRow("Transport ke Bandara/Stasiun (Pergi):", self.spn_transport_bandara_pergi)
+
+        self.spn_transport_bandara_pulang = CurrencySpinBox()
+        self.spn_transport_bandara_pulang.valueChanged.connect(self.update_total_biaya)
+        lokal_form.addRow("Transport dari Bandara/Stasiun (Pulang):", self.spn_transport_bandara_pulang)
+
+        self.spn_transport_lokal = CurrencySpinBox()
+        self.spn_transport_lokal.valueChanged.connect(self.update_total_biaya)
+        lokal_form.addRow("Transport Lokal di Tujuan:", self.spn_transport_lokal)
+
+        self.lbl_subtotal_lokal = QLabel("Rp 0")
+        self.lbl_subtotal_lokal.setStyleSheet("font-weight: bold; color: #3498db;")
+        lokal_form.addRow("Subtotal Transport Lokal:", self.lbl_subtotal_lokal)
+
+        lokal_group.setLayout(lokal_form)
+        form_transport.addWidget(lokal_group)
+
+        # Total Transport
+        total_transport_layout = QHBoxLayout()
+        total_transport_layout.addWidget(QLabel("TOTAL BIAYA TRANSPORT:"))
+        self.lbl_total_transport = QLabel("Rp 0")
+        self.lbl_total_transport.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+        total_transport_layout.addWidget(self.lbl_total_transport)
+        total_transport_layout.addStretch()
+        form_transport.addLayout(total_transport_layout)
+
+        tabs.addTab(tab_transport, "Biaya Transport")
+
+        # ========== TAB 4: BIAYA HARIAN & PENGINAPAN ==========
+        tab_harian = QWidget()
+        form_harian = QVBoxLayout(tab_harian)
+
+        # Uang Harian
+        harian_group = QGroupBox("Uang Harian")
+        harian_form = QFormLayout()
+
+        self.spn_tarif_uang_harian = CurrencySpinBox()
+        self.spn_tarif_uang_harian.valueChanged.connect(self.update_total_biaya)
+        harian_form.addRow("Tarif per Hari:", self.spn_tarif_uang_harian)
+
+        self.spn_jumlah_hari = QSpinBox()
+        self.spn_jumlah_hari.setRange(1, 30)
+        self.spn_jumlah_hari.setValue(1)
+        self.spn_jumlah_hari.setSuffix(" hari")
+        self.spn_jumlah_hari.valueChanged.connect(self.update_total_biaya)
+        harian_form.addRow("Jumlah Hari:", self.spn_jumlah_hari)
+
+        self.lbl_subtotal_harian = QLabel("Rp 0")
+        self.lbl_subtotal_harian.setStyleSheet("font-weight: bold; color: #27ae60;")
+        harian_form.addRow("Total Uang Harian:", self.lbl_subtotal_harian)
+
+        harian_group.setLayout(harian_form)
+        form_harian.addWidget(harian_group)
+
+        # Penginapan
+        penginapan_group = QGroupBox("Biaya Penginapan")
+        penginapan_form = QFormLayout()
+
+        self.spn_tarif_penginapan = CurrencySpinBox()
+        self.spn_tarif_penginapan.valueChanged.connect(self.update_total_biaya)
+        penginapan_form.addRow("Tarif per Malam:", self.spn_tarif_penginapan)
+
+        self.spn_jumlah_malam = QSpinBox()
+        self.spn_jumlah_malam.setRange(0, 30)
+        self.spn_jumlah_malam.setValue(0)
+        self.spn_jumlah_malam.setSuffix(" malam")
+        self.spn_jumlah_malam.valueChanged.connect(self.update_total_biaya)
+        penginapan_form.addRow("Jumlah Malam:", self.spn_jumlah_malam)
+
+        self.lbl_subtotal_penginapan = QLabel("Rp 0")
+        self.lbl_subtotal_penginapan.setStyleSheet("font-weight: bold; color: #27ae60;")
+        penginapan_form.addRow("Total Penginapan:", self.lbl_subtotal_penginapan)
+
+        penginapan_group.setLayout(penginapan_form)
+        form_harian.addWidget(penginapan_group)
+
+        # Biaya Lainnya
+        lain_group = QGroupBox("Biaya Lainnya")
+        lain_form = QFormLayout()
 
         self.spn_biaya_representasi = CurrencySpinBox()
         self.spn_biaya_representasi.valueChanged.connect(self.update_total_biaya)
-        biaya_form.addRow("Uang Representasi:", self.spn_biaya_representasi)
+        lain_form.addRow("Uang Representasi:", self.spn_biaya_representasi)
 
         self.spn_biaya_lain = CurrencySpinBox()
         self.spn_biaya_lain.valueChanged.connect(self.update_total_biaya)
-        biaya_form.addRow("Biaya Lain-lain:", self.spn_biaya_lain)
+        lain_form.addRow("Biaya Lain-lain:", self.spn_biaya_lain)
 
-        # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        biaya_form.addRow(sep)
+        self.txt_keterangan_lain = QLineEdit()
+        self.txt_keterangan_lain.setPlaceholderText("Keterangan biaya lain-lain...")
+        lain_form.addRow("Keterangan:", self.txt_keterangan_lain)
+
+        lain_group.setLayout(lain_form)
+        form_harian.addWidget(lain_group)
+
+        # Summary
+        summary_group = QGroupBox("Ringkasan Biaya")
+        summary_form = QFormLayout()
 
         self.lbl_total_biaya = QLabel("Rp 0")
-        self.lbl_total_biaya.setStyleSheet("font-weight: bold; font-size: 14px;")
-        biaya_form.addRow("TOTAL BIAYA:", self.lbl_total_biaya)
+        self.lbl_total_biaya.setStyleSheet("font-weight: bold; font-size: 16px; color: #e74c3c;")
+        summary_form.addRow("TOTAL SELURUH BIAYA:", self.lbl_total_biaya)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        summary_form.addRow(sep)
 
         self.spn_uang_muka = CurrencySpinBox()
-        biaya_form.addRow("Uang Muka Diterima:", self.spn_uang_muka)
+        self.spn_uang_muka.valueChanged.connect(self.update_total_biaya)
+        summary_form.addRow("Uang Muka Diterima:", self.spn_uang_muka)
 
-        biaya_group.setLayout(biaya_form)
-        form2.addWidget(biaya_group)
+        self.lbl_sisa_bayar = QLabel("Rp 0")
+        self.lbl_sisa_bayar.setStyleSheet("font-weight: bold; font-size: 14px;")
+        summary_form.addRow("Kekurangan/Kelebihan:", self.lbl_sisa_bayar)
 
-        tabs.addTab(tab_waktu, "Waktu & Biaya")
+        summary_group.setLayout(summary_form)
+        form_harian.addWidget(summary_group)
+
+        tabs.addTab(tab_harian, "Biaya Harian & Lainnya")
 
         # ========== TAB 3: PEJABAT ==========
         tab_pejabat = QWidget()
@@ -473,16 +595,61 @@ class PerjalananDinasDialog(QDialog):
         lama = (kembali - berangkat).days + 1
         self.spn_lama.setValue(max(1, lama))
 
+    def on_transport_type_changed(self, transport_type):
+        """Handle transport type change"""
+        is_udara = transport_type == 'PESAWAT'
+        # Enable/disable relevant fields based on transport type
+        self.spn_transport_bandara_pergi.setEnabled(is_udara or transport_type == 'KERETA')
+        self.spn_transport_bandara_pulang.setEnabled(is_udara or transport_type == 'KERETA')
+
     def update_total_biaya(self):
-        """Calculate total cost"""
+        """Calculate total cost with detailed breakdown"""
+        # Subtotal Tiket
+        subtotal_tiket = self.spn_tiket_pergi.value() + self.spn_tiket_pulang.value()
+        self.lbl_subtotal_tiket.setText(f"Rp {subtotal_tiket:,.0f}".replace(',', '.'))
+
+        # Subtotal Transport Lokal
+        subtotal_lokal = (
+            self.spn_transport_bandara_pergi.value() +
+            self.spn_transport_bandara_pulang.value() +
+            self.spn_transport_lokal.value()
+        )
+        self.lbl_subtotal_lokal.setText(f"Rp {subtotal_lokal:,.0f}".replace(',', '.'))
+
+        # Total Transport
+        total_transport = subtotal_tiket + subtotal_lokal
+        self.lbl_total_transport.setText(f"Rp {total_transport:,.0f}".replace(',', '.'))
+
+        # Subtotal Uang Harian
+        subtotal_harian = self.spn_tarif_uang_harian.value() * self.spn_jumlah_hari.value()
+        self.lbl_subtotal_harian.setText(f"Rp {subtotal_harian:,.0f}".replace(',', '.'))
+
+        # Subtotal Penginapan
+        subtotal_penginapan = self.spn_tarif_penginapan.value() * self.spn_jumlah_malam.value()
+        self.lbl_subtotal_penginapan.setText(f"Rp {subtotal_penginapan:,.0f}".replace(',', '.'))
+
+        # Total Biaya
         total = (
-            self.spn_biaya_transport.value() +
-            self.spn_biaya_uang_harian.value() +
-            self.spn_biaya_penginapan.value() +
+            total_transport +
+            subtotal_harian +
+            subtotal_penginapan +
             self.spn_biaya_representasi.value() +
             self.spn_biaya_lain.value()
         )
         self.lbl_total_biaya.setText(f"Rp {total:,.0f}".replace(',', '.'))
+
+        # Sisa Bayar
+        uang_muka = self.spn_uang_muka.value()
+        sisa = total - uang_muka
+        if sisa > 0:
+            self.lbl_sisa_bayar.setText(f"Kurang Rp {sisa:,.0f}".replace(',', '.'))
+            self.lbl_sisa_bayar.setStyleSheet("font-weight: bold; font-size: 14px; color: #e74c3c;")
+        elif sisa < 0:
+            self.lbl_sisa_bayar.setText(f"Lebih Rp {abs(sisa):,.0f}".replace(',', '.'))
+            self.lbl_sisa_bayar.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+        else:
+            self.lbl_sisa_bayar.setText("Rp 0 (Lunas)")
+            self.lbl_sisa_bayar.setStyleSheet("font-weight: bold; font-size: 14px; color: #3498db;")
 
     def load_data(self):
         """Load existing data"""
@@ -520,11 +687,35 @@ class PerjalananDinasDialog(QDialog):
         self.txt_sumber_dana.setText(d.get('sumber_dana', 'DIPA') or 'DIPA')
         self.txt_kode_akun.setText(d.get('kode_akun', '') or '')
 
-        self.spn_biaya_transport.setValue(d.get('biaya_transport', 0) or 0)
-        self.spn_biaya_uang_harian.setValue(d.get('biaya_uang_harian', 0) or 0)
-        self.spn_biaya_penginapan.setValue(d.get('biaya_penginapan', 0) or 0)
+        # Jenis Transport
+        jenis_transport = d.get('jenis_transport', 'DARAT') or 'DARAT'
+        idx = self.cmb_jenis_transport.findText(jenis_transport)
+        if idx >= 0:
+            self.cmb_jenis_transport.setCurrentIndex(idx)
+
+        # Biaya Tiket
+        self.spn_tiket_pergi.setValue(d.get('tiket_pergi', 0) or 0)
+        self.spn_tiket_pulang.setValue(d.get('tiket_pulang', 0) or 0)
+
+        # Transport Lokal
+        self.spn_transport_bandara_pergi.setValue(d.get('transport_bandara_pergi', 0) or 0)
+        self.spn_transport_bandara_pulang.setValue(d.get('transport_bandara_pulang', 0) or 0)
+        self.spn_transport_lokal.setValue(d.get('transport_lokal', 0) or 0)
+
+        # Uang Harian
+        self.spn_tarif_uang_harian.setValue(d.get('tarif_uang_harian', 0) or 0)
+        self.spn_jumlah_hari.setValue(d.get('jumlah_hari_uang_harian', 1) or 1)
+
+        # Penginapan
+        self.spn_tarif_penginapan.setValue(d.get('tarif_penginapan', 0) or 0)
+        self.spn_jumlah_malam.setValue(d.get('jumlah_malam', 0) or 0)
+
+        # Biaya Lainnya
         self.spn_biaya_representasi.setValue(d.get('biaya_representasi', 0) or 0)
         self.spn_biaya_lain.setValue(d.get('biaya_lain_lain', 0) or 0)
+        self.txt_keterangan_lain.setText(d.get('keterangan_biaya_lain', '') or '')
+
+        # Uang Muka
         self.spn_uang_muka.setValue(d.get('uang_muka', 0) or 0)
 
         # Set PPK combo berdasarkan ppk_id jika ada
@@ -583,11 +774,44 @@ class PerjalananDinasDialog(QDialog):
             'sumber_dana': self.txt_sumber_dana.text().strip(),
             'kode_akun': self.txt_kode_akun.text().strip(),
 
-            'biaya_transport': self.spn_biaya_transport.value(),
-            'biaya_uang_harian': self.spn_biaya_uang_harian.value(),
-            'biaya_penginapan': self.spn_biaya_penginapan.value(),
+            # Biaya Transport Detail
+            'jenis_transport': self.cmb_jenis_transport.currentText(),
+            'tiket_pergi': self.spn_tiket_pergi.value(),
+            'tiket_pulang': self.spn_tiket_pulang.value(),
+            'transport_bandara_pergi': self.spn_transport_bandara_pergi.value(),
+            'transport_bandara_pulang': self.spn_transport_bandara_pulang.value(),
+            'transport_lokal': self.spn_transport_lokal.value(),
+            'biaya_transport': (
+                self.spn_tiket_pergi.value() + self.spn_tiket_pulang.value() +
+                self.spn_transport_bandara_pergi.value() + self.spn_transport_bandara_pulang.value() +
+                self.spn_transport_lokal.value()
+            ),
+
+            # Uang Harian Detail
+            'tarif_uang_harian': self.spn_tarif_uang_harian.value(),
+            'jumlah_hari_uang_harian': self.spn_jumlah_hari.value(),
+            'biaya_uang_harian': self.spn_tarif_uang_harian.value() * self.spn_jumlah_hari.value(),
+
+            # Penginapan Detail
+            'tarif_penginapan': self.spn_tarif_penginapan.value(),
+            'jumlah_malam': self.spn_jumlah_malam.value(),
+            'biaya_penginapan': self.spn_tarif_penginapan.value() * self.spn_jumlah_malam.value(),
+
+            # Biaya Lainnya
             'biaya_representasi': self.spn_biaya_representasi.value(),
             'biaya_lain_lain': self.spn_biaya_lain.value(),
+            'keterangan_biaya_lain': self.txt_keterangan_lain.text().strip(),
+
+            # Total & Uang Muka
+            'total_biaya': (
+                self.spn_tiket_pergi.value() + self.spn_tiket_pulang.value() +
+                self.spn_transport_bandara_pergi.value() + self.spn_transport_bandara_pulang.value() +
+                self.spn_transport_lokal.value() +
+                self.spn_tarif_uang_harian.value() * self.spn_jumlah_hari.value() +
+                self.spn_tarif_penginapan.value() * self.spn_jumlah_malam.value() +
+                self.spn_biaya_representasi.value() +
+                self.spn_biaya_lain.value()
+            ),
             'uang_muka': self.spn_uang_muka.value(),
 
             # Pejabat - simpan ID dan data text
@@ -1109,13 +1333,34 @@ class GeneratePDDocumentDialog(QDialog):
         """Prepare placeholders from perjalanan dinas data"""
         d = self.pd_data
 
-        # Calculate total
-        total_biaya = (
-            (d.get('biaya_transport', 0) or 0) +
-            (d.get('biaya_uang_harian', 0) or 0) +
-            (d.get('biaya_penginapan', 0) or 0) +
-            (d.get('biaya_representasi', 0) or 0) +
-            (d.get('biaya_lain_lain', 0) or 0)
+        # Calculate detailed costs
+        tiket_pergi = d.get('tiket_pergi', 0) or 0
+        tiket_pulang = d.get('tiket_pulang', 0) or 0
+        transport_bandara_pergi = d.get('transport_bandara_pergi', 0) or 0
+        transport_bandara_pulang = d.get('transport_bandara_pulang', 0) or 0
+        transport_lokal = d.get('transport_lokal', 0) or 0
+
+        # Total transport
+        biaya_transport = tiket_pergi + tiket_pulang + transport_bandara_pergi + transport_bandara_pulang + transport_lokal
+
+        # Uang harian
+        tarif_uang_harian = d.get('tarif_uang_harian', 0) or 0
+        jumlah_hari = d.get('jumlah_hari_uang_harian', 1) or 1
+        biaya_uang_harian = tarif_uang_harian * jumlah_hari
+
+        # Penginapan
+        tarif_penginapan = d.get('tarif_penginapan', 0) or 0
+        jumlah_malam = d.get('jumlah_malam', 0) or 0
+        biaya_penginapan = tarif_penginapan * jumlah_malam
+
+        # Biaya lainnya
+        biaya_representasi = d.get('biaya_representasi', 0) or 0
+        biaya_lain_lain = d.get('biaya_lain_lain', 0) or 0
+
+        # Total biaya
+        total_biaya = d.get('total_biaya', 0) or (
+            biaya_transport + biaya_uang_harian + biaya_penginapan +
+            biaya_representasi + biaya_lain_lain
         )
 
         uang_muka = d.get('uang_muka', 0) or 0
@@ -1174,13 +1419,35 @@ class GeneratePDDocumentDialog(QDialog):
             'nomor_surat_tugas': d.get('nomor_surat_tugas', ''),
             'nomor_sppd': d.get('nomor_sppd', ''),
 
-            # Biaya
-            'biaya_transport': fmt_rp(d.get('biaya_transport', 0) or 0),
-            'biaya_uang_harian': fmt_rp(d.get('biaya_uang_harian', 0) or 0),
-            'biaya_penginapan': fmt_rp(d.get('biaya_penginapan', 0) or 0),
-            'biaya_representasi': fmt_rp(d.get('biaya_representasi', 0) or 0),
-            'biaya_lain_lain': fmt_rp(d.get('biaya_lain_lain', 0) or 0),
+            # Biaya Transport Detail
+            'jenis_transport': d.get('jenis_transport', 'DARAT'),
+            'tiket_pergi': fmt_rp(tiket_pergi),
+            'tiket_pulang': fmt_rp(tiket_pulang),
+            'subtotal_tiket': fmt_rp(tiket_pergi + tiket_pulang),
+            'transport_bandara_pergi': fmt_rp(transport_bandara_pergi),
+            'transport_bandara_pulang': fmt_rp(transport_bandara_pulang),
+            'transport_lokal': fmt_rp(transport_lokal),
+            'subtotal_transport_lokal': fmt_rp(transport_bandara_pergi + transport_bandara_pulang + transport_lokal),
+            'biaya_transport': fmt_rp(biaya_transport),
+
+            # Uang Harian Detail
+            'tarif_uang_harian': fmt_rp(tarif_uang_harian),
+            'jumlah_hari_uang_harian': str(jumlah_hari),
+            'biaya_uang_harian': fmt_rp(biaya_uang_harian),
+
+            # Penginapan Detail
+            'tarif_penginapan': fmt_rp(tarif_penginapan),
+            'jumlah_malam': str(jumlah_malam),
+            'biaya_penginapan': fmt_rp(biaya_penginapan),
+
+            # Biaya Lainnya
+            'biaya_representasi': fmt_rp(biaya_representasi),
+            'biaya_lain_lain': fmt_rp(biaya_lain_lain),
+            'keterangan_biaya_lain': d.get('keterangan_biaya_lain', ''),
+
+            # Total & Summary
             'total_biaya': fmt_rp(total_biaya),
+            'total_biaya_terbilang': terbilang_rupiah(total_biaya),
             'uang_muka': fmt_rp(uang_muka),
             'uang_muka_terbilang': terbilang_rupiah(uang_muka),
             'kekurangan_bayar': fmt_rp(max(0, selisih)),

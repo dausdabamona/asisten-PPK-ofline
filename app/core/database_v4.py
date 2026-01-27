@@ -594,12 +594,31 @@ CREATE TABLE IF NOT EXISTS perjalanan_dinas (
     sumber_dana TEXT DEFAULT 'DIPA',
     kode_akun TEXT,
 
-    -- Biaya
-    biaya_transport REAL DEFAULT 0,
-    biaya_uang_harian REAL DEFAULT 0,
-    biaya_penginapan REAL DEFAULT 0,
+    -- Biaya Transport (Detail)
+    jenis_transport TEXT DEFAULT 'DARAT',  -- PESAWAT, KERETA, BUS, DARAT
+    tiket_pergi REAL DEFAULT 0,
+    tiket_pulang REAL DEFAULT 0,
+    transport_bandara_pergi REAL DEFAULT 0,
+    transport_bandara_pulang REAL DEFAULT 0,
+    transport_lokal REAL DEFAULT 0,
+    biaya_transport REAL DEFAULT 0,        -- Total transport (auto-calculated)
+
+    -- Biaya Harian & Penginapan (Detail)
+    tarif_uang_harian REAL DEFAULT 0,      -- Tarif per hari
+    jumlah_hari_uang_harian INTEGER DEFAULT 1,
+    biaya_uang_harian REAL DEFAULT 0,      -- Total uang harian
+
+    tarif_penginapan REAL DEFAULT 0,       -- Tarif per malam
+    jumlah_malam INTEGER DEFAULT 0,
+    biaya_penginapan REAL DEFAULT 0,       -- Total penginapan
+
+    -- Biaya Lainnya
     biaya_representasi REAL DEFAULT 0,
     biaya_lain_lain REAL DEFAULT 0,
+    keterangan_biaya_lain TEXT,
+
+    -- Total & Uang Muka
+    total_biaya REAL DEFAULT 0,            -- Grand total
     uang_muka REAL DEFAULT 0,
 
     -- Pejabat
@@ -2489,12 +2508,17 @@ class DatabaseManagerV4:
                     kota_asal, kota_tujuan, provinsi_tujuan, alamat_tujuan,
                     tanggal_surat_tugas, tanggal_berangkat, tanggal_kembali, lama_perjalanan,
                     sumber_dana, kode_akun,
-                    biaya_transport, biaya_uang_harian, biaya_penginapan,
-                    biaya_representasi, biaya_lain_lain, uang_muka,
+                    jenis_transport, tiket_pergi, tiket_pulang,
+                    transport_bandara_pergi, transport_bandara_pulang, transport_lokal,
+                    biaya_transport,
+                    tarif_uang_harian, jumlah_hari_uang_harian, biaya_uang_harian,
+                    tarif_penginapan, jumlah_malam, biaya_penginapan,
+                    biaya_representasi, biaya_lain_lain, keterangan_biaya_lain,
+                    total_biaya, uang_muka,
                     ppk_id, ppk_nama, ppk_nip, ppk_jabatan,
                     bendahara_id, bendahara_nama, bendahara_nip,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran', TAHUN_ANGGARAN),
                 data.get('nama_kegiatan'),
@@ -2517,11 +2541,23 @@ class DatabaseManagerV4:
                 data.get('lama_perjalanan', 1),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('jenis_transport', 'DARAT'),
+                data.get('tiket_pergi', 0),
+                data.get('tiket_pulang', 0),
+                data.get('transport_bandara_pergi', 0),
+                data.get('transport_bandara_pulang', 0),
+                data.get('transport_lokal', 0),
                 data.get('biaya_transport', 0),
+                data.get('tarif_uang_harian', 0),
+                data.get('jumlah_hari_uang_harian', 1),
                 data.get('biaya_uang_harian', 0),
+                data.get('tarif_penginapan', 0),
+                data.get('jumlah_malam', 0),
                 data.get('biaya_penginapan', 0),
                 data.get('biaya_representasi', 0),
                 data.get('biaya_lain_lain', 0),
+                data.get('keterangan_biaya_lain'),
+                data.get('total_biaya', 0),
                 data.get('uang_muka', 0),
                 data.get('ppk_id'),
                 data.get('ppk_nama'),
@@ -2548,8 +2584,13 @@ class DatabaseManagerV4:
                     kota_asal = ?, kota_tujuan = ?, provinsi_tujuan = ?, alamat_tujuan = ?,
                     tanggal_surat_tugas = ?, tanggal_berangkat = ?, tanggal_kembali = ?, lama_perjalanan = ?,
                     sumber_dana = ?, kode_akun = ?,
-                    biaya_transport = ?, biaya_uang_harian = ?, biaya_penginapan = ?,
-                    biaya_representasi = ?, biaya_lain_lain = ?, uang_muka = ?,
+                    jenis_transport = ?, tiket_pergi = ?, tiket_pulang = ?,
+                    transport_bandara_pergi = ?, transport_bandara_pulang = ?, transport_lokal = ?,
+                    biaya_transport = ?,
+                    tarif_uang_harian = ?, jumlah_hari_uang_harian = ?, biaya_uang_harian = ?,
+                    tarif_penginapan = ?, jumlah_malam = ?, biaya_penginapan = ?,
+                    biaya_representasi = ?, biaya_lain_lain = ?, keterangan_biaya_lain = ?,
+                    total_biaya = ?, uang_muka = ?,
                     ppk_id = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
                     bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?,
                     status = ?, updated_at = CURRENT_TIMESTAMP
@@ -2575,11 +2616,23 @@ class DatabaseManagerV4:
                 data.get('lama_perjalanan', 1),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('jenis_transport', 'DARAT'),
+                data.get('tiket_pergi', 0),
+                data.get('tiket_pulang', 0),
+                data.get('transport_bandara_pergi', 0),
+                data.get('transport_bandara_pulang', 0),
+                data.get('transport_lokal', 0),
                 data.get('biaya_transport', 0),
+                data.get('tarif_uang_harian', 0),
+                data.get('jumlah_hari_uang_harian', 1),
                 data.get('biaya_uang_harian', 0),
+                data.get('tarif_penginapan', 0),
+                data.get('jumlah_malam', 0),
                 data.get('biaya_penginapan', 0),
                 data.get('biaya_representasi', 0),
                 data.get('biaya_lain_lain', 0),
+                data.get('keterangan_biaya_lain'),
+                data.get('total_biaya', 0),
                 data.get('uang_muka', 0),
                 data.get('ppk_id'),
                 data.get('ppk_nama'),

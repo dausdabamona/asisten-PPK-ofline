@@ -1325,6 +1325,22 @@ class DatabaseManagerV4:
             ('pelaksana_id', "ALTER TABLE perjalanan_dinas ADD COLUMN pelaksana_id INTEGER REFERENCES pegawai(id)"),
             ('ppk_id', "ALTER TABLE perjalanan_dinas ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
             ('bendahara_id', "ALTER TABLE perjalanan_dinas ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+            # Biaya Transport Detail
+            ('jenis_transport', "ALTER TABLE perjalanan_dinas ADD COLUMN jenis_transport TEXT DEFAULT 'DARAT'"),
+            ('tiket_pergi', "ALTER TABLE perjalanan_dinas ADD COLUMN tiket_pergi REAL DEFAULT 0"),
+            ('tiket_pulang', "ALTER TABLE perjalanan_dinas ADD COLUMN tiket_pulang REAL DEFAULT 0"),
+            ('transport_bandara_pergi', "ALTER TABLE perjalanan_dinas ADD COLUMN transport_bandara_pergi REAL DEFAULT 0"),
+            ('transport_bandara_pulang', "ALTER TABLE perjalanan_dinas ADD COLUMN transport_bandara_pulang REAL DEFAULT 0"),
+            ('transport_lokal', "ALTER TABLE perjalanan_dinas ADD COLUMN transport_lokal REAL DEFAULT 0"),
+            # Uang Harian Detail
+            ('tarif_uang_harian', "ALTER TABLE perjalanan_dinas ADD COLUMN tarif_uang_harian REAL DEFAULT 0"),
+            ('jumlah_hari_uang_harian', "ALTER TABLE perjalanan_dinas ADD COLUMN jumlah_hari_uang_harian INTEGER DEFAULT 1"),
+            # Penginapan Detail
+            ('tarif_penginapan', "ALTER TABLE perjalanan_dinas ADD COLUMN tarif_penginapan REAL DEFAULT 0"),
+            ('jumlah_malam', "ALTER TABLE perjalanan_dinas ADD COLUMN jumlah_malam INTEGER DEFAULT 0"),
+            # Biaya Lainnya
+            ('keterangan_biaya_lain', "ALTER TABLE perjalanan_dinas ADD COLUMN keterangan_biaya_lain TEXT"),
+            ('total_biaya', "ALTER TABLE perjalanan_dinas ADD COLUMN total_biaya REAL DEFAULT 0"),
         ]
 
         for col, sql in pd_migrations:

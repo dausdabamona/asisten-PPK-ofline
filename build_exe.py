@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-PPK DOCUMENT FACTORY v3.0 - Build EXE Script
-=============================================
+PPK DOCUMENT FACTORY v4.0 - Build EXE Script (Workflow Edition)
+================================================================
 Script untuk membuat file executable (.exe)
+
+Versi ini menggunakan UI workflow-based untuk pencairan dana (UP/TUP/LS)
 
 Cara penggunaan:
     python build_exe.py
@@ -131,13 +133,23 @@ def create_readme():
     output_dir = os.path.join(DIST_DIR, 'PPK_Document_Factory')
     readme_path = os.path.join(output_dir, 'BACA_INI.txt')
 
-    content = """PPK DOCUMENT FACTORY v3.0
-=========================
-Template-Driven Procurement Workflow System
+    content = """PPK DOCUMENT FACTORY v4.0 - Workflow Edition
+===============================================
+Workflow-based Pencairan Dana Management System
+
+FITUR UTAMA:
+- Workflow pencairan dana berbasis mekanisme (UP, TUP, LS)
+- 5 fase per transaksi dengan checklist dokumen
+- Tracking saldo UP (maks Rp 50 juta)
+- Countdown otomatis untuk TUP (30 hari)
+- Kalkulasi tambah/kurang bayar otomatis
+- Generate dokumen dari template
 
 CARA PENGGUNAAN:
 1. Double-click file PPK_Document_Factory.exe
-2. Aplikasi akan terbuka dan siap digunakan
+2. Aplikasi akan terbuka dengan dashboard pencairan dana
+3. Pilih mekanisme (UP/TUP/LS) untuk membuat transaksi baru
+4. Ikuti 5 fase workflow hingga selesai
 
 STRUKTUR FOLDER:
 - data/          : Database aplikasi (otomatis dibuat)
@@ -152,12 +164,14 @@ CATATAN PENTING:
 - Pastikan folder templates berisi template dokumen
 - Jangan hapus file database di folder data
 - Dokumen yang dihasilkan ada di folder output
+- Setiap pembayaran memiliki kuitansi uang muka dan rampung
 
 TROUBLESHOOTING:
 - Jika aplikasi tidak berjalan, pastikan antivirus tidak memblokir
 - Jika error, jalankan dari Command Prompt untuk melihat pesan error
+- Untuk UI lama, jalankan: PPK_Document_Factory.exe --legacy
 
-(c) 2024 - PPK Document Factory
+(c) 2024-2026 - PPK Document Factory
 """
 
     with open(readme_path, 'w', encoding='utf-8') as f:
@@ -170,7 +184,7 @@ TROUBLESHOOTING:
 def main():
     """Main function"""
     print("=" * 60)
-    print("PPK DOCUMENT FACTORY - BUILD EXE")
+    print("PPK DOCUMENT FACTORY v4.0 - BUILD EXE (Workflow Edition)")
     print("=" * 60)
 
     # Check dependencies

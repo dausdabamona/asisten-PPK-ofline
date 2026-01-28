@@ -281,8 +281,9 @@ class BaseDetailPage(QWidget):
 
         # Penerima info
         penerima_frame = QFrame()
+        penerima_frame.setObjectName("penerimaFrame")
         penerima_frame.setStyleSheet("""
-            QFrame {
+            #penerimaFrame {
                 background-color: #f8f9fa;
                 border-radius: 5px;
                 padding: 10px;
@@ -293,23 +294,24 @@ class BaseDetailPage(QWidget):
         penerima_layout.setSpacing(8)
 
         penerima_title = QLabel("Penerima / Pelaksana")
-        penerima_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50;")
+        penerima_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; background-color: transparent;")
         penerima_layout.addWidget(penerima_title)
 
         self.penerima_nama_label = QLabel("Nama: -")
-        self.penerima_nama_label.setStyleSheet("font-size: 12px; color: #2c3e50;")
+        self.penerima_nama_label.setStyleSheet("font-size: 12px; color: #2c3e50; background-color: transparent;")
         penerima_layout.addWidget(self.penerima_nama_label)
 
         self.penerima_nip_label = QLabel("NIP: -")
-        self.penerima_nip_label.setStyleSheet("font-size: 12px; color: #7f8c8d;")
+        self.penerima_nip_label.setStyleSheet("font-size: 12px; color: #7f8c8d; background-color: transparent;")
         penerima_layout.addWidget(self.penerima_nip_label)
 
         layout.addWidget(penerima_frame)
 
         # Dasar hukum
         dasar_frame = QFrame()
+        dasar_frame.setObjectName("dasarFrame")
         dasar_frame.setStyleSheet("""
-            QFrame {
+            #dasarFrame {
                 background-color: #f8f9fa;
                 border-radius: 5px;
                 padding: 10px;
@@ -320,23 +322,24 @@ class BaseDetailPage(QWidget):
         dasar_layout.setSpacing(8)
 
         dasar_title = QLabel("Dasar Hukum")
-        dasar_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50;")
+        dasar_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; background-color: transparent;")
         dasar_layout.addWidget(dasar_title)
 
         self.dasar_nomor_label = QLabel("Nomor: -")
-        self.dasar_nomor_label.setStyleSheet("font-size: 12px; color: #2c3e50;")
+        self.dasar_nomor_label.setStyleSheet("font-size: 12px; color: #2c3e50; background-color: transparent;")
         dasar_layout.addWidget(self.dasar_nomor_label)
 
         self.dasar_tanggal_label = QLabel("Tanggal: -")
-        self.dasar_tanggal_label.setStyleSheet("font-size: 12px; color: #7f8c8d;")
+        self.dasar_tanggal_label.setStyleSheet("font-size: 12px; color: #7f8c8d; background-color: transparent;")
         dasar_layout.addWidget(self.dasar_tanggal_label)
 
         layout.addWidget(dasar_frame)
 
         # Document status checklist
         status_frame = QFrame()
+        status_frame.setObjectName("statusFrame")
         status_frame.setStyleSheet("""
-            QFrame {
+            #statusFrame {
                 background-color: #f8f9fa;
                 border-radius: 5px;
                 padding: 10px;
@@ -347,7 +350,7 @@ class BaseDetailPage(QWidget):
         status_layout.setSpacing(8)
 
         status_title = QLabel("Status Kelengkapan Dokumen")
-        status_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50;")
+        status_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; background-color: transparent;")
         status_layout.addWidget(status_title)
 
         # Progress bar
@@ -366,7 +369,7 @@ class BaseDetailPage(QWidget):
         status_layout.addWidget(self.doc_progress_frame)
 
         self.doc_progress_label = QLabel("0 / 0 dokumen (0%)")
-        self.doc_progress_label.setStyleSheet("font-size: 11px; color: #7f8c8d;")
+        self.doc_progress_label.setStyleSheet("font-size: 11px; color: #7f8c8d; background-color: transparent;")
         status_layout.addWidget(self.doc_progress_label)
 
         # Warning for missing docs
@@ -384,12 +387,43 @@ class BaseDetailPage(QWidget):
 
         # Missing document list
         self.missing_docs_label = QLabel("")
-        self.missing_docs_label.setStyleSheet("font-size: 10px; color: #7f8c8d;")
+        self.missing_docs_label.setStyleSheet("font-size: 10px; color: #7f8c8d; background-color: transparent;")
         self.missing_docs_label.setWordWrap(True)
         self.missing_docs_label.setVisible(False)
         status_layout.addWidget(self.missing_docs_label)
 
         layout.addWidget(status_frame)
+
+        # ========== Dokumen yang Sudah Dibuat ==========
+        docs_frame = QFrame()
+        docs_frame.setObjectName("docsFrame")
+        docs_frame.setStyleSheet("""
+            #docsFrame {
+                background-color: #f8f9fa;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
+
+        docs_layout = QVBoxLayout(docs_frame)
+        docs_layout.setSpacing(8)
+
+        docs_title = QLabel("📄 Dokumen yang Sudah Dibuat")
+        docs_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; background-color: transparent;")
+        docs_layout.addWidget(docs_title)
+
+        # Container for document list
+        self.docs_list_container = QVBoxLayout()
+        self.docs_list_container.setSpacing(4)
+
+        # Placeholder
+        self.docs_empty_label = QLabel("Belum ada dokumen")
+        self.docs_empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
+        self.docs_list_container.addWidget(self.docs_empty_label)
+
+        docs_layout.addLayout(self.docs_list_container)
+
+        layout.addWidget(docs_frame)
 
         layout.addStretch()
 
@@ -680,9 +714,162 @@ class BaseDetailPage(QWidget):
                 self.doc_warning_label.setVisible(False)
                 self.missing_docs_label.setVisible(False)
 
+            # Update document list display
+            self._update_docs_list()
+
         except Exception as e:
             print(f"Error updating document status: {e}")
             self.doc_progress_label.setText("Tidak dapat memuat status")
+
+    def _update_docs_list(self):
+        """Update the list of generated and uploaded documents."""
+        try:
+            # Clear existing items
+            while self.docs_list_container.count():
+                child = self.docs_list_container.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+
+            # Get generated/uploaded documents from output folder
+            from ...services.dokumen_generator import get_dokumen_generator
+            from pathlib import Path
+
+            generator = get_dokumen_generator()
+            output_folder = generator.get_output_folder(transaksi=self._transaksi_data)
+
+            if not output_folder.exists():
+                self.docs_empty_label = QLabel("Belum ada dokumen")
+                self.docs_empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
+                self.docs_list_container.addWidget(self.docs_empty_label)
+                return
+
+            # List all files in output folder
+            word_files = list(output_folder.glob("*.docx"))
+            pdf_files = list(output_folder.glob("*.pdf"))
+            image_files = list(output_folder.glob("*.jpg")) + list(output_folder.glob("*.jpeg")) + list(output_folder.glob("*.png"))
+
+            all_files = word_files + pdf_files + image_files
+
+            if not all_files:
+                self.docs_empty_label = QLabel("Belum ada dokumen")
+                self.docs_empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
+                self.docs_list_container.addWidget(self.docs_empty_label)
+                return
+
+            # Sort by modification time (newest first)
+            all_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+
+            # Create clickable items for each file
+            for file_path in all_files[:10]:  # Limit to 10 files
+                file_item = self._create_doc_item(file_path)
+                self.docs_list_container.addWidget(file_item)
+
+            # Show count if more files exist
+            if len(all_files) > 10:
+                more_label = QLabel(f"... dan {len(all_files) - 10} file lainnya")
+                more_label.setStyleSheet("font-size: 10px; color: #7f8c8d; font-style: italic; background-color: transparent;")
+                self.docs_list_container.addWidget(more_label)
+
+        except Exception as e:
+            print(f"Error updating docs list: {e}")
+            error_label = QLabel("Gagal memuat daftar dokumen")
+            error_label.setStyleSheet("font-size: 11px; color: #e74c3c; background-color: transparent;")
+            self.docs_list_container.addWidget(error_label)
+
+    def _create_doc_item(self, file_path) -> QFrame:
+        """Create a clickable document item widget."""
+        from pathlib import Path
+
+        item = QFrame()
+        item.setObjectName("docItem")
+        item.setStyleSheet("""
+            #docItem {
+                background-color: #ffffff;
+                border: 1px solid #ecf0f1;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            #docItem:hover {
+                background-color: #f0f8ff;
+                border-color: #3498db;
+            }
+        """)
+        item.setCursor(Qt.PointingHandCursor)
+
+        layout = QHBoxLayout(item)
+        layout.setContentsMargins(8, 5, 8, 5)
+        layout.setSpacing(8)
+
+        # Icon based on file type
+        suffix = file_path.suffix.lower()
+        if suffix == '.docx':
+            icon = "📝"
+            color = "#2980b9"
+            file_type = "Word"
+        elif suffix == '.pdf':
+            icon = "📕"
+            color = "#c0392b"
+            file_type = "PDF"
+        else:
+            icon = "🖼️"
+            color = "#27ae60"
+            file_type = "Gambar"
+
+        icon_label = QLabel(icon)
+        icon_label.setStyleSheet("font-size: 14px; background-color: transparent;")
+        layout.addWidget(icon_label)
+
+        # File name
+        name = file_path.stem
+        if len(name) > 25:
+            name = name[:22] + "..."
+        name_label = QLabel(name)
+        name_label.setStyleSheet(f"font-size: 11px; color: #2c3e50; background-color: transparent;")
+        name_label.setToolTip(str(file_path))
+        layout.addWidget(name_label, 1)
+
+        # File type badge
+        type_label = QLabel(file_type)
+        type_label.setStyleSheet(f"font-size: 9px; color: {color}; font-weight: bold; background-color: transparent;")
+        layout.addWidget(type_label)
+
+        # Open button
+        open_btn = QPushButton("Buka")
+        open_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 10px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        open_btn.setCursor(Qt.PointingHandCursor)
+        open_btn.clicked.connect(lambda checked, fp=str(file_path): self._open_file(fp))
+        layout.addWidget(open_btn)
+
+        return item
+
+    def _open_file(self, file_path: str):
+        """Open file with default application."""
+        import subprocess
+        import platform
+        import os
+
+        try:
+            if platform.system() == 'Windows':
+                os.startfile(file_path)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.run(['open', file_path])
+            else:  # Linux
+                subprocess.run(['xdg-open', file_path])
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Error", f"Gagal membuka file:\n{str(e)}")
 
     def set_dokumen_list(self, dokumen_list: List[Dict[str, Any]]):
         """Set document list for current fase."""

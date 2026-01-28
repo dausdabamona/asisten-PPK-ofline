@@ -359,7 +359,7 @@ class PencairanManager:
                     penerima_nama, penerima_nip, penerima_jabatan,
                     penerima_npwp, penerima_rekening, penerima_bank,
                     penyedia_id, nilai_kontrak, nomor_kontrak, tanggal_kontrak,
-                    kode_akun, nama_akun, nomor_mak,
+                    kode_akun, nama_akun,
                     tahun_anggaran,
                     tanggal_kegiatan_mulai, tanggal_kegiatan_selesai,
                     catatan, created_by
@@ -371,7 +371,7 @@ class PencairanManager:
                     ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?,
+                    ?, ?,
                     ?,
                     ?, ?,
                     ?, ?
@@ -402,7 +402,6 @@ class PencairanManager:
                 data.get('tanggal_kontrak'),
                 data.get('kode_akun'),
                 data.get('nama_akun'),
-                data.get('nomor_mak'),
                 tahun,
                 data.get('tanggal_kegiatan_mulai'),
                 data.get('tanggal_kegiatan_selesai'),
@@ -486,7 +485,7 @@ class PencairanManager:
             'penerima_nama', 'penerima_nip', 'penerima_jabatan',
             'penerima_npwp', 'penerima_rekening', 'penerima_bank',
             'penyedia_id', 'nilai_kontrak', 'nomor_kontrak', 'tanggal_kontrak',
-            'kode_akun', 'nama_akun', 'nomor_mak',
+            'kode_akun', 'nama_akun',
             'tanggal_kegiatan_mulai', 'tanggal_kegiatan_selesai',
             'tanggal_sp2d_tup', 'batas_pertanggungjawaban_tup',
             'catatan', 'updated_by'

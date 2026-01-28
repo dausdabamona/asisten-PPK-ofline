@@ -259,8 +259,9 @@ class BaseDetailPage(QWidget):
         info_widget = self._create_info_tab()
         tabs.addTab(info_widget, "Informasi")
 
-        # Kalkulasi tab (for fase 4)
-        self.kalkulasi_widget = KalkulasiWidget()
+        # Kalkulasi tab (for fase 4) - enable rincian for UP/TUP workflows
+        show_rincian = self.MEKANISME in ("UP", "TUP")
+        self.kalkulasi_widget = KalkulasiWidget(show_rincian=show_rincian)
         tabs.addTab(self.kalkulasi_widget, "Kalkulasi")
 
         # Log tab

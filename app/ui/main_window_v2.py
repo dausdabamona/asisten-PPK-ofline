@@ -52,6 +52,10 @@ from ..models.pencairan_models import PencairanManager, BATAS_UP_MAKSIMAL
 # Import config
 from ..core.config import ROOT_DIR
 
+# Import document services and dialogs
+from ..services.dokumen_generator import get_dokumen_generator
+from .dialogs.dokumen_dialog import DokumenGeneratorDialog, UploadDokumenDialog
+
 
 def format_rupiah(value: float) -> str:
     """Format angka ke format Rupiah."""
@@ -331,12 +335,58 @@ class MainWindowV2(QMainWindow):
 
     def _show_legacy_page(self, page_type: str):
         """Show legacy manager page (from old dashboard)."""
-        # This would integrate with the existing manager pages
-        QMessageBox.information(
-            self,
-            "Fitur Legacy",
-            f"Fitur '{page_type}' tersedia melalui menu Pengaturan atau akan diintegrasikan."
-        )
+        try:
+            if page_type == "satker":
+                from .satker_manager import SatkerManager
+                dialog = SatkerManager(self)
+                dialog.exec()
+            elif page_type == "pegawai":
+                from .pegawai_manager import PegawaiManager
+                dialog = PegawaiManager(self)
+                # Refresh data setelah perubahan pegawai
+                dialog.pegawai_changed.connect(self._refresh_data)
+                dialog.exec()
+            elif page_type == "template":
+                from .template_manager import TemplateManagerDialog
+                dialog = TemplateManagerDialog(self)
+                dialog.exec()
+            elif page_type == "penyedia":
+                from .penyedia_manager import PenyediaManager
+                dialog = PenyediaManager(self)
+                dialog.exec()
+            elif page_type == "paket":
+                # Paket pekerjaan - masih menggunakan fitur dari dashboard lama
+                QMessageBox.information(
+                    self,
+                    "Fitur Paket Pekerjaan",
+                    "Untuk mengelola paket pekerjaan, silakan gunakan mode legacy:\n"
+                    "python main.py --legacy"
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    "Fitur",
+                    f"Fitur '{page_type}' akan diimplementasikan."
+                )
+        except ImportError as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog {page_type}:\n{str(e)}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Terjadi kesalahan:\n{str(e)}"
+            )
+
+    def _refresh_data(self):
+        """Refresh data after master data changes."""
+        # Refresh current list if viewing transaksi list
+        current_page = self._page_stack[-1] if self._page_stack else "dashboard"
+        if current_page in ["up", "tup", "ls"]:
+            self._refresh_list(current_page.upper())
 
     # =========================================================================
     # EVENT HANDLERS
@@ -457,33 +507,164 @@ class MainWindowV2(QMainWindow):
                 )
 
     def _on_dokumen_action(self, kode_dokumen: str, action: str, fase: int):
-        """Handle document action (create, view, edit, upload)."""
+        """Handle document action (create, view, edit, upload, upload_arsip)."""
+        # Get current transaksi data
+        transaksi_data = self._get_current_transaksi_data()
+
         if action == "create":
-            # Would integrate with template engine to generate document
-            QMessageBox.information(
-                self,
-                "Buat Dokumen",
-                f"Membuat dokumen {kode_dokumen} untuk Fase {fase}...\n"
-                "(Integrasi dengan template engine)"
-            )
+            self._handle_create_dokumen(kode_dokumen, fase, transaksi_data)
         elif action == "view":
-            QMessageBox.information(
-                self,
-                "Lihat Dokumen",
-                f"Membuka dokumen {kode_dokumen}..."
-            )
+            self._handle_view_dokumen(kode_dokumen, transaksi_data)
         elif action == "edit":
-            QMessageBox.information(
-                self,
-                "Edit Dokumen",
-                f"Mengedit dokumen {kode_dokumen}..."
-            )
+            self._handle_edit_dokumen(kode_dokumen, transaksi_data)
         elif action == "upload":
-            QMessageBox.information(
-                self,
-                "Upload Dokumen",
-                f"Upload dokumen {kode_dokumen}..."
+            self._handle_upload_dokumen(kode_dokumen, transaksi_data)
+        elif action == "upload_arsip":
+            self._handle_upload_arsip(kode_dokumen, transaksi_data)
+
+    def _get_current_transaksi_data(self) -> Dict[str, Any]:
+        """Get current transaksi data from active detail page."""
+        current_widget = self.content_stack.currentWidget()
+
+        # Check which detail page is active
+        if current_widget == self.up_detail_page:
+            return self.up_detail_page._transaksi_data
+        elif current_widget == self.tup_detail_page:
+            return self.tup_detail_page._transaksi_data
+        elif current_widget == self.ls_detail_page:
+            return self.ls_detail_page._transaksi_data
+
+        return {}
+
+    def _get_current_kalkulasi_data(self) -> Dict[str, Any]:
+        """Get kalkulasi data including rincian from active detail page."""
+        current_widget = self.content_stack.currentWidget()
+
+        if current_widget == self.up_detail_page:
+            return self.up_detail_page.kalkulasi_widget.get_result()
+        elif current_widget == self.tup_detail_page:
+            return self.tup_detail_page.kalkulasi_widget.get_result()
+        elif current_widget == self.ls_detail_page:
+            return self.ls_detail_page.kalkulasi_widget.get_result()
+
+        return {}
+
+    def _handle_create_dokumen(self, kode_dokumen: str, fase: int, transaksi_data: Dict):
+        """Handle document creation."""
+        try:
+            # Get template name from workflow config
+            from ..config.workflow_config import WORKFLOW_CONFIGS
+
+            mekanisme = transaksi_data.get('mekanisme', 'UP')
+            workflow = WORKFLOW_CONFIGS.get(mekanisme, {})
+            template_name = None
+
+            # Find template for this document
+            for fase_config in workflow.get('fases', []):
+                for dok in fase_config.get('dokumen', []):
+                    if dok.get('kode') == kode_dokumen:
+                        template_name = dok.get('template')
+                        break
+                if template_name:
+                    break
+
+            if not template_name:
+                QMessageBox.warning(
+                    self,
+                    "Template Tidak Ditemukan",
+                    f"Tidak dapat menemukan template untuk {kode_dokumen}"
+                )
+                return
+
+            # Get additional data for kuitansi documents
+            additional_data = {}
+            if kode_dokumen in ['KUITANSI_UM', 'KUITANSI_RAMPUNG']:
+                kalkulasi_data = self._get_current_kalkulasi_data()
+                additional_data = {
+                    'rincian_items': kalkulasi_data.get('rincian_items', []),
+                    'uang_muka': kalkulasi_data.get('uang_muka', 0),
+                    'realisasi': kalkulasi_data.get('realisasi', 0),
+                    'selisih': kalkulasi_data.get('selisih', 0),
+                    'status_kalkulasi': kalkulasi_data.get('status', 'PAS'),
+                }
+
+            # Get satker data
+            satker_data = self.db.get_satker_aktif()
+
+            # Show dialog
+            dialog = DokumenGeneratorDialog(
+                transaksi=transaksi_data,
+                kode_dokumen=kode_dokumen,
+                template_name=template_name,
+                satker=satker_data,
+                additional_data=additional_data,
+                parent=self
             )
+
+            if dialog.exec():
+                # Refresh document list
+                self._refresh_current_page()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuat dokumen: {str(e)}"
+            )
+
+    def _handle_view_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle viewing document."""
+        try:
+            generator = get_dokumen_generator()
+            folder = generator.get_output_folder(transaksi=transaksi_data)
+
+            # Find documents with this kode
+            import glob
+            pattern = str(folder / f"{kode_dokumen}_*")
+            files = glob.glob(pattern)
+
+            if files:
+                # Open most recent
+                latest_file = max(files, key=lambda x: x)
+                generator.open_document(latest_file)
+            else:
+                QMessageBox.information(
+                    self,
+                    "Dokumen Tidak Ditemukan",
+                    f"Dokumen {kode_dokumen} belum dibuat"
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal membuka dokumen: {str(e)}")
+
+    def _handle_edit_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle editing document."""
+        # For now, same as view - opens in default app for editing
+        self._handle_view_dokumen(kode_dokumen, transaksi_data)
+
+    def _handle_upload_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle uploading document."""
+        dialog = UploadDokumenDialog(
+            transaksi=transaksi_data,
+            kode_dokumen=kode_dokumen,
+            parent=self
+        )
+        dialog.exec()
+
+    def _handle_upload_arsip(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle uploading document archive."""
+        dialog = UploadDokumenDialog(
+            transaksi=transaksi_data,
+            kode_dokumen=kode_dokumen,
+            is_arsip=True,
+            parent=self
+        )
+        dialog.exec()
+
+    def _refresh_current_page(self):
+        """Refresh current active page."""
+        current_widget = self.content_stack.currentWidget()
+        if hasattr(current_widget, 'refresh'):
+            current_widget.refresh()
 
     # =========================================================================
     # DATA OPERATIONS

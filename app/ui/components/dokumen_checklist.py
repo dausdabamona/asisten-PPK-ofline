@@ -146,9 +146,13 @@ class DokumenItem(QFrame):
         else:
             if self.status == "pending":
                 self._add_action_btn(actions_layout, "create", "+ Buat", "#27ae60")
+                # Add upload archive button
+                self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
             else:
                 self._add_action_btn(actions_layout, "view", "Lihat", "#3498db")
                 self._add_action_btn(actions_layout, "edit", "Edit", "#f39c12")
+                # Add upload archive button for existing documents
+                self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
 
         layout.addLayout(actions_layout)
 

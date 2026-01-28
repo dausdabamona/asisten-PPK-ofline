@@ -66,9 +66,9 @@ class TUPDetailPage(BaseDetailPage):
         info_widget = self._create_info_tab()
         tabs.addTab(info_widget, "Informasi")
 
-        # Kalkulasi tab
+        # Kalkulasi tab with rincian input for TUP
         from ...components.kalkulasi_widget import KalkulasiWidget
-        self.kalkulasi_widget = KalkulasiWidget()
+        self.kalkulasi_widget = KalkulasiWidget(show_rincian=True)
         tabs.addTab(self.kalkulasi_widget, "Kalkulasi")
 
         # Log tab

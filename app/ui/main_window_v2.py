@@ -575,12 +575,12 @@ class MainWindowV2(QMainWindow):
             jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
 
             # For PERJALANAN_DINAS at fase 1, show special dialog
-            if jenis_kegiatan == 'PERJALANAN_DINAS' and fase == 1 and kode_dokumen == 'KUITANSI_UM':
+            if jenis_kegiatan == 'PERJALANAN_DINAS' and fase == 1 and kode_dokumen == 'KUIT_UM':
                 self._show_perjalanan_dinas_dialog(transaksi_data)
                 return
 
             # For SWAKELOLA activities at fase 1, show special dialog
-            if jenis_kegiatan in ['KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL'] and fase == 1 and kode_dokumen == 'KUITANSI_UM':
+            if jenis_kegiatan in ['KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL'] and fase == 1 and kode_dokumen == 'KUIT_UM':
                 self._show_swakelola_dialog(transaksi_data)
                 return
 
@@ -609,6 +609,9 @@ class MainWindowV2(QMainWindow):
                     if template_name:
                         break
 
+            # Override template based on jenis_kegiatan for kuitansi documents
+            template_name = self._get_kuitansi_template(kode_dokumen, jenis_kegiatan, template_name)
+
             if not template_name:
                 QMessageBox.warning(
                     self,
@@ -619,7 +622,7 @@ class MainWindowV2(QMainWindow):
 
             # Get additional data for kuitansi documents
             additional_data = {}
-            if kode_dokumen in ['KUITANSI_UM', 'KUITANSI_RAMPUNG']:
+            if kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'KUIT_UM_TUP', 'KUIT_RAMP_TUP']:
                 kalkulasi_data = self._get_current_kalkulasi_data()
                 additional_data = {
                     'rincian_items': kalkulasi_data.get('rincian_items', []),
@@ -653,6 +656,54 @@ class MainWindowV2(QMainWindow):
                 "Error",
                 f"Gagal membuat dokumen: {str(e)}"
             )
+
+    def _get_kuitansi_template(self, kode_dokumen: str, jenis_kegiatan: str, default_template: str) -> str:
+        """Get appropriate kuitansi template based on jenis_kegiatan."""
+        # Template mapping for different activity types
+        kuitansi_templates = {
+            # Kuitansi Uang Muka
+            'KUIT_UM': {
+                'PERJALANAN_DINAS': 'kuitansi_uang_muka_pd.docx',
+                'KEPANITIAAN': 'kuitansi_uang_muka_swakelola.docx',
+                'RAPAT': 'kuitansi_uang_muka_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_uang_muka_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_uang_muka_swakelola.docx',
+                'default': 'kuitansi_uang_muka.docx',
+            },
+            # Kuitansi Rampung
+            'KUIT_RAMP': {
+                'PERJALANAN_DINAS': 'kuitansi_rampung_pd.docx',
+                'KEPANITIAAN': 'kuitansi_rampung_swakelola.docx',
+                'RAPAT': 'kuitansi_rampung_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_rampung_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_rampung_swakelola.docx',
+                'default': 'kuitansi_rampung.docx',
+            },
+            # Kuitansi Uang Muka TUP (same logic)
+            'KUIT_UM_TUP': {
+                'PERJALANAN_DINAS': 'kuitansi_uang_muka_pd.docx',
+                'KEPANITIAAN': 'kuitansi_uang_muka_swakelola.docx',
+                'RAPAT': 'kuitansi_uang_muka_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_uang_muka_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_uang_muka_swakelola.docx',
+                'default': 'kuitansi_uang_muka.docx',
+            },
+            # Kuitansi Rampung TUP
+            'KUIT_RAMP_TUP': {
+                'PERJALANAN_DINAS': 'kuitansi_rampung_pd.docx',
+                'KEPANITIAAN': 'kuitansi_rampung_swakelola.docx',
+                'RAPAT': 'kuitansi_rampung_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_rampung_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_rampung_swakelola.docx',
+                'default': 'kuitansi_rampung.docx',
+            },
+        }
+
+        if kode_dokumen in kuitansi_templates:
+            mapping = kuitansi_templates[kode_dokumen]
+            return mapping.get(jenis_kegiatan, mapping.get('default', default_template))
+
+        return default_template
 
     def _handle_view_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle viewing document."""

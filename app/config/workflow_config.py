@@ -1,0 +1,850 @@
+"""
+PPK DOCUMENT FACTORY - Workflow Configuration
+==============================================
+Konfigurasi workflow untuk setiap mekanisme pencairan.
+Mendefinisikan fase, dokumen wajib/opsional, dan validasi per fase.
+
+Mekanisme Pencairan Dana:
+1. UP (Uang Persediaan) - Maksimal Rp 50.000.000
+2. TUP (Tambahan Uang Persediaan) - Jika UP tidak cukup, wajib selesai 1 bulan
+3. LS (Langsung) - Pembayaran langsung ke penyedia via KPPN
+"""
+
+from typing import Dict, List, Any, Optional
+
+# ============================================================================
+# WORKFLOW UP (UANG PERSEDIAAN)
+# ============================================================================
+
+UP_WORKFLOW = {
+    "kode": "UP",
+    "nama": "Uang Persediaan",
+    "deskripsi": "Pencairan dana untuk belanja operasional <= Rp 50 juta",
+    "batas_maksimal": 50_000_000,
+    "icon": "wallet",
+    "color": "#27ae60",  # Green
+    "color_light": "#d5f5e3",
+
+    "fase": {
+        1: {
+            "nama": "Inisiasi & SK",
+            "deskripsi": "Persiapan awal dan penerbitan SK/Dasar Hukum",
+            "icon": "file-text",
+            "color": "#3498db",
+            "dokumen": [
+                {
+                    "kode": "ND_REQ",
+                    "nama": "Nota Dinas Permintaan",
+                    "kategori": "wajib",
+                    "template": "nota_dinas_permintaan.docx",
+                    "deskripsi": "Nota dinas permohonan uang muka kegiatan"
+                },
+                {
+                    "kode": "SK_KPA",
+                    "nama": "SK KPA / Surat Tugas",
+                    "kategori": "wajib",
+                    "template": "sk_kpa.docx",
+                    "deskripsi": "Surat Keputusan atau Surat Tugas dari KPA"
+                },
+                {
+                    "kode": "RAB",
+                    "nama": "Rencana Anggaran Biaya",
+                    "kategori": "wajib",
+                    "template": "rab.xlsx",
+                    "deskripsi": "Rincian estimasi biaya kegiatan"
+                },
+                {
+                    "kode": "TOR",
+                    "nama": "TOR/KAK (jika kegiatan)",
+                    "kategori": "opsional",
+                    "template": "tor_kak.docx",
+                    "deskripsi": "Terms of Reference untuk kegiatan"
+                },
+                {
+                    "kode": "UND",
+                    "nama": "Undangan (jika rapat/workshop)",
+                    "kategori": "opsional",
+                    "template": "undangan.docx",
+                    "deskripsi": "Surat undangan untuk peserta"
+                },
+            ],
+            "validasi": [
+                {"field": "nomor_dasar", "rule": "required", "message": "Nomor SK/Surat Tugas wajib diisi"},
+                {"field": "tanggal_dasar", "rule": "required", "message": "Tanggal SK wajib diisi"},
+                {"field": "estimasi_biaya", "rule": "max:50000000", "message": "Estimasi biaya UP maksimal Rp 50 juta"},
+            ],
+            "next_condition": "Semua dokumen wajib sudah dibuat dan SK sudah ditandatangani"
+        },
+
+        2: {
+            "nama": "Pencairan Uang Muka",
+            "deskripsi": "Pengajuan dan pencairan uang muka dari UP",
+            "icon": "dollar-sign",
+            "color": "#f39c12",
+            "dokumen": [
+                {
+                    "kode": "KUIT_UM",
+                    "nama": "Kuitansi Uang Muka",
+                    "kategori": "wajib",
+                    "template": "kuitansi_uang_muka_spm_lainnya.docx",
+                    "deskripsi": "Kuitansi penerimaan uang muka"
+                },
+                {
+                    "kode": "BST_UM",
+                    "nama": "Bukti Serah Terima Uang",
+                    "kategori": "wajib",
+                    "template": "bukti_serah_terima_um.docx",
+                    "deskripsi": "Berita acara serah terima uang muka"
+                },
+            ],
+            "validasi": [
+                {"field": "uang_muka", "rule": "required", "message": "Jumlah uang muka wajib diisi"},
+                {"field": "uang_muka", "rule": "max_percent:70", "message": "Uang muka maksimal 70% dari estimasi"},
+                {"field": "penerima_nama", "rule": "required", "message": "Nama penerima wajib diisi"},
+            ],
+            "catatan": "Uang muka maksimal 70% dari estimasi biaya",
+            "next_condition": "Uang muka sudah dicairkan dan diterima penerima"
+        },
+
+        3: {
+            "nama": "Pelaksanaan Kegiatan",
+            "deskripsi": "Kegiatan dilaksanakan dan bukti dikumpulkan",
+            "icon": "activity",
+            "color": "#9b59b6",
+            "dokumen": [
+                {
+                    "kode": "DH",
+                    "nama": "Daftar Hadir",
+                    "kategori": "wajib",
+                    "template": "daftar_hadir.docx",
+                    "deskripsi": "Daftar hadir peserta kegiatan"
+                },
+                {
+                    "kode": "DOK_FOTO",
+                    "nama": "Dokumentasi Foto",
+                    "kategori": "wajib",
+                    "template": None,
+                    "deskripsi": "Foto dokumentasi pelaksanaan kegiatan"
+                },
+                {
+                    "kode": "NOTULEN",
+                    "nama": "Notulen Rapat",
+                    "kategori": "opsional",
+                    "template": "notulen.docx",
+                    "deskripsi": "Notulen/catatan hasil rapat"
+                },
+                {
+                    "kode": "LAP_KEG",
+                    "nama": "Laporan Kegiatan",
+                    "kategori": "opsional",
+                    "template": "laporan_kegiatan.docx",
+                    "deskripsi": "Laporan pelaksanaan kegiatan"
+                },
+                {
+                    "kode": "NOTA_BLJ",
+                    "nama": "Nota/Faktur Belanja",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Nota pembelian dari toko/penyedia"
+                },
+                {
+                    "kode": "KWIT_TOKO",
+                    "nama": "Kwitansi Toko",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Kwitansi pembayaran dari toko"
+                },
+            ],
+            "validasi": [
+                {"field": "dokumen_dh", "rule": "required", "message": "Daftar hadir wajib ada"},
+                {"field": "dokumen_foto", "rule": "required", "message": "Dokumentasi foto wajib ada"},
+            ],
+            "next_condition": "Kegiatan selesai dan semua bukti terkumpul"
+        },
+
+        4: {
+            "nama": "Pertanggungjawaban",
+            "deskripsi": "Membuat dokumen pertanggungjawaban dan perhitungan tambah/kurang",
+            "icon": "calculator",
+            "color": "#e74c3c",
+            "dokumen": [
+                {
+                    "kode": "KUIT_RAMP",
+                    "nama": "Kuitansi Rampung",
+                    "kategori": "wajib",
+                    "template": "kuitansi_rampung_spm_lainnya.docx",
+                    "deskripsi": "Kuitansi penyelesaian/rampung kegiatan"
+                },
+                {
+                    "kode": "HITUNG_TK",
+                    "nama": "Perhitungan Tambah/Kurang",
+                    "kategori": "wajib",
+                    "template": "perhitungan_tambah_kurang.xlsx",
+                    "deskripsi": "Perhitungan selisih uang muka vs realisasi"
+                },
+                {
+                    "kode": "REKAP_BKT",
+                    "nama": "Rekap Bukti Pengeluaran",
+                    "kategori": "wajib",
+                    "template": "rekap_bukti_pengeluaran.xlsx",
+                    "deskripsi": "Rekap seluruh bukti pengeluaran"
+                },
+                {
+                    "kode": "LPJ",
+                    "nama": "LPJ Kegiatan",
+                    "kategori": "opsional",
+                    "template": "lpj.docx",
+                    "deskripsi": "Laporan Pertanggungjawaban kegiatan"
+                },
+            ],
+            "kalkulasi": {
+                "formula": "selisih = realisasi - uang_muka",
+                "hasil_positif": {
+                    "label": "KURANG BAYAR",
+                    "aksi": "Ajukan pembayaran tambahan",
+                    "color": "#e74c3c",
+                    "icon": "arrow-up"
+                },
+                "hasil_negatif": {
+                    "label": "LEBIH BAYAR",
+                    "aksi": "Kembalikan kelebihan ke kas",
+                    "color": "#f39c12",
+                    "icon": "arrow-down"
+                },
+                "hasil_nol": {
+                    "label": "PAS / NIHIL",
+                    "aksi": "Lanjut ke SPBY",
+                    "color": "#27ae60",
+                    "icon": "check"
+                },
+            },
+            "validasi": [
+                {"field": "realisasi", "rule": "required", "message": "Total realisasi wajib diisi"},
+                {"field": "dokumen_kuit_ramp", "rule": "required", "message": "Kuitansi rampung wajib dibuat"},
+            ],
+            "next_condition": "Perhitungan selesai dan dokumen pertanggungjawaban lengkap"
+        },
+
+        5: {
+            "nama": "SPBY & Penyelesaian",
+            "deskripsi": "Pembuatan SPBY dan arsip dokumen final",
+            "icon": "check-circle",
+            "color": "#27ae60",
+            "dokumen": [
+                {
+                    "kode": "SPBY",
+                    "nama": "Surat Pernyataan Tanggung Jawab Belanja",
+                    "kategori": "wajib",
+                    "template": "spby.docx",
+                    "deskripsi": "SPBY untuk pertanggungjawaban belanja"
+                },
+                {
+                    "kode": "REKAP_FINAL",
+                    "nama": "Rekap Final Transaksi",
+                    "kategori": "wajib",
+                    "template": "rekap_final.xlsx",
+                    "deskripsi": "Rekap akhir seluruh transaksi"
+                },
+            ],
+            "aksi_tambahan": [
+                "Upload ke SAKTI/Aplikasi Keuangan",
+                "Arsip ke folder tahun berjalan",
+                "Update sisa UP tersedia",
+            ],
+            "validasi": [
+                {"field": "dokumen_spby", "rule": "required", "message": "SPBY wajib dibuat"},
+                {"field": "dokumen_spby", "rule": "signed", "message": "SPBY wajib sudah ditandatangani"},
+            ],
+            "next_condition": "Transaksi selesai dan semua dokumen diarsipkan"
+        }
+    }
+}
+
+# ============================================================================
+# WORKFLOW TUP (TAMBAHAN UANG PERSEDIAAN)
+# ============================================================================
+
+TUP_WORKFLOW = {
+    "kode": "TUP",
+    "nama": "Tambahan Uang Persediaan",
+    "deskripsi": "Tambahan UP jika kebutuhan melebihi sisa UP, wajib selesai 1 bulan",
+    "batas_hari": 30,
+    "icon": "plus-circle",
+    "color": "#f39c12",  # Orange
+    "color_light": "#fef5e7",
+
+    "fase": {
+        1: {
+            "nama": "Pengajuan TUP",
+            "deskripsi": "Mengajukan kebutuhan TUP ke KPPN",
+            "icon": "file-plus",
+            "color": "#3498db",
+            "dokumen": [
+                {
+                    "kode": "SP_TUP",
+                    "nama": "Surat Permohonan TUP",
+                    "kategori": "wajib",
+                    "template": "surat_permohonan_tup.docx",
+                    "deskripsi": "Surat pengajuan TUP ke KPPN"
+                },
+                {
+                    "kode": "RINCI_TUP",
+                    "nama": "Rincian Penggunaan TUP",
+                    "kategori": "wajib",
+                    "template": "rincian_tup.xlsx",
+                    "deskripsi": "Rincian rencana penggunaan TUP"
+                },
+                {
+                    "kode": "REK_KORAN",
+                    "nama": "Rekening Koran/Saldo UP",
+                    "kategori": "wajib",
+                    "template": None,
+                    "deskripsi": "Bukti saldo UP saat ini tidak mencukupi"
+                },
+            ],
+            "syarat": [
+                "UP yang ada tidak mencukupi",
+                "Kebutuhan mendesak dan tidak dapat ditunda",
+                "Rincian penggunaan jelas dan terukur",
+            ],
+            "validasi": [
+                {"field": "estimasi_biaya", "rule": "required", "message": "Nilai TUP yang diajukan wajib diisi"},
+            ],
+            "next_condition": "Surat permohonan diajukan ke KPPN"
+        },
+
+        2: {
+            "nama": "Persetujuan KPPN",
+            "deskripsi": "Menunggu persetujuan TUP dari Kepala KPPN",
+            "icon": "clock",
+            "color": "#f39c12",
+            "dokumen": [
+                {
+                    "kode": "APPR_TUP",
+                    "nama": "Surat Persetujuan TUP dari KPPN",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Surat persetujuan dari Kepala KPPN"
+                },
+            ],
+            "catatan": "Proses persetujuan biasanya 1-3 hari kerja",
+            "validasi": [
+                {"field": "dokumen_appr_tup", "rule": "required", "message": "Surat persetujuan dari KPPN wajib ada"},
+            ],
+            "next_condition": "TUP disetujui oleh Kepala KPPN"
+        },
+
+        3: {
+            "nama": "Pencairan TUP",
+            "deskripsi": "Dana TUP dicairkan ke rekening bendahara",
+            "icon": "credit-card",
+            "color": "#9b59b6",
+            "dokumen": [
+                {
+                    "kode": "SP2D_TUP",
+                    "nama": "SP2D TUP",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Surat Perintah Pencairan Dana TUP"
+                },
+            ],
+            "validasi": [
+                {"field": "dokumen_sp2d_tup", "rule": "required", "message": "SP2D TUP wajib ada"},
+            ],
+            "catatan": "Catat tanggal SP2D untuk menghitung batas 1 bulan",
+            "next_condition": "Dana TUP sudah masuk ke rekening bendahara"
+        },
+
+        4: {
+            "nama": "Penggunaan TUP",
+            "deskripsi": "Menggunakan TUP sesuai rincian yang diajukan",
+            "icon": "shopping-bag",
+            "color": "#e74c3c",
+            "dokumen": [
+                {
+                    "kode": "DH",
+                    "nama": "Daftar Hadir",
+                    "kategori": "wajib",
+                    "template": "daftar_hadir.docx",
+                    "deskripsi": "Daftar hadir peserta kegiatan"
+                },
+                {
+                    "kode": "DOK_FOTO",
+                    "nama": "Dokumentasi Foto",
+                    "kategori": "wajib",
+                    "template": None,
+                    "deskripsi": "Foto dokumentasi pelaksanaan"
+                },
+                {
+                    "kode": "NOTA_BLJ",
+                    "nama": "Nota/Faktur Belanja",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Bukti pembelian"
+                },
+            ],
+            "catatan": "WAJIB selesai dalam 1 BULAN sejak SP2D diterbitkan",
+            "countdown": True,
+            "validasi": [
+                {"field": "penggunaan", "rule": "sesuai_rincian", "message": "Penggunaan harus sesuai rincian yang diajukan"},
+            ],
+            "next_condition": "Semua dana TUP sudah digunakan atau batas waktu tercapai"
+        },
+
+        5: {
+            "nama": "Pertanggungjawaban TUP",
+            "deskripsi": "Mempertanggungjawabkan penggunaan TUP, sisa dikembalikan",
+            "icon": "check-circle",
+            "color": "#27ae60",
+            "dokumen": [
+                {
+                    "kode": "SPBY_TUP",
+                    "nama": "SPBY TUP",
+                    "kategori": "wajib",
+                    "template": "spby_tup.docx",
+                    "deskripsi": "SPBY untuk TUP"
+                },
+                {
+                    "kode": "REKAP_TUP",
+                    "nama": "Rekap Penggunaan TUP",
+                    "kategori": "wajib",
+                    "template": "rekap_tup.xlsx",
+                    "deskripsi": "Rekap seluruh penggunaan TUP"
+                },
+                {
+                    "kode": "SSBP",
+                    "nama": "SSBP Pengembalian (jika ada sisa)",
+                    "kategori": "kondisional",
+                    "template": "ssbp.xlsx",
+                    "deskripsi": "Surat Setoran Bukan Pajak untuk pengembalian"
+                },
+                {
+                    "kode": "BUKTI_SETOR",
+                    "nama": "Bukti Setor Pengembalian",
+                    "kategori": "kondisional",
+                    "template": None,
+                    "deskripsi": "Bukti setoran pengembalian sisa TUP"
+                },
+            ],
+            "kalkulasi": {
+                "formula": "sisa = nilai_tup - total_penggunaan",
+                "jika_sisa": "Wajib setor kembali ke kas negara via SSBP",
+            },
+            "validasi": [
+                {"field": "dokumen_spby_tup", "rule": "required", "message": "SPBY TUP wajib dibuat"},
+                {"field": "sisa_tup", "rule": "dikembalikan", "message": "Sisa TUP wajib disetor kembali"},
+            ],
+            "next_condition": "TUP nihil atau sisa sudah dikembalikan ke kas negara"
+        }
+    }
+}
+
+# ============================================================================
+# WORKFLOW LS (LANGSUNG)
+# ============================================================================
+
+LS_WORKFLOW = {
+    "kode": "LS",
+    "nama": "Pembayaran Langsung",
+    "deskripsi": "Pembayaran langsung ke penyedia via KPPN untuk kontrak/SPK",
+    "icon": "send",
+    "color": "#3498db",  # Blue
+    "color_light": "#ebf5fb",
+
+    "fase": {
+        1: {
+            "nama": "Kontrak/SPK",
+            "deskripsi": "Penandatanganan kontrak dengan penyedia barang/jasa",
+            "icon": "file-signature",
+            "color": "#3498db",
+            "dokumen": [
+                {
+                    "kode": "SPK",
+                    "nama": "Surat Perjanjian Kerja",
+                    "kategori": "wajib",
+                    "template": "spk.docx",
+                    "deskripsi": "Kontrak kerja dengan penyedia"
+                },
+                {
+                    "kode": "SSUK",
+                    "nama": "Syarat-Syarat Umum Kontrak",
+                    "kategori": "wajib",
+                    "template": "ssuk.docx",
+                    "deskripsi": "Syarat umum kontrak"
+                },
+                {
+                    "kode": "SSKK",
+                    "nama": "Syarat-Syarat Khusus Kontrak",
+                    "kategori": "wajib",
+                    "template": "sskk.docx",
+                    "deskripsi": "Syarat khusus kontrak"
+                },
+                {
+                    "kode": "SPMK",
+                    "nama": "Surat Perintah Mulai Kerja",
+                    "kategori": "wajib",
+                    "template": "spmk.docx",
+                    "deskripsi": "Perintah untuk memulai pekerjaan"
+                },
+                {
+                    "kode": "JAM_PELAKS",
+                    "nama": "Jaminan Pelaksanaan",
+                    "kategori": "kondisional",
+                    "template": None,
+                    "deskripsi": "Jaminan pelaksanaan dari bank/asuransi"
+                },
+                {
+                    "kode": "JAM_UM",
+                    "nama": "Jaminan Uang Muka (jika ada UM kontrak)",
+                    "kategori": "kondisional",
+                    "template": None,
+                    "deskripsi": "Jaminan uang muka kontrak"
+                },
+            ],
+            "validasi": [
+                {"field": "nomor_kontrak", "rule": "required", "message": "Nomor kontrak/SPK wajib diisi"},
+                {"field": "nilai_kontrak", "rule": "required", "message": "Nilai kontrak wajib diisi"},
+                {"field": "penyedia_id", "rule": "required", "message": "Penyedia wajib dipilih"},
+            ],
+            "next_condition": "Kontrak ditandatangani kedua belah pihak"
+        },
+
+        2: {
+            "nama": "Pelaksanaan Pekerjaan",
+            "deskripsi": "Penyedia melaksanakan pekerjaan sesuai kontrak",
+            "icon": "hard-hat",
+            "color": "#f39c12",
+            "dokumen": [
+                {
+                    "kode": "LAP_PROG",
+                    "nama": "Laporan Progress Pekerjaan",
+                    "kategori": "wajib",
+                    "template": "laporan_progress.docx",
+                    "deskripsi": "Laporan kemajuan pekerjaan"
+                },
+                {
+                    "kode": "BA_MC",
+                    "nama": "BA Monthly Certificate (jika termin)",
+                    "kategori": "kondisional",
+                    "template": "ba_mc.docx",
+                    "deskripsi": "Berita acara progress bulanan"
+                },
+                {
+                    "kode": "MONEV",
+                    "nama": "Laporan Monitoring & Evaluasi",
+                    "kategori": "opsional",
+                    "template": "monev.docx",
+                    "deskripsi": "Laporan monev pekerjaan"
+                },
+            ],
+            "validasi": [
+                {"field": "progress", "rule": "updated", "message": "Progress pekerjaan harus di-update"},
+            ],
+            "next_condition": "Pekerjaan selesai 100%"
+        },
+
+        3: {
+            "nama": "Serah Terima",
+            "deskripsi": "Pemeriksaan dan serah terima hasil pekerjaan",
+            "icon": "handshake",
+            "color": "#9b59b6",
+            "dokumen": [
+                {
+                    "kode": "BA_PMR",
+                    "nama": "BA Pemeriksaan Pekerjaan",
+                    "kategori": "wajib",
+                    "template": "ba_pemeriksaan.docx",
+                    "deskripsi": "Berita acara pemeriksaan oleh PPHP"
+                },
+                {
+                    "kode": "BAST",
+                    "nama": "Berita Acara Serah Terima",
+                    "kategori": "wajib",
+                    "template": "bast.docx",
+                    "deskripsi": "BAST hasil pekerjaan"
+                },
+                {
+                    "kode": "BA_PHO",
+                    "nama": "BA Provisional Hand Over (PHO)",
+                    "kategori": "wajib",
+                    "template": "ba_pho.docx",
+                    "deskripsi": "Serah terima sementara"
+                },
+                {
+                    "kode": "BA_FHO",
+                    "nama": "BA Final Hand Over (konstruksi)",
+                    "kategori": "kondisional",
+                    "template": "ba_fho.docx",
+                    "deskripsi": "Serah terima akhir untuk konstruksi"
+                },
+            ],
+            "validasi": [
+                {"field": "dokumen_bast", "rule": "required", "message": "BAST wajib dibuat"},
+                {"field": "dokumen_bast", "rule": "signed", "message": "BAST wajib ditandatangani kedua pihak"},
+            ],
+            "next_condition": "BAST ditandatangani"
+        },
+
+        4: {
+            "nama": "Pengajuan Tagihan SPM",
+            "deskripsi": "Penyedia mengajukan tagihan, PPK memproses SPP/SPM",
+            "icon": "file-invoice-dollar",
+            "color": "#e74c3c",
+            "dokumen": [
+                {
+                    "kode": "INVOICE",
+                    "nama": "Invoice/Tagihan dari Penyedia",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Tagihan resmi dari penyedia"
+                },
+                {
+                    "kode": "FAKTUR_PJK",
+                    "nama": "Faktur Pajak",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Faktur pajak dari PKP"
+                },
+                {
+                    "kode": "SPP_LS",
+                    "nama": "Surat Permintaan Pembayaran",
+                    "kategori": "wajib",
+                    "template": "spp_ls.docx",
+                    "deskripsi": "SPP untuk pengajuan ke PPSPM"
+                },
+                {
+                    "kode": "SPM_LS",
+                    "nama": "Surat Perintah Membayar",
+                    "kategori": "wajib",
+                    "template": "spm_ls.docx",
+                    "deskripsi": "SPM untuk dikirim ke KPPN"
+                },
+                {
+                    "kode": "KUIT_LS",
+                    "nama": "Kuitansi Pembayaran LS",
+                    "kategori": "wajib",
+                    "template": "kuitansi_ls.docx",
+                    "deskripsi": "Kuitansi pembayaran LS"
+                },
+                {
+                    "kode": "SSP_PPN",
+                    "nama": "SSP PPN",
+                    "kategori": "wajib",
+                    "template": "ssp.xlsx",
+                    "deskripsi": "Surat Setoran Pajak PPN"
+                },
+                {
+                    "kode": "SSP_PPH",
+                    "nama": "SSP PPh",
+                    "kategori": "wajib",
+                    "template": "ssp.xlsx",
+                    "deskripsi": "Surat Setoran Pajak PPh"
+                },
+            ],
+            "kelengkapan": [
+                "Resume Kontrak",
+                "Ringkasan Kontrak",
+                "Copy SPK",
+                "Copy BAST",
+                "Faktur Pajak",
+                "NPWP Penyedia",
+                "Copy Rekening Penyedia",
+            ],
+            "validasi": [
+                {"field": "dokumen_spm", "rule": "required", "message": "SPM wajib dibuat"},
+                {"field": "pajak", "rule": "calculated", "message": "Pajak wajib dihitung"},
+            ],
+            "next_condition": "SPM diajukan ke KPPN"
+        },
+
+        5: {
+            "nama": "SP2D & Penyelesaian",
+            "deskripsi": "KPPN menerbitkan SP2D, dana masuk ke rekening penyedia",
+            "icon": "check-circle",
+            "color": "#27ae60",
+            "dokumen": [
+                {
+                    "kode": "SP2D_LS",
+                    "nama": "Surat Perintah Pencairan Dana",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "SP2D dari KPPN"
+                },
+                {
+                    "kode": "BUKTI_TRF",
+                    "nama": "Bukti Transfer ke Penyedia",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Bukti transfer pembayaran"
+                },
+            ],
+            "aksi_tambahan": [
+                "Verifikasi dana sudah diterima penyedia",
+                "Update status kontrak menjadi SELESAI",
+                "Arsip seluruh dokumen",
+                "Update realisasi anggaran di DIPA",
+            ],
+            "validasi": [
+                {"field": "dokumen_sp2d", "rule": "required", "message": "SP2D wajib ada"},
+                {"field": "pembayaran", "rule": "confirmed", "message": "Pembayaran wajib dikonfirmasi penyedia"},
+            ],
+            "next_condition": "Transaksi selesai dan pembayaran diterima penyedia"
+        }
+    }
+}
+
+# ============================================================================
+# EXPORT & HELPER FUNCTIONS
+# ============================================================================
+
+# Export semua workflow
+ALL_WORKFLOWS = {
+    "UP": UP_WORKFLOW,
+    "TUP": TUP_WORKFLOW,
+    "LS": LS_WORKFLOW,
+}
+
+def get_workflow(mekanisme: str) -> Optional[Dict[str, Any]]:
+    """
+    Get konfigurasi workflow berdasarkan mekanisme.
+
+    Args:
+        mekanisme: Kode mekanisme (UP, TUP, LS)
+
+    Returns:
+        Dictionary konfigurasi workflow atau None
+    """
+    return ALL_WORKFLOWS.get(mekanisme.upper())
+
+
+def get_fase_config(mekanisme: str, fase: int) -> Optional[Dict[str, Any]]:
+    """
+    Get konfigurasi fase tertentu.
+
+    Args:
+        mekanisme: Kode mekanisme (UP, TUP, LS)
+        fase: Nomor fase (1-5)
+
+    Returns:
+        Dictionary konfigurasi fase atau None
+    """
+    workflow = get_workflow(mekanisme)
+    if workflow and fase in workflow.get("fase", {}):
+        return workflow["fase"][fase]
+    return None
+
+
+def get_dokumen_list(mekanisme: str, fase: int) -> List[Dict[str, Any]]:
+    """
+    Get daftar dokumen untuk fase tertentu.
+
+    Args:
+        mekanisme: Kode mekanisme
+        fase: Nomor fase
+
+    Returns:
+        List dokumen untuk fase tersebut
+    """
+    fase_config = get_fase_config(mekanisme, fase)
+    if fase_config:
+        return fase_config.get("dokumen", [])
+    return []
+
+
+def get_all_dokumen(mekanisme: str) -> List[Dict[str, Any]]:
+    """
+    Get semua dokumen untuk mekanisme tertentu.
+
+    Returns:
+        List semua dokumen dengan informasi fase
+    """
+    workflow = get_workflow(mekanisme)
+    if not workflow:
+        return []
+
+    dokumen_list = []
+    for fase_num, fase_config in workflow.get("fase", {}).items():
+        for dok in fase_config.get("dokumen", []):
+            dok_copy = dok.copy()
+            dok_copy["fase"] = fase_num
+            dok_copy["fase_nama"] = fase_config.get("nama", "")
+            dokumen_list.append(dok_copy)
+
+    return dokumen_list
+
+
+def get_validasi_rules(mekanisme: str, fase: int) -> List[Dict[str, str]]:
+    """
+    Get aturan validasi untuk fase tertentu.
+
+    Returns:
+        List aturan validasi
+    """
+    fase_config = get_fase_config(mekanisme, fase)
+    if fase_config:
+        return fase_config.get("validasi", [])
+    return []
+
+
+def get_workflow_summary(mekanisme: str) -> Dict[str, Any]:
+    """
+    Get ringkasan workflow untuk display.
+
+    Returns:
+        Dictionary dengan informasi ringkas workflow
+    """
+    workflow = get_workflow(mekanisme)
+    if not workflow:
+        return {}
+
+    fase_summary = []
+    for fase_num, fase_config in workflow.get("fase", {}).items():
+        fase_summary.append({
+            "nomor": fase_num,
+            "nama": fase_config.get("nama", ""),
+            "icon": fase_config.get("icon", ""),
+            "color": fase_config.get("color", "#666"),
+            "jumlah_dokumen": len(fase_config.get("dokumen", [])),
+            "dokumen_wajib": len([d for d in fase_config.get("dokumen", []) if d.get("kategori") == "wajib"]),
+        })
+
+    return {
+        "kode": workflow.get("kode"),
+        "nama": workflow.get("nama"),
+        "deskripsi": workflow.get("deskripsi"),
+        "icon": workflow.get("icon"),
+        "color": workflow.get("color"),
+        "jumlah_fase": len(workflow.get("fase", {})),
+        "fase": fase_summary,
+    }
+
+
+# Nama fase untuk display
+NAMA_FASE = {
+    "UP": {
+        1: "Inisiasi & SK",
+        2: "Pencairan UM",
+        3: "Pelaksanaan",
+        4: "Pertanggungjawaban",
+        5: "SPBY & Selesai"
+    },
+    "TUP": {
+        1: "Pengajuan TUP",
+        2: "Persetujuan",
+        3: "Pencairan",
+        4: "Penggunaan",
+        5: "Pertanggungjawaban"
+    },
+    "LS": {
+        1: "Kontrak/SPK",
+        2: "Pelaksanaan",
+        3: "Serah Terima",
+        4: "Tagihan SPM",
+        5: "SP2D & Selesai"
+    }
+}
+
+
+def get_nama_fase(mekanisme: str, fase: int) -> str:
+    """Get nama singkat fase untuk display."""
+    return NAMA_FASE.get(mekanisme, {}).get(fase, f"Fase {fase}")

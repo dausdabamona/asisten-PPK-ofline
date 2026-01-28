@@ -1036,6 +1036,35 @@ class PencairanManager:
             'is_overdue': sisa_hari < 0,
         }
 
+    # ========================================================================
+    # SATKER DATA
+    # ========================================================================
+
+    def get_satker_aktif(self) -> Dict[str, Any]:
+        """Get active satker data with pejabat details."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.*,
+                    kpa.nama as kpa_nama, kpa.nip as kpa_nip, kpa.jabatan as kpa_jabatan,
+                    kpa.pangkat as kpa_pangkat, kpa.golongan as kpa_golongan,
+                    ppk.nama as ppk_nama, ppk.nip as ppk_nip, ppk.jabatan as ppk_jabatan,
+                    ppk.pangkat as ppk_pangkat, ppk.golongan as ppk_golongan,
+                    ppspm.nama as ppspm_nama, ppspm.nip as ppspm_nip, ppspm.jabatan as ppspm_jabatan,
+                    ppspm.pangkat as ppspm_pangkat, ppspm.golongan as ppspm_golongan,
+                    bendahara.nama as bendahara_nama, bendahara.nip as bendahara_nip,
+                    bendahara.jabatan as bendahara_jabatan, bendahara.pangkat as bendahara_pangkat,
+                    bendahara.golongan as bendahara_golongan
+                FROM satker s
+                LEFT JOIN pegawai kpa ON s.kpa_id = kpa.id
+                LEFT JOIN pegawai ppk ON s.ppk_id = ppk.id
+                LEFT JOIN pegawai ppspm ON s.ppspm_id = ppspm.id
+                LEFT JOIN pegawai bendahara ON s.bendahara_id = bendahara.id
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+
 
 # ============================================================================
 # INITIALIZATION FUNCTIONS

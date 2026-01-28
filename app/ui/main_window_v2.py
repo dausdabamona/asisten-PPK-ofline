@@ -331,12 +331,58 @@ class MainWindowV2(QMainWindow):
 
     def _show_legacy_page(self, page_type: str):
         """Show legacy manager page (from old dashboard)."""
-        # This would integrate with the existing manager pages
-        QMessageBox.information(
-            self,
-            "Fitur Legacy",
-            f"Fitur '{page_type}' tersedia melalui menu Pengaturan atau akan diintegrasikan."
-        )
+        try:
+            if page_type == "satker":
+                from .satker_manager import SatkerManager
+                dialog = SatkerManager(self)
+                dialog.exec()
+            elif page_type == "pegawai":
+                from .pegawai_manager import PegawaiManager
+                dialog = PegawaiManager(self)
+                # Refresh data setelah perubahan pegawai
+                dialog.pegawai_changed.connect(self._refresh_data)
+                dialog.exec()
+            elif page_type == "template":
+                from .template_manager import TemplateManagerDialog
+                dialog = TemplateManagerDialog(self)
+                dialog.exec()
+            elif page_type == "penyedia":
+                from .penyedia_manager import PenyediaManager
+                dialog = PenyediaManager(self)
+                dialog.exec()
+            elif page_type == "paket":
+                # Paket pekerjaan - masih menggunakan fitur dari dashboard lama
+                QMessageBox.information(
+                    self,
+                    "Fitur Paket Pekerjaan",
+                    "Untuk mengelola paket pekerjaan, silakan gunakan mode legacy:\n"
+                    "python main.py --legacy"
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    "Fitur",
+                    f"Fitur '{page_type}' akan diimplementasikan."
+                )
+        except ImportError as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog {page_type}:\n{str(e)}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Terjadi kesalahan:\n{str(e)}"
+            )
+
+    def _refresh_data(self):
+        """Refresh data after master data changes."""
+        # Refresh current list if viewing transaksi list
+        current_page = self._page_stack[-1] if self._page_stack else "dashboard"
+        if current_page in ["up", "tup", "ls"]:
+            self._refresh_list(current_page.upper())
 
     # =========================================================================
     # EVENT HANDLERS

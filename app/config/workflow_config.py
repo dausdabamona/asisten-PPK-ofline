@@ -182,34 +182,15 @@ UP_WORKFLOW = {
             "deskripsi": "Kegiatan dilaksanakan dan bukti dikumpulkan",
             "icon": "activity",
             "color": "#9b59b6",
+
+            # Dokumen WAJIB untuk SEMUA jenis kegiatan (termasuk operasional)
             "dokumen": [
                 {
-                    "kode": "DH",
-                    "nama": "Daftar Hadir",
-                    "kategori": "wajib",
-                    "template": "daftar_hadir.docx",
-                    "deskripsi": "Daftar hadir peserta kegiatan"
-                },
-                {
                     "kode": "DOK_FOTO",
-                    "nama": "Dokumentasi Foto",
+                    "nama": "Dokumentasi Foto (Tagging)",
                     "kategori": "wajib",
                     "template": None,
-                    "deskripsi": "Foto dokumentasi pelaksanaan kegiatan"
-                },
-                {
-                    "kode": "NOTULEN",
-                    "nama": "Notulen Rapat",
-                    "kategori": "opsional",
-                    "template": "notulen.docx",
-                    "deskripsi": "Notulen/catatan hasil rapat"
-                },
-                {
-                    "kode": "LAP_KEG",
-                    "nama": "Laporan Kegiatan",
-                    "kategori": "opsional",
-                    "template": "laporan_kegiatan.docx",
-                    "deskripsi": "Laporan pelaksanaan kegiatan"
+                    "deskripsi": "Foto dokumentasi pelaksanaan dengan tagging lokasi/waktu"
                 },
                 {
                     "kode": "NOTA_BLJ",
@@ -226,9 +207,69 @@ UP_WORKFLOW = {
                     "deskripsi": "Kwitansi pembayaran dari toko"
                 },
             ],
+
+            # Dokumen tambahan untuk KEPANITIAAN (perlu laporan kegiatan)
+            "dokumen_kepanitiaan": [
+                {
+                    "kode": "LAP_KEG",
+                    "nama": "Laporan Kegiatan",
+                    "kategori": "wajib",
+                    "template": "laporan_kegiatan.docx",
+                    "deskripsi": "Laporan pelaksanaan kegiatan kepanitiaan",
+                    "jenis_kegiatan": ["KEPANITIAAN"]
+                },
+            ],
+
+            # Dokumen tambahan untuk RAPAT dan JAMUAN_TAMU (perlu daftar hadir dan notulensi)
+            "dokumen_rapat_jamuan": [
+                {
+                    "kode": "DH",
+                    "nama": "Daftar Hadir",
+                    "kategori": "wajib",
+                    "template": "daftar_hadir.docx",
+                    "deskripsi": "Daftar hadir peserta rapat/jamuan",
+                    "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU"]
+                },
+                {
+                    "kode": "NOTULEN",
+                    "nama": "Notulensi Rapat",
+                    "kategori": "wajib",
+                    "template": "notulen.docx",
+                    "deskripsi": "Notulen/catatan hasil rapat",
+                    "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU"]
+                },
+            ],
+
+            # Dokumen tambahan untuk kegiatan lainnya (opsional)
+            "dokumen_lainnya": [
+                {
+                    "kode": "DH",
+                    "nama": "Daftar Hadir",
+                    "kategori": "opsional",
+                    "template": "daftar_hadir.docx",
+                    "deskripsi": "Daftar hadir (jika ada peserta)",
+                    "jenis_kegiatan": ["LAINNYA", "PERJALANAN_LOKAL"]
+                },
+                {
+                    "kode": "LAP_KEG",
+                    "nama": "Laporan Kegiatan",
+                    "kategori": "opsional",
+                    "template": "laporan_kegiatan.docx",
+                    "deskripsi": "Laporan pelaksanaan kegiatan",
+                    "jenis_kegiatan": ["LAINNYA", "PERJALANAN_LOKAL"]
+                },
+            ],
+
+            # Validasi berbeda per jenis kegiatan
             "validasi": [
-                {"field": "dokumen_dh", "rule": "required", "message": "Daftar hadir wajib ada"},
                 {"field": "dokumen_foto", "rule": "required", "message": "Dokumentasi foto wajib ada"},
+            ],
+            "validasi_rapat_jamuan": [
+                {"field": "dokumen_dh", "rule": "required", "message": "Daftar hadir wajib ada"},
+                {"field": "dokumen_notulen", "rule": "required", "message": "Notulensi rapat wajib ada"},
+            ],
+            "validasi_kepanitiaan": [
+                {"field": "dokumen_lap_keg", "rule": "required", "message": "Laporan kegiatan wajib ada"},
             ],
             "next_condition": "Kegiatan selesai dan semua bukti terkumpul"
         },

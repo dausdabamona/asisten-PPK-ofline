@@ -364,7 +364,11 @@ class DokumenGeneratorDialog(QDialog):
 
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
-        # Load rincian items if provided
+        # For KUIT_UM, KUIT_RAMP - try to load from database if no items provided
+        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP'] and not self.rincian_items:
+            self._load_rincian_from_db()
+
+        # Load rincian items if available (either provided or loaded from DB)
         if self.rincian_items and hasattr(self, 'rincian_table'):
             for item in self.rincian_items:
                 row = self.rincian_table.rowCount()
@@ -378,7 +382,46 @@ class DokumenGeneratorDialog(QDialog):
                 self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
                 self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
 
+            # Load PPN and uang muka settings from the saved data
+            if self.rincian_items:
+                first_item = self.rincian_items[0]
+                ppn_persen = first_item.get('ppn_persen', 0)
+                um_persen = first_item.get('uang_muka_persen', 100)
+
+                # Set PPN checkbox if applicable
+                if hasattr(self, 'ppn_checkbox') and ppn_persen > 0:
+                    self.ppn_checkbox.setChecked(True)
+
+                # Set uang muka percentage if applicable
+                if hasattr(self, 'um_btn_group'):
+                    if um_persen == 90:
+                        self.um_90.setChecked(True)
+                    elif um_persen == 80:
+                        self.um_80.setChecked(True)
+                    else:
+                        self.um_100.setChecked(True)
+
             self._update_total()
+
+    def _load_rincian_from_db(self):
+        """Load rincian items from database (from Lembar Permintaan)."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+
+            # Load rincian from LBR_REQ (Lembar Permintaan)
+            items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+
+            if items:
+                self.rincian_items = items
+                print(f"Loaded {len(items)} rincian items from database for transaksi {transaksi_id}")
+
+        except Exception as e:
+            print(f"Error loading rincian from database: {e}")
 
     def _add_rincian_item(self):
         """Add rincian item to table."""
@@ -516,6 +559,13 @@ class DokumenGeneratorDialog(QDialog):
             # Update transaksi with form data
             merged_transaksi = {**self.transaksi, **form_data}
 
+            self.progress_bar.setValue(50)
+            self.status_label.setText("Menyimpan data rincian...")
+
+            # Save rincian items to database for LBR_REQ (Lembar Permintaan)
+            if self.kode_dokumen == 'LBR_REQ' and self.rincian_items:
+                self._save_rincian_to_db(form_data)
+
             self.progress_bar.setValue(60)
             self.status_label.setText("Generating dokumen...")
 
@@ -561,6 +611,32 @@ class DokumenGeneratorDialog(QDialog):
 
         finally:
             self.progress_bar.setVisible(False)
+
+    def _save_rincian_to_db(self, form_data: Dict[str, Any]):
+        """Save rincian items to database."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                print("Warning: No transaksi_id, cannot save rincian")
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+
+            ppn_persen = form_data.get('ppn_persen', 0)
+            uang_muka_persen = form_data.get('uang_muka_persen', 100)
+
+            manager.save_rincian_items(
+                transaksi_id=transaksi_id,
+                items=self.rincian_items,
+                kode_dokumen=self.kode_dokumen,
+                ppn_persen=ppn_persen,
+                uang_muka_persen=uang_muka_persen
+            )
+            print(f"Saved {len(self.rincian_items)} rincian items for transaksi {transaksi_id}")
+
+        except Exception as e:
+            print(f"Error saving rincian to database: {e}")
 
     def _open_document(self):
         """Open generated document."""

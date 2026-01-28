@@ -67,7 +67,7 @@ UP_WORKFLOW = {
                     "kode": "ND_REQ",
                     "nama": "Nota Dinas Permintaan",
                     "kategori": "wajib",
-                    "template": "nota_dinas_permintaan.docx",
+                    "template": "nota_dinas_pp.docx",
                     "deskripsi": "Nota dinas permohonan uang muka kegiatan",
                     "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "PERJALANAN_LOKAL", "LAINNYA"]
                 },
@@ -87,7 +87,7 @@ UP_WORKFLOW = {
                     "kode": "TOR",
                     "nama": "TOR/KAK",
                     "kategori": "wajib",
-                    "template": "tor_kak.docx",
+                    "template": "kak.docx",
                     "deskripsi": "Terms of Reference / Kerangka Acuan Kerja",
                     "jenis_kegiatan": ["KEPANITIAAN"]
                 },
@@ -95,7 +95,7 @@ UP_WORKFLOW = {
                     "kode": "RAB",
                     "nama": "Rencana Anggaran Biaya",
                     "kategori": "wajib",
-                    "template": "rab.xlsx",
+                    "template": "rab_swakelola.xlsx",
                     "deskripsi": "Rincian estimasi biaya kegiatan",
                     "jenis_kegiatan": ["KEPANITIAAN"]
                 },
@@ -107,7 +107,7 @@ UP_WORKFLOW = {
                     "kode": "UND",
                     "nama": "Undangan",
                     "kategori": "wajib",
-                    "template": "undangan.docx",
+                    "template": "undangan_pl.docx",
                     "deskripsi": "Surat undangan tamu",
                     "jenis_kegiatan": ["JAMUAN_TAMU"]
                 },
@@ -119,7 +119,7 @@ UP_WORKFLOW = {
                     "kode": "UND",
                     "nama": "Undangan Rapat",
                     "kategori": "wajib",
-                    "template": "undangan.docx",
+                    "template": "undangan_pl.docx",
                     "deskripsi": "Surat undangan untuk peserta rapat",
                     "jenis_kegiatan": ["RAPAT"]
                 },
@@ -127,7 +127,7 @@ UP_WORKFLOW = {
                     "kode": "TOR",
                     "nama": "TOR/KAK",
                     "kategori": "opsional",
-                    "template": "tor_kak.docx",
+                    "template": "kak.docx",
                     "deskripsi": "Terms of Reference (jika diperlukan)",
                     "jenis_kegiatan": ["RAPAT"]
                 },
@@ -135,7 +135,7 @@ UP_WORKFLOW = {
                     "kode": "RAB",
                     "nama": "Rencana Anggaran Biaya",
                     "kategori": "opsional",
-                    "template": "rab.xlsx",
+                    "template": "rab_swakelola.xlsx",
                     "deskripsi": "Rincian estimasi biaya rapat",
                     "jenis_kegiatan": ["RAPAT"]
                 },
@@ -165,7 +165,7 @@ UP_WORKFLOW = {
                     "kode": "KUIT_UM",
                     "nama": "Kuitansi Uang Muka",
                     "kategori": "wajib",
-                    "template": "kuitansi_uang_muka_spm_lainnya.docx",
+                    "template": "kuitansi_uang_muka.docx",
                     "deskripsi": "Kuitansi penerimaan uang muka"
                 },
             ],
@@ -226,7 +226,7 @@ UP_WORKFLOW = {
                     "kode": "DH",
                     "nama": "Daftar Hadir",
                     "kategori": "wajib",
-                    "template": "daftar_hadir.docx",
+                    "template": "daftar_hadir_swakelola.docx",
                     "deskripsi": "Daftar hadir peserta rapat/jamuan",
                     "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU"]
                 },
@@ -246,7 +246,7 @@ UP_WORKFLOW = {
                     "kode": "DH",
                     "nama": "Daftar Hadir",
                     "kategori": "opsional",
-                    "template": "daftar_hadir.docx",
+                    "template": "daftar_hadir_swakelola.docx",
                     "deskripsi": "Daftar hadir (jika ada peserta)",
                     "jenis_kegiatan": ["LAINNYA", "PERJALANAN_LOKAL"]
                 },
@@ -284,7 +284,7 @@ UP_WORKFLOW = {
                     "kode": "KUIT_RAMP",
                     "nama": "Kuitansi Rampung",
                     "kategori": "wajib",
-                    "template": "kuitansi_rampung_spm_lainnya.docx",
+                    "template": "kuitansi_rampung.docx",
                     "deskripsi": "Kuitansi penyelesaian/rampung kegiatan"
                 },
                 {
@@ -463,7 +463,7 @@ TUP_WORKFLOW = {
                     "kode": "KUIT_UM_TUP",
                     "nama": "Kuitansi Uang Muka TUP",
                     "kategori": "wajib",
-                    "template": "kuitansi_uang_muka_tup.docx",
+                    "template": "kuitansi_uang_muka.docx",
                     "deskripsi": "Kuitansi penerimaan uang muka TUP"
                 },
                 {
@@ -492,7 +492,7 @@ TUP_WORKFLOW = {
                     "kode": "DH",
                     "nama": "Daftar Hadir",
                     "kategori": "wajib",
-                    "template": "daftar_hadir.docx",
+                    "template": "daftar_hadir_swakelola.docx",
                     "deskripsi": "Daftar hadir peserta kegiatan"
                 },
                 {
@@ -528,7 +528,7 @@ TUP_WORKFLOW = {
                     "kode": "KUIT_RAMP_TUP",
                     "nama": "Kuitansi Rampung TUP",
                     "kategori": "wajib",
-                    "template": "kuitansi_rampung_tup.docx",
+                    "template": "kuitansi_rampung.docx",
                     "deskripsi": "Kuitansi penyelesaian/rampung TUP"
                 },
                 {
@@ -684,7 +684,7 @@ LS_WORKFLOW = {
                     "kode": "SPD",
                     "nama": "Surat Perjalanan Dinas",
                     "kategori": "wajib",
-                    "template": "spd.docx",
+                    "template": "sppd.docx",
                     "deskripsi": "Surat Perjalanan Dinas",
                     "jenis_dasar": "SURAT_TUGAS"
                 },
@@ -724,7 +724,7 @@ LS_WORKFLOW = {
                     "kode": "LAP_PROG",
                     "nama": "Laporan Progress Pekerjaan",
                     "kategori": "wajib",
-                    "template": "laporan_progress.docx",
+                    "template": "laporan_kemajuan.docx",
                     "deskripsi": "Laporan kemajuan pekerjaan",
                     "jenis_dasar": "KONTRAK"
                 },
@@ -752,7 +752,7 @@ LS_WORKFLOW = {
                     "kode": "DH_PJD",
                     "nama": "Daftar Hadir / Bukti Kehadiran",
                     "kategori": "wajib",
-                    "template": "daftar_hadir.docx",
+                    "template": "daftar_hadir_swakelola.docx",
                     "deskripsi": "Daftar hadir atau bukti kehadiran di lokasi tujuan",
                     "jenis_dasar": "SURAT_TUGAS"
                 },
@@ -804,7 +804,7 @@ LS_WORKFLOW = {
                     "kode": "BA_PMR",
                     "nama": "BA Pemeriksaan Pekerjaan",
                     "kategori": "wajib",
-                    "template": "ba_pemeriksaan.docx",
+                    "template": "bahp.docx",
                     "deskripsi": "Berita acara pemeriksaan oleh PPHP",
                     "jenis_dasar": "KONTRAK"
                 },
@@ -820,7 +820,7 @@ LS_WORKFLOW = {
                     "kode": "BA_PHO",
                     "nama": "BA Provisional Hand Over (PHO)",
                     "kategori": "kondisional",
-                    "template": "ba_pho.docx",
+                    "template": "bast_konstruksi_pho.docx",
                     "deskripsi": "Serah terima sementara",
                     "jenis_dasar": "KONTRAK"
                 },
@@ -828,7 +828,7 @@ LS_WORKFLOW = {
                     "kode": "BA_FHO",
                     "nama": "BA Final Hand Over (konstruksi)",
                     "kategori": "kondisional",
-                    "template": "ba_fho.docx",
+                    "template": "bast_konstruksi_fho.docx",
                     "deskripsi": "Serah terima akhir untuk konstruksi",
                     "jenis_dasar": "KONTRAK"
                 },
@@ -891,7 +891,7 @@ LS_WORKFLOW = {
                     "kode": "KUIT_LS",
                     "nama": "Kuitansi Pembayaran LS",
                     "kategori": "wajib",
-                    "template": "kuitansi_ls.docx",
+                    "template": "kuitansi.docx",
                     "deskripsi": "Kuitansi pembayaran LS"
                 },
             ],
@@ -938,7 +938,7 @@ LS_WORKFLOW = {
                     "kode": "RINCIAN_BIAYA",
                     "nama": "Rincian Biaya Perjalanan",
                     "kategori": "wajib",
-                    "template": "rincian_biaya_pjd.xlsx",
+                    "template": "rincian_biaya_pd.docx",
                     "deskripsi": "Rincian biaya perjalanan dinas yang direalisasi",
                     "jenis_dasar": "SURAT_TUGAS"
                 },

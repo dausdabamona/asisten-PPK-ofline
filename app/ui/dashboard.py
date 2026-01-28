@@ -1694,6 +1694,20 @@ class DashboardWindow(QMainWindow):
 
         pembayaran_menu.addSeparator()
 
+        action_spm_lainnya = QAction("💳 SPM Lainnya - Kuitansi", self)
+        action_spm_lainnya.triggered.connect(self.manage_spm_lainnya)
+        pembayaran_menu.addAction(action_spm_lainnya)
+
+        action_kuitansi_um = QAction("   💰 Kuitansi Uang Muka", self)
+        action_kuitansi_um.triggered.connect(lambda: self.manage_spm_lainnya(tab=0))
+        pembayaran_menu.addAction(action_kuitansi_um)
+
+        action_kuitansi_rp = QAction("   ✅ Kuitansi Rampung", self)
+        action_kuitansi_rp.triggered.connect(lambda: self.manage_spm_lainnya(tab=1))
+        pembayaran_menu.addAction(action_kuitansi_rp)
+
+        pembayaran_menu.addSeparator()
+
         action_pembayaran_all = QAction("📊 Lihat Semua Pembayaran", self)
         action_pembayaran_all.triggered.connect(self.manage_pembayaran_lainnya)
         pembayaran_menu.addAction(action_pembayaran_all)
@@ -2255,6 +2269,22 @@ class DashboardWindow(QMainWindow):
                 idx = manager.cmb_jt_kategori.findText(kategori)
                 if idx >= 0:
                     manager.cmb_jt_kategori.setCurrentIndex(idx)
+            layout.addWidget(manager)
+            dialog.exec()
+        except ImportError as e:
+            QMessageBox.warning(self, "Error", f"Module tidak tersedia:\n{str(e)}")
+
+    def manage_spm_lainnya(self, tab=None):
+        """Manage SPM Lainnya - Kuitansi Uang Muka & Rampung"""
+        try:
+            from .spm_lainnya_manager import SPMLainnyaManager
+            dialog = QDialog(self)
+            dialog.setWindowTitle("SPM Lainnya - Kuitansi")
+            dialog.setMinimumSize(1200, 700)
+            layout = QVBoxLayout(dialog)
+            manager = SPMLainnyaManager(dialog)
+            if tab is not None:
+                manager.tabs.setCurrentIndex(tab)
             layout.addWidget(manager)
             dialog.exec()
         except ImportError as e:

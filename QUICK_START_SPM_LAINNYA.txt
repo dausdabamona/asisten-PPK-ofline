@@ -1,0 +1,163 @@
+════════════════════════════════════════════════════════════════
+           🎯 QUICK START - MENU SPM LAINNYA BARU
+════════════════════════════════════════════════════════════════
+
+AKSES FITUR:
+─────────────
+
+1. Buka aplikasi PPK Document Factory
+2. Klik Menu "Pembayaran" di top
+3. Pilih "💳 SPM Lainnya - Kuitansi"
+
+ATAU
+
+2. Klik Menu "Pembayaran"
+3. Pilih submenu:
+   • "💰 Kuitansi Uang Muka" → langsung ke Tab 1
+   • "✅ Kuitansi Rampung" → langsung ke Tab 2
+
+
+FITUR UTAMA:
+─────────────
+
+TAB 1: KUITANSI UANG MUKA
+• Support: Honorarium, Jamuan Tamu, PJLP, Perjalanan Dinas, Lainnya
+• Tombol: + Tambah | Edit | Hapus | Cetak
+• Filter: By Jenis Pembayaran
+• Fields: 
+  - Data DIPA (Tahun, Nomor, Bulan)
+  - Data Kuitansi (Nomor, Tanggal, Jenis, Uraian)
+  - Data Penerima (Nama, NIP, Jabatan, Alamat)
+  - Jumlah Uang Muka
+  - Sumber Dana & Akun
+  - Dasar Pembayaran
+  - Tanda Tangan (KPA, PPK, Bendahara) - AUTO-FILL
+  - Keterangan
+
+TAB 2: KUITANSI RAMPUNG
+• Support: Sama dengan Uang Muka
+• Tombol: + Tambah | Edit | Hapus | Cetak
+• Filter: By Jenis Pembayaran
+• AUTO-CALCULATION:
+  Pembayaran Rampung = Total Kontrak - Uang Muka Sebelumnya
+• Fields:
+  - Data DIPA
+  - Data Penerima
+  - Jenis & Uraian Pembayaran
+  - Total Kontrak (input)
+  - Uang Muka Sebelumnya (input)
+  - Pembayaran Rampung (AUTO)
+  - Nomor & Tanggal Kuitansi
+  - Sumber Dana & Akun
+  - Dasar Pembayaran
+  - Tanda Tangan (AUTO-FILL)
+  - Keterangan
+
+
+WORKFLOW UMUM:
+───────────────
+
+MEMBUAT KUITANSI UANG MUKA:
+1. Klik "+ Tambah Kuitansi Uang Muka"
+2. Isi data di form (6 section)
+3. Klik "Simpan"
+4. Muncul di tabel
+
+MEMBUAT KUITANSI RAMPUNG:
+1. Klik "+ Tambah Kuitansi Rampung"
+2. Isi data di form (6 section)
+3. Pembayaran Rampung OTOMATIS hitung
+4. Klik "Simpan"
+5. Muncul di tabel
+
+MENGEDIT:
+1. Klik tombol "Edit" di row tabel
+2. Ubah data
+3. Klik "Simpan"
+
+MENGHAPUS:
+1. Klik tombol "Hapus" di row tabel
+2. Konfirmasi
+3. Data terhapus
+
+CETAK (Future):
+1. Klik tombol "Cetak"
+2. Generate dokumen Word
+3. Merge dengan template
+
+
+CURRENCY FORMAT:
+─────────────────
+
+Masukkan angka tanpa format:
+1000000 → Rp 1.000.000
+500000000 → Rp 500.000.000
+
+ATAU langsung ketik:
+"Rp 1.000.000" → otomatis parse
+
+
+AUTO-FILL FIELDS:
+──────────────────
+
+KPA Name & NIP: Auto dari Satker Settings
+PPK Name & NIP: Auto dari Satker Settings
+Bendahara Name & NIP: Auto dari Satker Settings
+
+Untuk update, edit di: Pengaturan > Data Satker
+
+
+SUPPORT JENIS PEMBAYARAN:
+──────────────────────────
+
+1. Honorarium
+2. Jamuan Tamu
+3. PJLP
+4. Perjalanan Dinas
+5. Pembayaran Lainnya
+
+
+FILE TERKAIT:
+──────────────
+
+• app/ui/spm_lainnya_manager.py
+  └─ Manager class & dialog classes
+
+• Templates (untuk generate dokumen):
+  ├─ templates/word/kuitansi_uang_muka_spm_lainnya.docx
+  └─ templates/word/kuitansi_rampung_spm_lainnya.docx
+
+• Dokumentasi:
+  ├─ FITUR_SPM_LAINNYA_MENU.md (detail)
+  ├─ PANDUAN_KUITANSI_SPM_LAINNYA.md (placeholders)
+  └─ README_KUITANSI_SPM_LAINNYA.md (tutorial)
+
+
+VALIDATION:
+────────────
+
+Required fields akan validated:
+✓ Nomor Kuitansi (wajib)
+✓ Jenis Pembayaran (wajib)
+✓ Nama Penerima (wajib)
+✓ Uang Muka > 0 (wajib)
+✓ Pembayaran Rampung > 0 (wajib)
+
+Jika validation error → popup warning
+
+
+STATUS SEKARANG:
+────────────────
+
+✅ Menu terintegrasi di dashboard
+✅ UI form lengkap (6 sections)
+✅ CRUD operations (Create, Read, Update, Delete)
+✅ Currency formatting
+✅ Auto-fill satker
+✅ Auto-calculate rampung
+✅ Filter by jenis pembayaran
+🔄 Siap untuk: DB integration, Document generation
+
+════════════════════════════════════════════════════════════════
+
+PERTANYAAN? Lihat: FITUR_SPM_LAINNYA_MENU.md untuk detail lengkap

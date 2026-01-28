@@ -57,6 +57,7 @@ from ..services.dokumen_generator import get_dokumen_generator
 from .dialogs.dokumen_dialog import DokumenGeneratorDialog, UploadDokumenDialog
 from .dialogs.perjalanan_dinas_dialog import PerjalananDinasDialog
 from .dialogs.swakelola_dialog import SwakelolaDialog
+from .dialogs.pertanggungjawaban_dialog import RekapBuktiPengeluaranDialog, PerhitunganTambahKurangDialog
 
 
 def format_rupiah(value: float) -> str:
@@ -565,7 +566,7 @@ class MainWindowV2(QMainWindow):
         elif action == "upload_arsip":
             self._handle_upload_arsip(kode_dokumen, transaksi_data)
         elif action == "prepare":
-            self._handle_prepare_dokumen(transaksi_data)
+            self._handle_prepare_dokumen(kode_dokumen, transaksi_data)
 
     def _get_current_transaksi_data(self) -> Dict[str, Any]:
         """Get current transaksi data from active detail page."""
@@ -779,8 +780,17 @@ class MainWindowV2(QMainWindow):
         )
         dialog.exec()
 
-    def _handle_prepare_dokumen(self, transaksi_data: Dict):
-        """Handle document preparation based on jenis_kegiatan."""
+    def _handle_prepare_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle document preparation based on kode_dokumen or jenis_kegiatan."""
+        # Handle specific document dialogs
+        if kode_dokumen == 'REKAP_BKT':
+            self._show_rekap_bukti_dialog(transaksi_data)
+            return
+        elif kode_dokumen == 'HITUNG_TK':
+            self._show_perhitungan_tk_dialog(transaksi_data)
+            return
+
+        # Handle activity-type specific preparation
         jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
 
         if jenis_kegiatan == 'PERJALANAN_DINAS':
@@ -851,6 +861,84 @@ class MainWindowV2(QMainWindow):
                 self,
                 "Error",
                 f"Gagal membuka dialog swakelola:\n{str(e)}"
+            )
+
+    def _show_rekap_bukti_dialog(self, transaksi_data: Dict):
+        """Show Rekap Bukti Pengeluaran dialog."""
+        try:
+            dialog = RekapBuktiPengeluaranDialog(
+                transaksi=transaksi_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                bukti_list = dialog.get_bukti_list()
+                total = dialog.get_total()
+
+                # Save bukti list to transaksi
+                transaksi_id = transaksi_data.get('id')
+                if transaksi_id and bukti_list:
+                    self.db.update_transaksi(transaksi_id, {
+                        'bukti_pengeluaran': bukti_list,
+                        'total_realisasi': total
+                    })
+
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Rekap Bukti Disimpan",
+                    f"Berhasil merekap {len(bukti_list)} bukti pengeluaran.\n"
+                    f"Total: Rp {total:,.0f}".replace(",", ".")
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog rekap bukti:\n{str(e)}"
+            )
+
+    def _show_perhitungan_tk_dialog(self, transaksi_data: Dict):
+        """Show Perhitungan Tambah/Kurang dialog."""
+        try:
+            # Get bukti list from transaksi if available
+            bukti_list = transaksi_data.get('bukti_pengeluaran', [])
+
+            dialog = PerhitunganTambahKurangDialog(
+                transaksi=transaksi_data,
+                bukti_list=bukti_list,
+                parent=self
+            )
+
+            if dialog.exec():
+                result = dialog.get_result()
+
+                # Save result to transaksi
+                transaksi_id = transaksi_data.get('id')
+                if transaksi_id:
+                    self.db.update_transaksi(transaksi_id, {
+                        'realisasi': result.get('realisasi', 0),
+                        'selisih': result.get('selisih', 0),
+                        'status_tk': result.get('status', 'NIHIL')
+                    })
+
+                self._refresh_current_page()
+
+                status = result.get('status', 'NIHIL')
+                selisih = result.get('selisih', 0)
+                msg = f"Hasil Perhitungan: {status}\n"
+                if status == 'KURANG_BAYAR':
+                    msg += f"Perlu tambahan pembayaran: Rp {selisih:,.0f}".replace(",", ".")
+                elif status == 'LEBIH_BAYAR':
+                    msg += f"Perlu pengembalian: Rp {abs(selisih):,.0f}".replace(",", ".")
+                else:
+                    msg += "Tidak ada selisih, lanjut ke kuitansi rampung."
+
+                QMessageBox.information(self, "Perhitungan Selesai", msg)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog perhitungan:\n{str(e)}"
             )
 
     def _refresh_current_page(self):

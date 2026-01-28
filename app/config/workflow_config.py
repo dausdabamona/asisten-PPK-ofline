@@ -281,25 +281,29 @@ UP_WORKFLOW = {
             "color": "#e74c3c",
             "dokumen": [
                 {
-                    "kode": "KUIT_RAMP",
-                    "nama": "Kuitansi Rampung",
+                    "kode": "REKAP_BKT",
+                    "nama": "Rekap Bukti Pengeluaran",
                     "kategori": "wajib",
-                    "template": "kuitansi_rampung.docx",
-                    "deskripsi": "Kuitansi penyelesaian/rampung kegiatan"
+                    "template": "rekap_bukti_pengeluaran.xlsx",
+                    "deskripsi": "Rekap seluruh bukti pengeluaran",
+                    "action": "prepare",
+                    "dialog": "RekapBuktiPengeluaranDialog"
                 },
                 {
                     "kode": "HITUNG_TK",
                     "nama": "Perhitungan Tambah/Kurang",
                     "kategori": "wajib",
                     "template": "perhitungan_tambah_kurang.xlsx",
-                    "deskripsi": "Perhitungan selisih uang muka vs realisasi"
+                    "deskripsi": "Perhitungan selisih uang muka vs realisasi",
+                    "action": "prepare",
+                    "dialog": "PerhitunganTambahKurangDialog"
                 },
                 {
-                    "kode": "REKAP_BKT",
-                    "nama": "Rekap Bukti Pengeluaran",
+                    "kode": "KUIT_RAMP",
+                    "nama": "Kuitansi Rampung",
                     "kategori": "wajib",
-                    "template": "rekap_bukti_pengeluaran.xlsx",
-                    "deskripsi": "Rekap seluruh bukti pengeluaran"
+                    "template": "kuitansi_rampung.docx",
+                    "deskripsi": "Kuitansi penyelesaian/rampung kegiatan"
                 },
                 {
                     "kode": "LPJ",

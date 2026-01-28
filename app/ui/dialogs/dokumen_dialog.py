@@ -479,9 +479,51 @@ class UploadDokumenDialog(QDialog):
 
         layout.addStretch()
 
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #7f8c8d;")
+        layout.addWidget(self.status_label)
+
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
+
+        # View file button (hidden initially)
+        self.view_file_btn = QPushButton("Lihat File")
+        self.view_file_btn.setVisible(False)
+        self.view_file_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.view_file_btn.clicked.connect(self._view_file)
+        btn_layout.addWidget(self.view_file_btn)
+
+        # Open folder button (hidden initially)
+        self.open_folder_btn = QPushButton("Buka Folder")
+        self.open_folder_btn.setVisible(False)
+        self.open_folder_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+            }
+        """)
+        self.open_folder_btn.clicked.connect(self._open_folder)
+        btn_layout.addWidget(self.open_folder_btn)
 
         self.upload_btn = QPushButton("Upload")
         self.upload_btn.setEnabled(False)
@@ -504,11 +546,14 @@ class UploadDokumenDialog(QDialog):
         self.upload_btn.clicked.connect(self._upload)
         btn_layout.addWidget(self.upload_btn)
 
-        cancel_btn = QPushButton("Batal")
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(cancel_btn)
+        self.close_btn = QPushButton("Tutup")
+        self.close_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(self.close_btn)
 
         layout.addLayout(btn_layout)
+
+        # Store uploaded file path
+        self.uploaded_path = None
 
     def _browse_file(self):
         """Browse for file."""
@@ -549,14 +594,61 @@ class UploadDokumenDialog(QDialog):
 
             shutil.copy2(src, dest)
 
-            QMessageBox.information(
-                self,
-                "Sukses",
-                f"File berhasil diupload:\n{dest}"
-            )
+            # Store uploaded path
+            self.uploaded_path = str(dest)
 
+            # Update UI
+            self.status_label.setText(f"✓ File berhasil diupload:\n{dest}")
+            self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+
+            # Show view buttons
+            self.view_file_btn.setVisible(True)
+            self.open_folder_btn.setVisible(True)
+
+            # Change upload button to "Upload Lagi"
+            self.upload_btn.setText("Upload Lagi")
+
+            # Emit signal
             self.dokumen_uploaded.emit(str(dest))
-            self.accept()
 
         except Exception as e:
+            self.status_label.setText(f"✗ Gagal upload: {str(e)}")
+            self.status_label.setStyleSheet("color: #e74c3c;")
             QMessageBox.critical(self, "Error", f"Gagal upload file:\n{str(e)}")
+
+    def _view_file(self):
+        """Open uploaded file with default application."""
+        if self.uploaded_path:
+            import subprocess
+            import platform
+            import os
+
+            try:
+                if platform.system() == 'Windows':
+                    os.startfile(self.uploaded_path)
+                elif platform.system() == 'Darwin':  # macOS
+                    subprocess.run(['open', self.uploaded_path])
+                else:  # Linux
+                    subprocess.run(['xdg-open', self.uploaded_path])
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal membuka file:\n{str(e)}")
+
+    def _open_folder(self):
+        """Open folder containing uploaded file."""
+        if self.uploaded_path:
+            import subprocess
+            import platform
+            import os
+            from pathlib import Path
+
+            folder = str(Path(self.uploaded_path).parent)
+
+            try:
+                if platform.system() == 'Windows':
+                    os.startfile(folder)
+                elif platform.system() == 'Darwin':  # macOS
+                    subprocess.run(['open', folder])
+                else:  # Linux
+                    subprocess.run(['xdg-open', folder])
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal membuka folder:\n{str(e)}")

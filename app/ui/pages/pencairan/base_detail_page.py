@@ -378,6 +378,26 @@ class BaseDetailPage(QWidget):
 
         layout.addStretch()
 
+        # Prepare documents button (for PERJALANAN/SWAKELOLA activities)
+        self.prepare_btn = QPushButton("Persiapan Dokumen")
+        self.prepare_btn.setCursor(Qt.PointingHandCursor)
+        self.prepare_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.prepare_btn.clicked.connect(self._on_prepare_dokumen)
+        self.prepare_btn.setVisible(False)  # Hidden by default
+        layout.addWidget(self.prepare_btn)
+
         # Save button
         save_btn = QPushButton("Simpan Perubahan")
         save_btn.setCursor(Qt.PointingHandCursor)
@@ -476,6 +496,12 @@ class BaseDetailPage(QWidget):
                 "Lengkapi semua dokumen wajib sebelum melanjutkan ke fase berikutnya."
             )
 
+    def _on_prepare_dokumen(self):
+        """Handle prepare documents button click."""
+        # Emit prepare action
+        fase = self._transaksi_data.get('fase_aktif', 1)
+        self.dokumen_action.emit("PREPARE", "prepare", fase)
+
     def _validate_current_fase(self) -> bool:
         """Validate current fase is complete."""
         progress = self.checklist.get_progress()
@@ -543,6 +569,11 @@ class BaseDetailPage(QWidget):
             self.next_btn.setText("Selesaikan Transaksi")
         else:
             self.next_btn.setText("Lanjut ke Fase Berikutnya >")
+
+        # Show/hide prepare button based on jenis_kegiatan
+        jenis_kegiatan = data.get('jenis_kegiatan', '')
+        special_activities = ['PERJALANAN_DINAS', 'KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL']
+        self.prepare_btn.setVisible(jenis_kegiatan in special_activities)
 
     def set_dokumen_list(self, dokumen_list: List[Dict[str, Any]]):
         """Set document list for current fase."""

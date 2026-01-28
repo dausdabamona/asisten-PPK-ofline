@@ -55,6 +55,8 @@ from ..core.config import ROOT_DIR
 # Import document services and dialogs
 from ..services.dokumen_generator import get_dokumen_generator
 from .dialogs.dokumen_dialog import DokumenGeneratorDialog, UploadDokumenDialog
+from .dialogs.perjalanan_dinas_dialog import PerjalananDinasDialog
+from .dialogs.swakelola_dialog import SwakelolaDialog
 
 
 def format_rupiah(value: float) -> str:
@@ -522,7 +524,7 @@ class MainWindowV2(QMainWindow):
                 )
 
     def _on_dokumen_action(self, kode_dokumen: str, action: str, fase: int):
-        """Handle document action (create, view, edit, upload, upload_arsip)."""
+        """Handle document action (create, view, edit, upload, upload_arsip, prepare)."""
         # Get current transaksi data
         transaksi_data = self._get_current_transaksi_data()
 
@@ -536,6 +538,8 @@ class MainWindowV2(QMainWindow):
             self._handle_upload_dokumen(kode_dokumen, transaksi_data)
         elif action == "upload_arsip":
             self._handle_upload_arsip(kode_dokumen, transaksi_data)
+        elif action == "prepare":
+            self._handle_prepare_dokumen(transaksi_data)
 
     def _get_current_transaksi_data(self) -> Dict[str, Any]:
         """Get current transaksi data from active detail page."""
@@ -567,6 +571,19 @@ class MainWindowV2(QMainWindow):
     def _handle_create_dokumen(self, kode_dokumen: str, fase: int, transaksi_data: Dict):
         """Handle document creation."""
         try:
+            # Check for special activity types that need preparation dialogs
+            jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
+
+            # For PERJALANAN_DINAS at fase 1, show special dialog
+            if jenis_kegiatan == 'PERJALANAN_DINAS' and fase == 1 and kode_dokumen == 'KUITANSI_UM':
+                self._show_perjalanan_dinas_dialog(transaksi_data)
+                return
+
+            # For SWAKELOLA activities at fase 1, show special dialog
+            if jenis_kegiatan in ['KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL'] and fase == 1 and kode_dokumen == 'KUITANSI_UM':
+                self._show_swakelola_dialog(transaksi_data)
+                return
+
             # Get template name from workflow config
             from ..config.workflow_config import get_workflow
 
@@ -684,6 +701,80 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+
+    def _handle_prepare_dokumen(self, transaksi_data: Dict):
+        """Handle document preparation based on jenis_kegiatan."""
+        jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
+
+        if jenis_kegiatan == 'PERJALANAN_DINAS':
+            self._show_perjalanan_dinas_dialog(transaksi_data)
+        elif jenis_kegiatan in ['KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL']:
+            self._show_swakelola_dialog(transaksi_data)
+        else:
+            QMessageBox.information(
+                self,
+                "Info",
+                "Persiapan dokumen khusus hanya tersedia untuk:\n"
+                "• Perjalanan Dinas\n"
+                "• Kepanitiaan\n"
+                "• Rapat\n"
+                "• Jamuan Tamu\n"
+                "• Operasional"
+            )
+
+    def _show_perjalanan_dinas_dialog(self, transaksi_data: Dict):
+        """Show Perjalanan Dinas preparation dialog."""
+        try:
+            # Get satker data
+            satker_data = self.db.get_satker_aktif()
+
+            dialog = PerjalananDinasDialog(
+                transaksi=transaksi_data,
+                satker=satker_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Dokumen Disiapkan",
+                    "Dokumen perjalanan dinas telah disiapkan.\n"
+                    "Silakan periksa folder output untuk melihat hasilnya."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog perjalanan dinas:\n{str(e)}"
+            )
+
+    def _show_swakelola_dialog(self, transaksi_data: Dict):
+        """Show Swakelola preparation dialog."""
+        try:
+            # Get satker data
+            satker_data = self.db.get_satker_aktif()
+
+            dialog = SwakelolaDialog(
+                transaksi=transaksi_data,
+                satker=satker_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Dokumen Disiapkan",
+                    "Dokumen swakelola telah disiapkan.\n"
+                    "Silakan periksa folder output untuk melihat hasilnya."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog swakelola:\n{str(e)}"
+            )
 
     def _refresh_current_page(self):
         """Refresh current active page."""

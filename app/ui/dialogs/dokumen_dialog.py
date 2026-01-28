@@ -151,17 +151,18 @@ class DokumenGeneratorDialog(QDialog):
 
         scroll_layout.addWidget(data_group)
 
+        # KUIT_RAMP = Kuitansi Rampung (final settlement) - Summary only, no rincian input
+        if self.kode_dokumen == 'KUIT_RAMP':
+            self._setup_kuitansi_rampung_ui(scroll_layout)
+
         # Rincian group (for documents with item details)
         # LBR_REQ = Lembar Permintaan (estimasi)
         # REKAP_BKT = Rekap Bukti Pengeluaran (realisasi aktual)
         # KUIT_UM = Kuitansi Uang Muka
-        # KUIT_RAMP = Kuitansi Rampung (final settlement)
-        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'LBR_REQ', 'REKAP_BKT']:
+        elif self.kode_dokumen in ['KUIT_UM', 'LBR_REQ', 'REKAP_BKT']:
             # Set label based on document type
             if self.kode_dokumen == 'REKAP_BKT':
                 rincian_label = "Rincian Bukti Pengeluaran (Realisasi)"
-            elif self.kode_dokumen == 'KUIT_RAMP':
-                rincian_label = "Rincian Realisasi Penggunaan Dana"
             else:
                 rincian_label = "Rincian Barang/Jasa"
             rincian_group = QGroupBox(rincian_label)
@@ -472,13 +473,216 @@ class DokumenGeneratorDialog(QDialog):
             self.penerima_jabatan_edit.setText(p.get('jabatan', ''))
         # Don't clear if user is typing custom name
 
+    def _setup_kuitansi_rampung_ui(self, parent_layout):
+        """Setup UI for Kuitansi Rampung - summary only without rincian input."""
+        from PySide6.QtWidgets import QTextEdit
+
+        # Load data from database first
+        self._load_kuitansi_rampung_data()
+
+        # Summary Panel
+        summary_group = QGroupBox("Ringkasan Pertanggungjawaban")
+        summary_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #2c3e50;
+                border-radius: 8px;
+                margin-top: 15px;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px;
+                color: #2c3e50;
+            }
+        """)
+        summary_layout = QGridLayout(summary_group)
+        summary_layout.setSpacing(10)
+
+        # Uang Muka Diterima
+        lbl_um = QLabel("Uang Muka Diterima:")
+        lbl_um.setStyleSheet("font-size: 13px;")
+        summary_layout.addWidget(lbl_um, 0, 0)
+        self.kr_uang_muka_label = QLabel(f"Rp {self._kr_uang_muka:,.0f}".replace(",", "."))
+        self.kr_uang_muka_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        summary_layout.addWidget(self.kr_uang_muka_label, 0, 1)
+
+        # Total Realisasi
+        lbl_real = QLabel("Total Realisasi Belanja:")
+        lbl_real.setStyleSheet("font-size: 13px;")
+        summary_layout.addWidget(lbl_real, 1, 0)
+        self.kr_realisasi_label = QLabel(f"Rp {self._kr_realisasi:,.0f}".replace(",", "."))
+        self.kr_realisasi_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        summary_layout.addWidget(self.kr_realisasi_label, 1, 1)
+
+        # Separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setStyleSheet("background-color: #bdc3c7;")
+        summary_layout.addWidget(separator, 2, 0, 1, 2)
+
+        # Selisih
+        lbl_selisih = QLabel("Selisih:")
+        lbl_selisih.setStyleSheet("font-size: 13px;")
+        summary_layout.addWidget(lbl_selisih, 3, 0)
+        self.kr_selisih_label = QLabel(f"Rp {abs(self._kr_selisih):,.0f}".replace(",", "."))
+        self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        summary_layout.addWidget(self.kr_selisih_label, 3, 1)
+
+        # Status Badge
+        self.kr_status_label = QLabel("")
+        self.kr_status_label.setAlignment(Qt.AlignCenter)
+        summary_layout.addWidget(self.kr_status_label, 4, 0, 1, 2)
+
+        # Update status display
+        self._update_kuitansi_rampung_status()
+
+        parent_layout.addWidget(summary_group)
+
+        # Klausul/Keterangan Panel
+        klausul_group = QGroupBox("Keterangan Pertanggungjawaban")
+        klausul_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #27ae60;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px;
+                color: #27ae60;
+            }
+        """)
+        klausul_layout = QVBoxLayout(klausul_group)
+
+        self.kr_klausul_text = QTextEdit()
+        self.kr_klausul_text.setMaximumHeight(100)
+        self.kr_klausul_text.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #bdc3c7;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 12px;
+            }
+        """)
+
+        # Generate klausul text based on status
+        self._generate_klausul_text()
+
+        klausul_layout.addWidget(self.kr_klausul_text)
+        parent_layout.addWidget(klausul_group)
+
+    def _load_kuitansi_rampung_data(self):
+        """Load data for Kuitansi Rampung from database."""
+        self._kr_uang_muka = 0
+        self._kr_realisasi = 0
+        self._kr_selisih = 0
+        self._kr_status = 'NIHIL'
+
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+
+            # Get uang_muka from transaksi or LBR_REQ
+            self._kr_uang_muka = self.transaksi.get('uang_muka', 0) or 0
+            if not self._kr_uang_muka:
+                summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
+                if summary:
+                    self._kr_uang_muka = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
+
+            # Get realisasi from transaksi or REKAP_BKT
+            self._kr_realisasi = self.transaksi.get('realisasi', 0) or 0
+            if not self._kr_realisasi:
+                summary = manager.get_rincian_summary(transaksi_id, 'REKAP_BKT')
+                if summary:
+                    self._kr_realisasi = summary.get('total_dengan_ppn', 0) or summary.get('subtotal', 0)
+
+            # Calculate selisih
+            self._kr_selisih = self._kr_realisasi - self._kr_uang_muka
+
+            # Determine status
+            if self._kr_selisih > 0:
+                self._kr_status = 'KURANG_BAYAR'
+            elif self._kr_selisih < 0:
+                self._kr_status = 'LEBIH_BAYAR'
+            else:
+                self._kr_status = 'NIHIL'
+
+            print(f"Kuitansi Rampung Data: UM={self._kr_uang_muka}, Real={self._kr_realisasi}, Selisih={self._kr_selisih}, Status={self._kr_status}")
+
+        except Exception as e:
+            print(f"Error loading Kuitansi Rampung data: {e}")
+
+    def _update_kuitansi_rampung_status(self):
+        """Update status label styling for Kuitansi Rampung."""
+        if self._kr_status == 'KURANG_BAYAR':
+            self.kr_status_label.setText("KURANG BAYAR")
+            self.kr_status_label.setStyleSheet("""
+                font-weight: bold; font-size: 16px; padding: 10px 20px;
+                background-color: #e74c3c; color: white; border-radius: 5px;
+            """)
+            self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #e74c3c;")
+        elif self._kr_status == 'LEBIH_BAYAR':
+            self.kr_status_label.setText("LEBIH BAYAR (Dikembalikan ke Kas)")
+            self.kr_status_label.setStyleSheet("""
+                font-weight: bold; font-size: 16px; padding: 10px 20px;
+                background-color: #27ae60; color: white; border-radius: 5px;
+            """)
+            self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #27ae60;")
+        else:
+            self.kr_status_label.setText("NIHIL (Pas)")
+            self.kr_status_label.setStyleSheet("""
+                font-weight: bold; font-size: 16px; padding: 10px 20px;
+                background-color: #3498db; color: white; border-radius: 5px;
+            """)
+            self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #3498db;")
+
+    def _generate_klausul_text(self):
+        """Generate klausul text based on calculation status."""
+        penerima = self.transaksi.get('penerima_nama', '[Nama Penerima]')
+        selisih_str = f"Rp {abs(self._kr_selisih):,.0f}".replace(",", ".")
+
+        if self._kr_status == 'KURANG_BAYAR':
+            klausul = (
+                f"Berdasarkan perhitungan di atas, terdapat kekurangan pembayaran "
+                f"sebesar {selisih_str} yang harus dibayarkan oleh Bendahara Pengeluaran "
+                f"kepada {penerima} untuk menyelesaikan pertanggungjawaban kegiatan ini."
+            )
+        elif self._kr_status == 'LEBIH_BAYAR':
+            klausul = (
+                f"Berdasarkan perhitungan di atas, terdapat sisa uang muka "
+                f"sebesar {selisih_str} yang harus dikembalikan oleh {penerima} "
+                f"kepada Bendahara Pengeluaran/Kas Negara untuk menyelesaikan "
+                f"pertanggungjawaban kegiatan ini."
+            )
+        else:
+            klausul = (
+                f"Berdasarkan perhitungan di atas, penggunaan uang muka telah sesuai "
+                f"dengan realisasi belanja (NIHIL). Tidak ada sisa uang yang perlu "
+                f"dikembalikan maupun kekurangan yang perlu dibayarkan."
+            )
+
+        self.kr_klausul_text.setText(klausul)
+
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
+        # KUIT_RAMP has its own data loading in _setup_kuitansi_rampung_ui
+        if self.kode_dokumen == 'KUIT_RAMP':
+            return
+
         # For documents in the workflow flow - try to load from database if no items provided
         # KUIT_UM = Kuitansi Uang Muka (loads from LBR_REQ)
         # REKAP_BKT = Rekap Bukti Pengeluaran (loads from LBR_REQ as template)
-        # KUIT_RAMP = Kuitansi Rampung (loads from REKAP_BKT - actual realisasi)
-        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'REKAP_BKT'] and not self.rincian_items:
+        if self.kode_dokumen in ['KUIT_UM', 'REKAP_BKT'] and not self.rincian_items:
             self._load_rincian_from_db()
 
         # Load rincian items if available (either provided or loaded from DB)
@@ -810,6 +1014,15 @@ class DokumenGeneratorDialog(QDialog):
             data['uang_muka_persen'] = self.um_btn_group.checkedId()
         else:
             data['uang_muka_persen'] = 100
+
+        # Add Kuitansi Rampung specific data
+        if self.kode_dokumen == 'KUIT_RAMP':
+            data['uang_muka'] = getattr(self, '_kr_uang_muka', 0)
+            data['realisasi'] = getattr(self, '_kr_realisasi', 0)
+            data['selisih'] = getattr(self, '_kr_selisih', 0)
+            data['status_selisih'] = getattr(self, '_kr_status', 'NIHIL')
+            if hasattr(self, 'kr_klausul_text'):
+                data['klausul'] = self.kr_klausul_text.toPlainText()
 
         # Merge with transaksi data
         for key, value in self.transaksi.items():

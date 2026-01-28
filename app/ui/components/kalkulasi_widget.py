@@ -4,28 +4,25 @@ PPK DOCUMENT FACTORY - Kalkulasi Widget Component
 Widget untuk menghitung dan menampilkan selisih uang muka vs realisasi.
 
 Features:
-- Input untuk uang muka dan realisasi
-- Auto-calculate selisih
+- Input rincian barang/jasa untuk kuitansi uang muka
+- Auto-calculate total dari rincian
+- Perhitungan selisih uang muka vs realisasi
 - Visual indicator (KURANG/LEBIH/PAS)
-- Formatted currency display
+- Formatted currency display dengan terbilang
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QPushButton, QLabel, QFrame, QLineEdit, QDoubleSpinBox,
-    QGraphicsDropShadowEffect, QSizePolicy
+    QGraphicsDropShadowEffect, QSizePolicy, QTabWidget,
+    QScrollArea
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
-
-def format_rupiah(value: float) -> str:
-    """Format angka ke format Rupiah."""
-    if value is None:
-        return "Rp 0"
-    return f"Rp {value:,.0f}".replace(",", ".")
+from .rincian_kalkulasi_widget import RincianKalkulasiWidget, format_rupiah, terbilang
 
 
 class KalkulasiWidget(QFrame):

@@ -25,12 +25,32 @@ UP_WORKFLOW = {
     "color": "#27ae60",  # Green
     "color_light": "#d5f5e3",
 
+    # UP mendukung beberapa jenis kegiatan dengan kebutuhan dokumen berbeda
+    "jenis_kegiatan_options": [
+        "OPERASIONAL",      # Belanja operasional kantor (< 1jt, cukup lembar permintaan)
+        "KEPANITIAAN",      # Kegiatan kepanitiaan (perlu TOR, RAB, SK)
+        "JAMUAN_TAMU",      # Jamuan tamu (perlu Undangan, SK)
+        "RAPAT",            # Rapat/pertemuan (perlu Undangan, SK)
+        "PERJALANAN_LOKAL", # Perjalanan lokal (perlu ST)
+        "LAINNYA",          # Kegiatan lainnya
+    ],
+    "jenis_kegiatan_labels": {
+        "OPERASIONAL": "Belanja Operasional Kantor (< Rp 1 juta)",
+        "KEPANITIAAN": "Kegiatan Kepanitiaan",
+        "JAMUAN_TAMU": "Jamuan Tamu",
+        "RAPAT": "Rapat/Pertemuan/Workshop",
+        "PERJALANAN_LOKAL": "Perjalanan Lokal",
+        "LAINNYA": "Kegiatan Lainnya",
+    },
+
     "fase": {
         1: {
             "nama": "Inisiasi & SK",
             "deskripsi": "Persiapan awal dan penerbitan SK/Dasar Hukum",
             "icon": "file-text",
             "color": "#3498db",
+
+            # Dokumen WAJIB untuk SEMUA jenis kegiatan
             "dokumen": [
                 {
                     "kode": "LBR_REQ",
@@ -39,45 +59,97 @@ UP_WORKFLOW = {
                     "template": "lembar_permintaan.docx",
                     "deskripsi": "Lembar permintaan pencairan dana"
                 },
+            ],
+
+            # Dokumen WAJIB untuk kegiatan yang memerlukan SK (KEPANITIAAN, JAMUAN_TAMU, RAPAT, LAINNYA)
+            "dokumen_dengan_sk": [
                 {
                     "kode": "ND_REQ",
                     "nama": "Nota Dinas Permintaan",
                     "kategori": "wajib",
                     "template": "nota_dinas_permintaan.docx",
-                    "deskripsi": "Nota dinas permohonan uang muka kegiatan"
+                    "deskripsi": "Nota dinas permohonan uang muka kegiatan",
+                    "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "PERJALANAN_LOKAL", "LAINNYA"]
                 },
                 {
                     "kode": "SK_KPA",
                     "nama": "SK KPA / Surat Tugas",
                     "kategori": "wajib",
                     "template": "sk_kpa.docx",
-                    "deskripsi": "Surat Keputusan atau Surat Tugas dari KPA"
+                    "deskripsi": "Surat Keputusan atau Surat Tugas dari KPA",
+                    "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "PERJALANAN_LOKAL", "LAINNYA"]
+                },
+            ],
+
+            # Dokumen khusus KEPANITIAAN
+            "dokumen_kepanitiaan": [
+                {
+                    "kode": "TOR",
+                    "nama": "TOR/KAK",
+                    "kategori": "wajib",
+                    "template": "tor_kak.docx",
+                    "deskripsi": "Terms of Reference / Kerangka Acuan Kerja",
+                    "jenis_kegiatan": ["KEPANITIAAN"]
                 },
                 {
                     "kode": "RAB",
                     "nama": "Rencana Anggaran Biaya",
                     "kategori": "wajib",
                     "template": "rab.xlsx",
-                    "deskripsi": "Rincian estimasi biaya kegiatan"
+                    "deskripsi": "Rincian estimasi biaya kegiatan",
+                    "jenis_kegiatan": ["KEPANITIAAN"]
+                },
+            ],
+
+            # Dokumen khusus JAMUAN_TAMU
+            "dokumen_jamuan_tamu": [
+                {
+                    "kode": "UND",
+                    "nama": "Undangan",
+                    "kategori": "wajib",
+                    "template": "undangan.docx",
+                    "deskripsi": "Surat undangan tamu",
+                    "jenis_kegiatan": ["JAMUAN_TAMU"]
+                },
+            ],
+
+            # Dokumen khusus RAPAT
+            "dokumen_rapat": [
+                {
+                    "kode": "UND",
+                    "nama": "Undangan Rapat",
+                    "kategori": "wajib",
+                    "template": "undangan.docx",
+                    "deskripsi": "Surat undangan untuk peserta rapat",
+                    "jenis_kegiatan": ["RAPAT"]
                 },
                 {
                     "kode": "TOR",
-                    "nama": "TOR/KAK (jika kegiatan)",
+                    "nama": "TOR/KAK",
                     "kategori": "opsional",
                     "template": "tor_kak.docx",
-                    "deskripsi": "Terms of Reference untuk kegiatan"
+                    "deskripsi": "Terms of Reference (jika diperlukan)",
+                    "jenis_kegiatan": ["RAPAT"]
                 },
                 {
-                    "kode": "UND",
-                    "nama": "Undangan (jika rapat/workshop)",
+                    "kode": "RAB",
+                    "nama": "Rencana Anggaran Biaya",
                     "kategori": "opsional",
-                    "template": "undangan.docx",
-                    "deskripsi": "Surat undangan untuk peserta"
+                    "template": "rab.xlsx",
+                    "deskripsi": "Rincian estimasi biaya rapat",
+                    "jenis_kegiatan": ["RAPAT"]
                 },
             ],
-            "validasi": [
+
+            # Validasi berbeda per jenis
+            "validasi_operasional": [
+                {"field": "estimasi_biaya", "rule": "max:1000000", "message": "Belanja operasional maksimal Rp 1 juta"},
+            ],
+            "validasi_dengan_sk": [
                 {"field": "nomor_dasar", "rule": "required", "message": "Nomor SK/Surat Tugas wajib diisi"},
                 {"field": "tanggal_dasar", "rule": "required", "message": "Tanggal SK wajib diisi"},
+            ],
+            "validasi": [
                 {"field": "estimasi_biaya", "rule": "max:50000000", "message": "Estimasi biaya UP maksimal Rp 50 juta"},
             ],
             "next_condition": "Semua dokumen wajib sudah dibuat dan SK sudah ditandatangani"
@@ -96,20 +168,12 @@ UP_WORKFLOW = {
                     "template": "kuitansi_uang_muka_spm_lainnya.docx",
                     "deskripsi": "Kuitansi penerimaan uang muka"
                 },
-                {
-                    "kode": "BST_UM",
-                    "nama": "Bukti Serah Terima Uang",
-                    "kategori": "wajib",
-                    "template": "bukti_serah_terima_um.docx",
-                    "deskripsi": "Berita acara serah terima uang muka"
-                },
             ],
             "validasi": [
                 {"field": "uang_muka", "rule": "required", "message": "Jumlah uang muka wajib diisi"},
-                {"field": "uang_muka", "rule": "max_percent:70", "message": "Uang muka maksimal 70% dari estimasi"},
                 {"field": "penerima_nama", "rule": "required", "message": "Nama penerima wajib diisi"},
             ],
-            "catatan": "Uang muka maksimal 70% dari estimasi biaya",
+            "catatan": "Uang muka untuk keperluan kegiatan",
             "next_condition": "Uang muka sudah dicairkan dan diterima penerima"
         },
 

@@ -1403,6 +1403,25 @@ class DatabaseManagerV4:
                 except:
                     pass
 
+        # Migration: Add nomor_mak column to transaksi_pencairan (if table exists)
+        try:
+            cursor.execute("PRAGMA table_info(transaksi_pencairan)")
+            pencairan_columns = [col[1] for col in cursor.fetchall()]
+
+            if pencairan_columns:  # Table exists
+                pencairan_migrations = [
+                    ('nomor_mak', "ALTER TABLE transaksi_pencairan ADD COLUMN nomor_mak TEXT"),
+                ]
+
+                for col, sql in pencairan_migrations:
+                    if col not in pencairan_columns:
+                        try:
+                            cursor.execute(sql)
+                        except:
+                            pass
+        except:
+            pass  # Table might not exist yet
+
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
         cursor.execute("""

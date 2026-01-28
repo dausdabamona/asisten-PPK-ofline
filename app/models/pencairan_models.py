@@ -116,7 +116,6 @@ CREATE TABLE IF NOT EXISTS transaksi_pencairan (
     -- Kode Akun
     kode_akun TEXT,
     nama_akun TEXT,
-    nomor_mak TEXT,
 
     -- Tahun Anggaran
     tahun_anggaran INTEGER,
@@ -266,21 +265,8 @@ class PencairanManager:
 
     def _run_migrations(self, cursor):
         """Run database migrations for existing databases."""
-        # Check existing columns in transaksi_pencairan
-        cursor.execute("PRAGMA table_info(transaksi_pencairan)")
-        existing_columns = [col[1] for col in cursor.fetchall()]
-
-        # Migration: Add nomor_mak column if not exists
-        migrations = [
-            ('nomor_mak', "ALTER TABLE transaksi_pencairan ADD COLUMN nomor_mak TEXT"),
-        ]
-
-        for col_name, sql in migrations:
-            if col_name not in existing_columns:
-                try:
-                    cursor.execute(sql)
-                except Exception as e:
-                    print(f"Migration warning for {col_name}: {e}")
+        # Placeholder for future migrations
+        pass
 
     # ========================================================================
     # TRANSAKSI PENCAIRAN CRUD

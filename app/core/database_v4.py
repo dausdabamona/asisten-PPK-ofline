@@ -1015,9 +1015,6 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
     is_locked INTEGER DEFAULT 0,
     is_blokir INTEGER DEFAULT 0,
 
-    -- Nomor MAK (Mata Anggaran Kegiatan) = kode_akun.kode_detail
-    nomor_mak TEXT,
-
     -- Keterangan
     keterangan TEXT,
 
@@ -1030,7 +1027,6 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
 
 CREATE INDEX IF NOT EXISTS idx_pagu_tahun ON pagu_anggaran(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_full ON pagu_anggaran(kode_full);
-CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_akun ON pagu_anggaran(kode_akun);
 CREATE INDEX IF NOT EXISTS idx_pagu_level ON pagu_anggaran(level_kode);
 CREATE INDEX IF NOT EXISTS idx_pagu_parent ON pagu_anggaran(parent_id);
@@ -1388,39 +1384,6 @@ class DatabaseManagerV4:
                 except:
                     pass
 
-        # Migration: Add nomor_mak column to pagu_anggaran
-        cursor.execute("PRAGMA table_info(pagu_anggaran)")
-        pagu_columns = [col[1] for col in cursor.fetchall()]
-
-        pagu_migrations = [
-            ('nomor_mak', "ALTER TABLE pagu_anggaran ADD COLUMN nomor_mak TEXT"),
-        ]
-
-        for col, sql in pagu_migrations:
-            if col not in pagu_columns:
-                try:
-                    cursor.execute(sql)
-                except:
-                    pass
-
-        # Migration: Add nomor_mak column to transaksi_pencairan (if table exists)
-        try:
-            cursor.execute("PRAGMA table_info(transaksi_pencairan)")
-            pencairan_columns = [col[1] for col in cursor.fetchall()]
-
-            if pencairan_columns:  # Table exists
-                pencairan_migrations = [
-                    ('nomor_mak', "ALTER TABLE transaksi_pencairan ADD COLUMN nomor_mak TEXT"),
-                ]
-
-                for col, sql in pencairan_migrations:
-                    if col not in pencairan_columns:
-                        try:
-                            cursor.execute(sql)
-                        except:
-                            pass
-        except:
-            pass  # Table might not exist yet
 
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""

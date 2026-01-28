@@ -239,7 +239,9 @@ class DokumenGenerator:
         # Rincian items
         if rincian:
             data['rincian_items'] = rincian
-            data['total_rincian'] = sum(item.get('jumlah', 0) for item in rincian)
+            total_rincian = sum(item.get('jumlah', 0) for item in rincian)
+            data['total_rincian'] = total_rincian
+            data['total'] = total_rincian  # Also set 'total' for template compatibility
             data['jumlah_item'] = len(rincian)
 
         return data
@@ -289,11 +291,70 @@ class DokumenGenerator:
                 paragraph.runs[0].text = new_text
 
     def _process_table(self, table, data: Dict[str, Any]):
-        """Process a table to replace placeholders."""
-        for row in table.rows:
-            for cell in row.cells:
-                for paragraph in cell.paragraphs:
-                    self._process_paragraph(paragraph, data)
+        """Process a table to replace placeholders, including rincian rows."""
+        from copy import deepcopy
+
+        rincian_items = data.get('rincian_items', [])
+        rows_to_process = []
+        rincian_row_idx = None
+
+        # First pass: identify rincian row
+        for idx, row in enumerate(table.rows):
+            row_text = ''.join(cell.text for cell in row.cells)
+            if '{{rincian_' in row_text:
+                rincian_row_idx = idx
+                break
+
+        # If there's a rincian row, handle it specially
+        if rincian_row_idx is not None and rincian_items:
+            # Process rows before rincian
+            for idx, row in enumerate(table.rows):
+                if idx < rincian_row_idx:
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            self._process_paragraph(paragraph, data)
+                elif idx == rincian_row_idx:
+                    # Get the rincian template row
+                    template_row = row
+                    # Clone and fill for each item
+                    for item_idx, item in enumerate(rincian_items):
+                        item_data = {
+                            'rincian_no': item_idx + 1,
+                            'rincian_uraian': item.get('uraian', ''),
+                            'rincian_volume': item.get('volume', 1),
+                            'rincian_satuan': item.get('satuan', ''),
+                            'rincian_harga': item.get('harga_satuan', 0),
+                            'rincian_jumlah': item.get('jumlah', 0),
+                        }
+                        merged_data = {**data, **item_data}
+
+                        if item_idx == 0:
+                            # Use existing row for first item
+                            for cell in row.cells:
+                                for paragraph in cell.paragraphs:
+                                    self._process_paragraph(paragraph, merged_data)
+                        else:
+                            # Add new row for subsequent items
+                            new_row = table.add_row()
+                            for cell_idx, cell in enumerate(new_row.cells):
+                                src_cell = template_row.cells[cell_idx]
+                                # Copy text with replacements
+                                for para_idx, paragraph in enumerate(cell.paragraphs):
+                                    if para_idx < len(src_cell.paragraphs):
+                                        src_text = src_cell.paragraphs[para_idx].text
+                                        new_text = self._replace_placeholder(src_text, merged_data)
+                                        paragraph.text = new_text
+                else:
+                    # Process rows after rincian
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            self._process_paragraph(paragraph, data)
+        else:
+            # No rincian rows, process normally
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        self._process_paragraph(paragraph, data)
 
     def merge_word_document(self, template_path: Path, data: Dict[str, Any],
                            output_path: Path) -> bool:

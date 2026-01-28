@@ -33,6 +33,13 @@ UP_WORKFLOW = {
             "color": "#3498db",
             "dokumen": [
                 {
+                    "kode": "LBR_REQ",
+                    "nama": "Lembar Permintaan",
+                    "kategori": "wajib",
+                    "template": "lembar_permintaan.docx",
+                    "deskripsi": "Lembar permintaan pencairan dana"
+                },
+                {
                     "kode": "ND_REQ",
                     "nama": "Nota Dinas Permintaan",
                     "kategori": "wajib",
@@ -476,165 +483,291 @@ TUP_WORKFLOW = {
 LS_WORKFLOW = {
     "kode": "LS",
     "nama": "Pembayaran Langsung",
-    "deskripsi": "Pembayaran langsung ke penyedia via KPPN untuk kontrak/SPK",
+    "deskripsi": "Pembayaran langsung ke penyedia via KPPN untuk kontrak/SPK atau Surat Tugas",
     "icon": "send",
     "color": "#3498db",  # Blue
     "color_light": "#ebf5fb",
 
+    # LS mendukung 2 mode: KONTRAK atau SURAT_TUGAS
+    "jenis_dasar_options": ["KONTRAK", "SURAT_TUGAS"],
+    "jenis_dasar_labels": {
+        "KONTRAK": "Kontrak/SPK (Pengadaan Barang/Jasa)",
+        "SURAT_TUGAS": "Surat Tugas (Perjalanan Dinas, dll)"
+    },
+
     "fase": {
         1: {
-            "nama": "Kontrak/SPK",
-            "deskripsi": "Penandatanganan kontrak dengan penyedia barang/jasa",
+            "nama": "Dasar Hukum",
+            "deskripsi": "Pembuatan dasar hukum (Kontrak/SPK atau Surat Tugas)",
             "icon": "file-signature",
             "color": "#3498db",
+
+            # Dokumen umum untuk semua jenis
             "dokumen": [
+                {
+                    "kode": "LBR_REQ",
+                    "nama": "Lembar Permintaan",
+                    "kategori": "wajib",
+                    "template": "lembar_permintaan.docx",
+                    "deskripsi": "Lembar permintaan pencairan dana"
+                },
+            ],
+
+            # Dokumen khusus KONTRAK (ditampilkan jika jenis_dasar == KONTRAK)
+            "dokumen_kontrak": [
                 {
                     "kode": "SPK",
                     "nama": "Surat Perjanjian Kerja",
                     "kategori": "wajib",
                     "template": "spk.docx",
-                    "deskripsi": "Kontrak kerja dengan penyedia"
+                    "deskripsi": "Kontrak kerja dengan penyedia",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "SSUK",
                     "nama": "Syarat-Syarat Umum Kontrak",
                     "kategori": "wajib",
                     "template": "ssuk.docx",
-                    "deskripsi": "Syarat umum kontrak"
+                    "deskripsi": "Syarat umum kontrak",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "SSKK",
                     "nama": "Syarat-Syarat Khusus Kontrak",
                     "kategori": "wajib",
                     "template": "sskk.docx",
-                    "deskripsi": "Syarat khusus kontrak"
+                    "deskripsi": "Syarat khusus kontrak",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "SPMK",
                     "nama": "Surat Perintah Mulai Kerja",
                     "kategori": "wajib",
                     "template": "spmk.docx",
-                    "deskripsi": "Perintah untuk memulai pekerjaan"
+                    "deskripsi": "Perintah untuk memulai pekerjaan",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "JAM_PELAKS",
                     "nama": "Jaminan Pelaksanaan",
                     "kategori": "kondisional",
                     "template": None,
-                    "deskripsi": "Jaminan pelaksanaan dari bank/asuransi"
+                    "deskripsi": "Jaminan pelaksanaan dari bank/asuransi",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "JAM_UM",
                     "nama": "Jaminan Uang Muka (jika ada UM kontrak)",
                     "kategori": "kondisional",
                     "template": None,
-                    "deskripsi": "Jaminan uang muka kontrak"
+                    "deskripsi": "Jaminan uang muka kontrak",
+                    "jenis_dasar": "KONTRAK"
                 },
             ],
-            "validasi": [
+
+            # Dokumen khusus SURAT_TUGAS (ditampilkan jika jenis_dasar == SURAT_TUGAS)
+            "dokumen_surat_tugas": [
+                {
+                    "kode": "ST",
+                    "nama": "Surat Tugas",
+                    "kategori": "wajib",
+                    "template": "surat_tugas.docx",
+                    "deskripsi": "Surat Tugas dari pejabat berwenang",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "SPD",
+                    "nama": "Surat Perjalanan Dinas",
+                    "kategori": "wajib",
+                    "template": "spd.docx",
+                    "deskripsi": "Surat Perjalanan Dinas",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "RAB_SPPD",
+                    "nama": "Rincian Biaya Perjalanan",
+                    "kategori": "wajib",
+                    "template": "rab_sppd.xlsx",
+                    "deskripsi": "Rincian anggaran biaya perjalanan dinas",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+            ],
+
+            # Validasi berbeda per jenis
+            "validasi_kontrak": [
                 {"field": "nomor_kontrak", "rule": "required", "message": "Nomor kontrak/SPK wajib diisi"},
                 {"field": "nilai_kontrak", "rule": "required", "message": "Nilai kontrak wajib diisi"},
                 {"field": "penyedia_id", "rule": "required", "message": "Penyedia wajib dipilih"},
             ],
-            "next_condition": "Kontrak ditandatangani kedua belah pihak"
+            "validasi_surat_tugas": [
+                {"field": "nomor_st", "rule": "required", "message": "Nomor Surat Tugas wajib diisi"},
+                {"field": "tanggal_st", "rule": "required", "message": "Tanggal Surat Tugas wajib diisi"},
+                {"field": "tujuan_perjalanan", "rule": "required", "message": "Tujuan perjalanan wajib diisi"},
+            ],
+            "next_condition": "Dasar hukum sudah ditandatangani"
         },
 
         2: {
-            "nama": "Pelaksanaan Pekerjaan",
-            "deskripsi": "Penyedia melaksanakan pekerjaan sesuai kontrak",
+            "nama": "Pelaksanaan",
+            "deskripsi": "Pelaksanaan pekerjaan/kegiatan sesuai dasar hukum",
             "icon": "hard-hat",
             "color": "#f39c12",
-            "dokumen": [
+
+            # Dokumen untuk mode KONTRAK
+            "dokumen_kontrak": [
                 {
                     "kode": "LAP_PROG",
                     "nama": "Laporan Progress Pekerjaan",
                     "kategori": "wajib",
                     "template": "laporan_progress.docx",
-                    "deskripsi": "Laporan kemajuan pekerjaan"
+                    "deskripsi": "Laporan kemajuan pekerjaan",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "BA_MC",
                     "nama": "BA Monthly Certificate (jika termin)",
                     "kategori": "kondisional",
                     "template": "ba_mc.docx",
-                    "deskripsi": "Berita acara progress bulanan"
+                    "deskripsi": "Berita acara progress bulanan",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "MONEV",
                     "nama": "Laporan Monitoring & Evaluasi",
                     "kategori": "opsional",
                     "template": "monev.docx",
-                    "deskripsi": "Laporan monev pekerjaan"
+                    "deskripsi": "Laporan monev pekerjaan",
+                    "jenis_dasar": "KONTRAK"
                 },
             ],
-            "validasi": [
+
+            # Dokumen untuk mode SURAT_TUGAS (Perjalanan Dinas)
+            "dokumen_surat_tugas": [
+                {
+                    "kode": "DH_PJD",
+                    "nama": "Daftar Hadir / Bukti Kehadiran",
+                    "kategori": "wajib",
+                    "template": "daftar_hadir.docx",
+                    "deskripsi": "Daftar hadir atau bukti kehadiran di lokasi tujuan",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "DOK_FOTO_PJD",
+                    "nama": "Dokumentasi Foto Kegiatan",
+                    "kategori": "wajib",
+                    "template": None,
+                    "deskripsi": "Foto dokumentasi pelaksanaan kegiatan perjalanan",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "TIKET",
+                    "nama": "Tiket/Boarding Pass",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Tiket pesawat/kereta/kapal atau boarding pass",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "BUKTI_HOTEL",
+                    "nama": "Bukti Penginapan/Hotel",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Bill/invoice dari hotel atau penginapan",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+            ],
+
+            "validasi_kontrak": [
                 {"field": "progress", "rule": "updated", "message": "Progress pekerjaan harus di-update"},
             ],
-            "next_condition": "Pekerjaan selesai 100%"
+            "validasi_surat_tugas": [
+                {"field": "tanggal_berangkat", "rule": "required", "message": "Tanggal berangkat wajib diisi"},
+                {"field": "tanggal_kembali", "rule": "required", "message": "Tanggal kembali wajib diisi"},
+            ],
+            "next_condition": "Pekerjaan/kegiatan selesai dilaksanakan"
         },
 
         3: {
-            "nama": "Serah Terima",
-            "deskripsi": "Pemeriksaan dan serah terima hasil pekerjaan",
+            "nama": "Serah Terima / Laporan",
+            "deskripsi": "Pemeriksaan dan serah terima hasil pekerjaan atau laporan kegiatan",
             "icon": "handshake",
             "color": "#9b59b6",
-            "dokumen": [
+
+            # Dokumen untuk mode KONTRAK
+            "dokumen_kontrak": [
                 {
                     "kode": "BA_PMR",
                     "nama": "BA Pemeriksaan Pekerjaan",
                     "kategori": "wajib",
                     "template": "ba_pemeriksaan.docx",
-                    "deskripsi": "Berita acara pemeriksaan oleh PPHP"
+                    "deskripsi": "Berita acara pemeriksaan oleh PPHP",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "BAST",
                     "nama": "Berita Acara Serah Terima",
                     "kategori": "wajib",
                     "template": "bast.docx",
-                    "deskripsi": "BAST hasil pekerjaan"
+                    "deskripsi": "BAST hasil pekerjaan",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "BA_PHO",
                     "nama": "BA Provisional Hand Over (PHO)",
-                    "kategori": "wajib",
+                    "kategori": "kondisional",
                     "template": "ba_pho.docx",
-                    "deskripsi": "Serah terima sementara"
+                    "deskripsi": "Serah terima sementara",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "BA_FHO",
                     "nama": "BA Final Hand Over (konstruksi)",
                     "kategori": "kondisional",
                     "template": "ba_fho.docx",
-                    "deskripsi": "Serah terima akhir untuk konstruksi"
+                    "deskripsi": "Serah terima akhir untuk konstruksi",
+                    "jenis_dasar": "KONTRAK"
                 },
             ],
-            "validasi": [
+
+            # Dokumen untuk mode SURAT_TUGAS (Perjalanan Dinas)
+            "dokumen_surat_tugas": [
+                {
+                    "kode": "LAP_PJD",
+                    "nama": "Laporan Perjalanan Dinas",
+                    "kategori": "wajib",
+                    "template": "laporan_perjalanan_dinas.docx",
+                    "deskripsi": "Laporan hasil perjalanan dinas",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "SPD_TTD",
+                    "nama": "SPD yang Sudah Ditandatangani",
+                    "kategori": "wajib",
+                    "template": None,
+                    "deskripsi": "SPD dengan tanda tangan pejabat di lokasi tujuan",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+            ],
+
+            "validasi_kontrak": [
                 {"field": "dokumen_bast", "rule": "required", "message": "BAST wajib dibuat"},
                 {"field": "dokumen_bast", "rule": "signed", "message": "BAST wajib ditandatangani kedua pihak"},
             ],
-            "next_condition": "BAST ditandatangani"
+            "validasi_surat_tugas": [
+                {"field": "dokumen_lap_pjd", "rule": "required", "message": "Laporan perjalanan dinas wajib dibuat"},
+                {"field": "dokumen_spd_ttd", "rule": "required", "message": "SPD yang ditandatangani wajib ada"},
+            ],
+            "next_condition": "Serah terima/laporan selesai"
         },
 
         4: {
             "nama": "Pengajuan Tagihan SPM",
-            "deskripsi": "Penyedia mengajukan tagihan, PPK memproses SPP/SPM",
+            "deskripsi": "Pemrosesan dokumen SPP/SPM untuk pembayaran",
             "icon": "file-invoice-dollar",
             "color": "#e74c3c",
+
+            # Dokumen umum untuk semua jenis
             "dokumen": [
-                {
-                    "kode": "INVOICE",
-                    "nama": "Invoice/Tagihan dari Penyedia",
-                    "kategori": "upload",
-                    "template": None,
-                    "deskripsi": "Tagihan resmi dari penyedia"
-                },
-                {
-                    "kode": "FAKTUR_PJK",
-                    "nama": "Faktur Pajak",
-                    "kategori": "upload",
-                    "template": None,
-                    "deskripsi": "Faktur pajak dari PKP"
-                },
                 {
                     "kode": "SPP_LS",
                     "nama": "Surat Permintaan Pembayaran",
@@ -656,22 +789,65 @@ LS_WORKFLOW = {
                     "template": "kuitansi_ls.docx",
                     "deskripsi": "Kuitansi pembayaran LS"
                 },
+            ],
+
+            # Dokumen khusus KONTRAK
+            "dokumen_kontrak": [
+                {
+                    "kode": "INVOICE",
+                    "nama": "Invoice/Tagihan dari Penyedia",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Tagihan resmi dari penyedia",
+                    "jenis_dasar": "KONTRAK"
+                },
+                {
+                    "kode": "FAKTUR_PJK",
+                    "nama": "Faktur Pajak",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Faktur pajak dari PKP",
+                    "jenis_dasar": "KONTRAK"
+                },
                 {
                     "kode": "SSP_PPN",
                     "nama": "SSP PPN",
                     "kategori": "wajib",
                     "template": "ssp.xlsx",
-                    "deskripsi": "Surat Setoran Pajak PPN"
+                    "deskripsi": "Surat Setoran Pajak PPN",
+                    "jenis_dasar": "KONTRAK"
                 },
                 {
                     "kode": "SSP_PPH",
                     "nama": "SSP PPh",
                     "kategori": "wajib",
                     "template": "ssp.xlsx",
-                    "deskripsi": "Surat Setoran Pajak PPh"
+                    "deskripsi": "Surat Setoran Pajak PPh",
+                    "jenis_dasar": "KONTRAK"
                 },
             ],
-            "kelengkapan": [
+
+            # Dokumen khusus SURAT_TUGAS (Perjalanan Dinas)
+            "dokumen_surat_tugas": [
+                {
+                    "kode": "RINCIAN_BIAYA",
+                    "nama": "Rincian Biaya Perjalanan",
+                    "kategori": "wajib",
+                    "template": "rincian_biaya_pjd.xlsx",
+                    "deskripsi": "Rincian biaya perjalanan dinas yang direalisasi",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+                {
+                    "kode": "BUKTI_BAYAR_PJD",
+                    "nama": "Bukti-bukti Pembayaran",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Bukti pembayaran (tiket, hotel, transport lokal)",
+                    "jenis_dasar": "SURAT_TUGAS"
+                },
+            ],
+
+            "kelengkapan_kontrak": [
                 "Resume Kontrak",
                 "Ringkasan Kontrak",
                 "Copy SPK",
@@ -680,8 +856,16 @@ LS_WORKFLOW = {
                 "NPWP Penyedia",
                 "Copy Rekening Penyedia",
             ],
+            "kelengkapan_surat_tugas": [
+                "Copy Surat Tugas",
+                "Copy SPD yang ditandatangani",
+                "Laporan Perjalanan Dinas",
+                "Bukti-bukti pengeluaran",
+            ],
             "validasi": [
                 {"field": "dokumen_spm", "rule": "required", "message": "SPM wajib dibuat"},
+            ],
+            "validasi_kontrak": [
                 {"field": "pajak", "rule": "calculated", "message": "Pajak wajib dihitung"},
             ],
             "next_condition": "SPM diajukan ke KPPN"

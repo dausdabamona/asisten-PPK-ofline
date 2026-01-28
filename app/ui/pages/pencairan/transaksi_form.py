@@ -46,6 +46,7 @@ class TransaksiFormPage(QWidget):
         self.mekanisme = mekanisme.upper()
         self._transaksi_id: Optional[int] = None
         self._is_edit = False
+        self._jenis_dasar_ls = "KONTRAK"  # Default mode for LS: KONTRAK or SURAT_TUGAS
 
         self._setup_ui()
 
@@ -101,10 +102,10 @@ class TransaksiFormPage(QWidget):
             penerima_section = self._create_penerima_section()
             form_layout.addWidget(penerima_section)
 
-        # Penyedia section (for LS)
+        # Penyedia section (for LS KONTRAK mode only)
         if self.mekanisme == "LS":
-            penyedia_section = self._create_penyedia_section()
-            form_layout.addWidget(penyedia_section)
+            self.penyedia_section_widget = self._create_penyedia_section()
+            form_layout.addWidget(self.penyedia_section_widget)
 
         # Dasar hukum section
         dasar_section = self._create_dasar_section()
@@ -280,30 +281,82 @@ class TransaksiFormPage(QWidget):
         return section
 
     def _create_financial_section_ls(self) -> QWidget:
-        """Create financial section for LS."""
+        """Create financial section for LS with mode selection (KONTRAK vs SURAT_TUGAS)."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(15)
 
-        layout.addWidget(self._create_section_title("Informasi Kontrak"))
+        layout.addWidget(self._create_section_title("Jenis Dasar Hukum LS"))
 
-        form_layout = QFormLayout()
-        form_layout.setSpacing(10)
-        form_layout.setLabelAlignment(Qt.AlignRight)
+        # Mode selector (KONTRAK vs SURAT_TUGAS)
+        mode_layout = QHBoxLayout()
+        mode_layout.setSpacing(15)
+
+        from PySide6.QtWidgets import QRadioButton, QButtonGroup
+
+        self.ls_mode_group = QButtonGroup(self)
+
+        self.rb_kontrak = QRadioButton("Kontrak/SPK (Pengadaan)")
+        self.rb_kontrak.setChecked(True)
+        self.rb_kontrak.setStyleSheet("""
+            QRadioButton {
+                font-size: 13px;
+                padding: 8px 15px;
+            }
+            QRadioButton::indicator {
+                width: 18px;
+                height: 18px;
+            }
+        """)
+        self.ls_mode_group.addButton(self.rb_kontrak, 1)
+        mode_layout.addWidget(self.rb_kontrak)
+
+        self.rb_surat_tugas = QRadioButton("Surat Tugas (Perjalanan Dinas)")
+        self.rb_surat_tugas.setStyleSheet("""
+            QRadioButton {
+                font-size: 13px;
+                padding: 8px 15px;
+            }
+            QRadioButton::indicator {
+                width: 18px;
+                height: 18px;
+            }
+        """)
+        self.ls_mode_group.addButton(self.rb_surat_tugas, 2)
+        mode_layout.addWidget(self.rb_surat_tugas)
+
+        mode_layout.addStretch()
+        layout.addLayout(mode_layout)
+
+        # Container for mode-specific fields
+        self.ls_fields_container = QWidget()
+        ls_fields_layout = QVBoxLayout(self.ls_fields_container)
+        ls_fields_layout.setContentsMargins(0, 10, 0, 0)
+        ls_fields_layout.setSpacing(0)
+
+        # === KONTRAK FIELDS ===
+        self.kontrak_section = QWidget()
+        kontrak_layout = QVBoxLayout(self.kontrak_section)
+        kontrak_layout.setContentsMargins(0, 0, 0, 0)
+        kontrak_layout.setSpacing(10)
+
+        kontrak_form = QFormLayout()
+        kontrak_form.setSpacing(10)
+        kontrak_form.setLabelAlignment(Qt.AlignRight)
 
         # Nomor Kontrak
         self.kontrak_nomor_input = QLineEdit()
         self.kontrak_nomor_input.setPlaceholderText("Contoh: 001/SPK/2026")
         self.kontrak_nomor_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Nomor Kontrak/SPK *", self.kontrak_nomor_input)
+        kontrak_form.addRow("Nomor Kontrak/SPK *", self.kontrak_nomor_input)
 
         # Tanggal Kontrak
         self.kontrak_tgl_input = QDateEdit()
         self.kontrak_tgl_input.setCalendarPopup(True)
         self.kontrak_tgl_input.setDate(QDate.currentDate())
         self.kontrak_tgl_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Tanggal Kontrak *", self.kontrak_tgl_input)
+        kontrak_form.addRow("Tanggal Kontrak *", self.kontrak_tgl_input)
 
         # Nilai Kontrak
         self.nilai_kontrak_input = QDoubleSpinBox()
@@ -312,11 +365,97 @@ class TransaksiFormPage(QWidget):
         self.nilai_kontrak_input.setPrefix("Rp ")
         self.nilai_kontrak_input.setGroupSeparatorShown(True)
         self.nilai_kontrak_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Nilai Kontrak *", self.nilai_kontrak_input)
+        kontrak_form.addRow("Nilai Kontrak *", self.nilai_kontrak_input)
 
-        layout.addLayout(form_layout)
+        kontrak_layout.addLayout(kontrak_form)
+        ls_fields_layout.addWidget(self.kontrak_section)
+
+        # === SURAT TUGAS FIELDS ===
+        self.surat_tugas_section = QWidget()
+        st_layout = QVBoxLayout(self.surat_tugas_section)
+        st_layout.setContentsMargins(0, 0, 0, 0)
+        st_layout.setSpacing(10)
+
+        st_form = QFormLayout()
+        st_form.setSpacing(10)
+        st_form.setLabelAlignment(Qt.AlignRight)
+
+        # Nomor Surat Tugas
+        self.st_nomor_input = QLineEdit()
+        self.st_nomor_input.setPlaceholderText("Contoh: 001/ST/2026")
+        self.st_nomor_input.setStyleSheet(self._get_input_style())
+        st_form.addRow("Nomor Surat Tugas *", self.st_nomor_input)
+
+        # Tanggal Surat Tugas
+        self.st_tgl_input = QDateEdit()
+        self.st_tgl_input.setCalendarPopup(True)
+        self.st_tgl_input.setDate(QDate.currentDate())
+        self.st_tgl_input.setStyleSheet(self._get_input_style())
+        st_form.addRow("Tanggal Surat Tugas *", self.st_tgl_input)
+
+        # Tujuan Perjalanan
+        self.st_tujuan_input = QLineEdit()
+        self.st_tujuan_input.setPlaceholderText("Contoh: Jakarta - Rapat Koordinasi di Kemenkeu")
+        self.st_tujuan_input.setStyleSheet(self._get_input_style())
+        st_form.addRow("Tujuan Perjalanan *", self.st_tujuan_input)
+
+        # Tanggal Perjalanan
+        date_pjd_layout = QHBoxLayout()
+
+        self.st_tgl_berangkat = QDateEdit()
+        self.st_tgl_berangkat.setCalendarPopup(True)
+        self.st_tgl_berangkat.setDate(QDate.currentDate())
+        self.st_tgl_berangkat.setStyleSheet(self._get_input_style())
+        date_pjd_layout.addWidget(QLabel("Berangkat:"))
+        date_pjd_layout.addWidget(self.st_tgl_berangkat)
+
+        self.st_tgl_kembali = QDateEdit()
+        self.st_tgl_kembali.setCalendarPopup(True)
+        self.st_tgl_kembali.setDate(QDate.currentDate())
+        self.st_tgl_kembali.setStyleSheet(self._get_input_style())
+        date_pjd_layout.addWidget(QLabel("Kembali:"))
+        date_pjd_layout.addWidget(self.st_tgl_kembali)
+
+        st_form.addRow("Tanggal Perjalanan *", date_pjd_layout)
+
+        # Estimasi Biaya Perjalanan
+        self.st_biaya_input = QDoubleSpinBox()
+        self.st_biaya_input.setRange(0, 999999999999)
+        self.st_biaya_input.setDecimals(0)
+        self.st_biaya_input.setPrefix("Rp ")
+        self.st_biaya_input.setGroupSeparatorShown(True)
+        self.st_biaya_input.setStyleSheet(self._get_input_style())
+        st_form.addRow("Estimasi Biaya *", self.st_biaya_input)
+
+        st_layout.addLayout(st_form)
+        ls_fields_layout.addWidget(self.surat_tugas_section)
+
+        # Initially hide surat tugas section
+        self.surat_tugas_section.hide()
+
+        layout.addWidget(self.ls_fields_container)
+
+        # Connect mode change
+        self.ls_mode_group.buttonClicked.connect(self._on_ls_mode_changed)
 
         return section
+
+    def _on_ls_mode_changed(self, button):
+        """Handle LS mode change (KONTRAK vs SURAT_TUGAS)."""
+        if button == self.rb_kontrak:
+            self._jenis_dasar_ls = "KONTRAK"
+            self.kontrak_section.show()
+            self.surat_tugas_section.hide()
+            # Show penyedia section for kontrak mode
+            if hasattr(self, 'penyedia_section_widget'):
+                self.penyedia_section_widget.show()
+        else:
+            self._jenis_dasar_ls = "SURAT_TUGAS"
+            self.kontrak_section.hide()
+            self.surat_tugas_section.show()
+            # Hide penyedia section for surat tugas mode
+            if hasattr(self, 'penyedia_section_widget'):
+                self.penyedia_section_widget.hide()
 
     def _create_penerima_section(self) -> QWidget:
         """Create penerima (recipient) section for UP/TUP."""
@@ -535,10 +674,20 @@ class TransaksiFormPage(QWidget):
                 errors.append(f"Estimasi biaya UP maksimal {format_rupiah(BATAS_UP_MAKSIMAL)}")
 
         if self.mekanisme == "LS":
-            if not self.kontrak_nomor_input.text().strip():
-                errors.append("Nomor kontrak wajib diisi")
-            if self.nilai_kontrak_input.value() <= 0:
-                errors.append("Nilai kontrak wajib diisi")
+            if self._jenis_dasar_ls == "KONTRAK":
+                # Validate kontrak fields
+                if not self.kontrak_nomor_input.text().strip():
+                    errors.append("Nomor kontrak wajib diisi")
+                if self.nilai_kontrak_input.value() <= 0:
+                    errors.append("Nilai kontrak wajib diisi")
+            else:
+                # Validate surat tugas fields
+                if not self.st_nomor_input.text().strip():
+                    errors.append("Nomor Surat Tugas wajib diisi")
+                if not self.st_tujuan_input.text().strip():
+                    errors.append("Tujuan perjalanan wajib diisi")
+                if self.st_biaya_input.value() <= 0:
+                    errors.append("Estimasi biaya perjalanan wajib diisi")
 
         if errors:
             QMessageBox.warning(
@@ -574,11 +723,27 @@ class TransaksiFormPage(QWidget):
             data['penerima_nip'] = self.penerima_nip_input.text().strip()
             data['penerima_jabatan'] = self.penerima_jabatan_input.text().strip()
         else:
-            data['nomor_kontrak'] = self.kontrak_nomor_input.text().strip()
-            data['tanggal_kontrak'] = self.kontrak_tgl_input.date().toString('yyyy-MM-dd')
-            data['nilai_kontrak'] = self.nilai_kontrak_input.value()
-            data['estimasi_biaya'] = self.nilai_kontrak_input.value()
-            data['penyedia_id'] = self.penyedia_combo.currentData()
+            # LS mode - check which mode (KONTRAK or SURAT_TUGAS)
+            data['jenis_dasar_ls'] = self._jenis_dasar_ls
+
+            if self._jenis_dasar_ls == "KONTRAK":
+                data['nomor_kontrak'] = self.kontrak_nomor_input.text().strip()
+                data['tanggal_kontrak'] = self.kontrak_tgl_input.date().toString('yyyy-MM-dd')
+                data['nilai_kontrak'] = self.nilai_kontrak_input.value()
+                data['estimasi_biaya'] = self.nilai_kontrak_input.value()
+                data['penyedia_id'] = self.penyedia_combo.currentData()
+            else:
+                # SURAT_TUGAS mode
+                data['nomor_st'] = self.st_nomor_input.text().strip()
+                data['tanggal_st'] = self.st_tgl_input.date().toString('yyyy-MM-dd')
+                data['tujuan_perjalanan'] = self.st_tujuan_input.text().strip()
+                data['tanggal_berangkat'] = self.st_tgl_berangkat.date().toString('yyyy-MM-dd')
+                data['tanggal_kembali'] = self.st_tgl_kembali.date().toString('yyyy-MM-dd')
+                data['estimasi_biaya'] = self.st_biaya_input.value()
+                # Override dasar info with surat tugas
+                data['jenis_dasar'] = "Surat Tugas"
+                data['nomor_dasar'] = self.st_nomor_input.text().strip()
+                data['tanggal_dasar'] = self.st_tgl_input.date().toString('yyyy-MM-dd')
 
         return data
 

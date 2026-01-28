@@ -338,6 +338,8 @@ class MainWindowV2(QMainWindow):
             self._show_legacy_page("satker")
         elif menu_id == "template":
             self._show_legacy_page("template")
+        elif menu_id == "dipa":
+            self._show_legacy_page("dipa")
         elif menu_id == "backup":
             self._show_backup_dialog()
         else:
@@ -367,6 +369,18 @@ class MainWindowV2(QMainWindow):
             elif page_type == "penyedia":
                 from .penyedia_manager import PenyediaManager
                 dialog = PenyediaManager(self)
+                dialog.exec()
+            elif page_type == "dipa":
+                from .fa_detail_manager import FADetailManager
+                # Show DIPA/Pagu manager as a dialog
+                from PySide6.QtWidgets import QDialog, QVBoxLayout
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Data DIPA / Pagu Anggaran")
+                dialog.setMinimumSize(1200, 700)
+                layout = QVBoxLayout(dialog)
+                layout.setContentsMargins(0, 0, 0, 0)
+                manager = FADetailManager(dialog)
+                layout.addWidget(manager)
                 dialog.exec()
             elif page_type == "paket":
                 # Paket pekerjaan - masih menggunakan fitur dari dashboard lama

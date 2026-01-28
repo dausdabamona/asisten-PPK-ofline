@@ -3852,10 +3852,8 @@ class DatabaseManagerV4:
                 sisa = jumlah - realisasi
                 persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
 
-                # Generate nomor_mak dari kode_akun + kode_detail
                 kode_akun = data.get('kode_akun', '')
                 kode_detail = data.get('kode_detail', '')
-                nomor_mak = f"{kode_akun}.{kode_detail}" if kode_akun and kode_detail else ''
 
                 if upsert:
                     # Cek apakah data sudah ada
@@ -3879,7 +3877,7 @@ class DatabaseManagerV4:
                                 kode_komponen = ?, kode_sub_komponen = ?, kode_akun = ?, kode_detail = ?,
                                 level_kode = ?, uraian = ?, volume = ?, satuan = ?,
                                 harga_satuan = ?, jumlah = ?, realisasi = ?, sisa = ?, persen_realisasi = ?,
-                                sumber_dana = ?, nomor_mak = ?, updated_at = CURRENT_TIMESTAMP
+                                sumber_dana = ?, updated_at = CURRENT_TIMESTAMP
                             WHERE id = ?
                         """, (
                             data.get('kode_program'),
@@ -3900,7 +3898,6 @@ class DatabaseManagerV4:
                             sisa,
                             persen,
                             data.get('sumber_dana', 'RM'),
-                            nomor_mak,
                             existing[0]
                         ))
                         updated += 1
@@ -3913,8 +3910,8 @@ class DatabaseManagerV4:
                         kode_komponen, kode_sub_komponen, kode_akun, kode_detail, kode_full,
                         level_kode, parent_id, uraian, volume, satuan,
                         harga_satuan, jumlah, realisasi, sisa, persen_realisasi,
-                        sumber_dana, is_locked, is_blokir, nomor_mak, keterangan
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        sumber_dana, is_locked, is_blokir, keterangan
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     data.get('tahun_anggaran'),
                     data.get('kode_program'),
@@ -3939,7 +3936,6 @@ class DatabaseManagerV4:
                     data.get('sumber_dana', 'RM'),
                     data.get('is_locked', 0),
                     data.get('is_blokir', 0),
-                    nomor_mak,
                     data.get('keterangan')
                 ))
                 count += 1

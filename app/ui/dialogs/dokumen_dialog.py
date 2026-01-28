@@ -25,15 +25,17 @@ class DokumenGeneratorDialog(QDialog):
     dokumen_generated = Signal(str)  # filepath
 
     def __init__(self, transaksi: Dict[str, Any], kode_dokumen: str,
-                 nama_dokumen: str, template_name: str,
-                 satker: Dict[str, Any] = None, parent=None):
+                 template_name: str, nama_dokumen: str = None,
+                 satker: Dict[str, Any] = None,
+                 additional_data: Dict[str, Any] = None, parent=None):
         super().__init__(parent)
         self.transaksi = transaksi
         self.kode_dokumen = kode_dokumen
-        self.nama_dokumen = nama_dokumen
+        self.nama_dokumen = nama_dokumen or kode_dokumen
         self.template_name = template_name
         self.satker = satker or {}
-        self.rincian_items = []
+        self.additional_data = additional_data or {}
+        self.rincian_items = self.additional_data.get('rincian_items', [])
         self.generated_path = None
 
         self._setup_ui()
@@ -244,8 +246,22 @@ class DokumenGeneratorDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _load_data(self):
-        """Load initial data."""
-        pass
+        """Load initial data including pre-filled rincian items."""
+        # Load rincian items if provided
+        if self.rincian_items and hasattr(self, 'rincian_table'):
+            for item in self.rincian_items:
+                row = self.rincian_table.rowCount()
+                self.rincian_table.insertRow(row)
+
+                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
+                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(item.get('volume', 1))))
+                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
+                harga = item.get('harga_satuan', 0)
+                jumlah = item.get('jumlah', 0)
+                self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
+                self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+
+            self._update_total()
 
     def _add_rincian_item(self):
         """Add rincian item to table."""
@@ -412,11 +428,12 @@ class UploadDokumenDialog(QDialog):
     dokumen_uploaded = Signal(str)  # filepath
 
     def __init__(self, transaksi: Dict[str, Any], kode_dokumen: str,
-                 nama_dokumen: str, parent=None):
+                 nama_dokumen: str = None, is_arsip: bool = False, parent=None):
         super().__init__(parent)
         self.transaksi = transaksi
         self.kode_dokumen = kode_dokumen
-        self.nama_dokumen = nama_dokumen
+        self.nama_dokumen = nama_dokumen or kode_dokumen
+        self.is_arsip = is_arsip
         self.selected_file = None
 
         self._setup_ui()
@@ -518,17 +535,17 @@ class UploadDokumenDialog(QDialog):
             from pathlib import Path
             from datetime import datetime
 
-            # Get output folder
-            from app.services.dokumen_generator import OUTPUT_DIR
+            # Get output folder using new folder structure
+            from app.services.dokumen_generator import get_dokumen_generator
 
-            transaksi_kode = self.transaksi.get('kode', 'UNKNOWN')
-            output_folder = OUTPUT_DIR / transaksi_kode
-            output_folder.mkdir(parents=True, exist_ok=True)
+            generator = get_dokumen_generator()
+            output_folder = generator.get_output_folder(transaksi=self.transaksi)
 
             # Copy file
             src = Path(self.selected_file)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            dest = output_folder / f"{self.kode_dokumen}_ARSIP_{timestamp}{src.suffix}"
+            suffix = "_ARSIP" if self.is_arsip else ""
+            dest = output_folder / f"{self.kode_dokumen}{suffix}_{timestamp}{src.suffix}"
 
             shutil.copy2(src, dest)
 

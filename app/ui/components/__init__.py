@@ -15,6 +15,7 @@ from .fase_stepper import FaseStepper
 from .dokumen_checklist import DokumenChecklist
 from .kalkulasi_widget import KalkulasiWidget
 from .countdown_widget import CountdownWidget
+from .rincian_kalkulasi_widget import RincianKalkulasiWidget
 
 __all__ = [
     'Sidebar',
@@ -26,4 +27,5 @@ __all__ = [
     'DokumenChecklist',
     'KalkulasiWidget',
     'CountdownWidget',
+    'RincianKalkulasiWidget',
 ]

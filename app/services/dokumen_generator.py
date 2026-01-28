@@ -105,8 +105,60 @@ class DokumenGenerator:
         """Pastikan folder output ada."""
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    def get_output_folder(self, transaksi_kode: str) -> Path:
-        """Get atau buat folder output untuk transaksi."""
+    def _sanitize_folder_name(self, name: str) -> str:
+        """Sanitize folder name - remove invalid characters."""
+        if not name:
+            return "unnamed"
+        # Replace invalid characters with underscore
+        invalid_chars = '<>:"/\\|?*'
+        for char in invalid_chars:
+            name = name.replace(char, '_')
+        # Remove leading/trailing spaces and dots
+        name = name.strip('. ')
+        # Limit length
+        if len(name) > 50:
+            name = name[:50]
+        return name or "unnamed"
+
+    def get_output_folder(self, transaksi: Dict[str, Any] = None,
+                          mekanisme: str = None, nama_kegiatan: str = None) -> Path:
+        """
+        Get atau buat folder output untuk transaksi.
+
+        Format folder: output/dokumen/{MEKANISME}/{BULAN_TAHUN}/{NAMA_KEGIATAN}/
+        Contoh: output/dokumen/UP/Januari_2026/Belanja_ATK_Kantor/
+
+        Args:
+            transaksi: Dictionary data transaksi (opsional)
+            mekanisme: Jenis pembayaran (UP, TUP, LS)
+            nama_kegiatan: Nama kegiatan
+        """
+        # Get values from transaksi if provided
+        if transaksi:
+            mekanisme = mekanisme or transaksi.get('mekanisme', 'LAINNYA')
+            nama_kegiatan = nama_kegiatan or transaksi.get('nama_kegiatan', 'Kegiatan')
+
+        # Default values
+        mekanisme = mekanisme or 'LAINNYA'
+        nama_kegiatan = nama_kegiatan or 'Kegiatan'
+
+        # Get current month and year in Indonesian
+        now = datetime.now()
+        bulan_names = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                       "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        bulan_tahun = f"{bulan_names[now.month]}_{now.year}"
+
+        # Sanitize nama kegiatan for folder name
+        nama_folder = self._sanitize_folder_name(nama_kegiatan)
+
+        # Build folder path: MEKANISME/BULAN_TAHUN/NAMA_KEGIATAN
+        folder = OUTPUT_DIR / mekanisme.upper() / bulan_tahun / nama_folder
+        folder.mkdir(parents=True, exist_ok=True)
+
+        return folder
+
+    def get_output_folder_legacy(self, transaksi_kode: str) -> Path:
+        """Get folder output berdasarkan kode transaksi (legacy method)."""
         folder = OUTPUT_DIR / transaksi_kode
         folder.mkdir(parents=True, exist_ok=True)
         return folder
@@ -325,9 +377,8 @@ class DokumenGenerator:
         if additional_data:
             data.update(additional_data)
 
-        # Create output folder
-        transaksi_kode = transaksi.get('kode', 'UNKNOWN')
-        output_folder = self.get_output_folder(transaksi_kode)
+        # Create output folder with new naming: MEKANISME/BULAN_TAHUN/NAMA_KEGIATAN
+        output_folder = self.get_output_folder(transaksi=transaksi)
 
         # Generate output filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -365,9 +416,10 @@ class DokumenGenerator:
             print(f"Error opening document: {e}")
             return False
 
-    def open_folder(self, transaksi_kode: str) -> bool:
+    def open_folder(self, transaksi: Dict[str, Any] = None,
+                    mekanisme: str = None, nama_kegiatan: str = None) -> bool:
         """Open output folder for transaksi."""
-        folder = self.get_output_folder(transaksi_kode)
+        folder = self.get_output_folder(transaksi, mekanisme, nama_kegiatan)
         return self.open_document(str(folder))
 
 

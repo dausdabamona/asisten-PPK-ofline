@@ -420,6 +420,14 @@ class DokumenGeneratorDialog(QDialog):
                 self.rincian_items = items
                 print(f"Loaded {len(items)} rincian items from database for transaksi {transaksi_id}")
 
+                # Also get summary to update estimasi_biaya
+                summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
+                if summary and hasattr(self, 'estimasi_spin'):
+                    # Use uang_muka_nilai as estimasi (the amount actually received)
+                    estimasi = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
+                    self.estimasi_spin.setValue(estimasi)
+                    print(f"Updated estimasi_biaya to {estimasi}")
+
         except Exception as e:
             print(f"Error loading rincian from database: {e}")
 

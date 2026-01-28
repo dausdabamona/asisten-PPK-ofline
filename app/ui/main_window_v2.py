@@ -565,7 +565,7 @@ class MainWindowV2(QMainWindow):
                 )
 
     def _on_dokumen_action(self, kode_dokumen: str, action: str, fase: int):
-        """Handle document action (create, view, edit, upload, upload_arsip, prepare)."""
+        """Handle document action (create, view, edit, upload, upload_arsip, prepare, open_draft)."""
         # Get current transaksi data
         transaksi_data = self._get_current_transaksi_data()
 
@@ -581,6 +581,8 @@ class MainWindowV2(QMainWindow):
             self._handle_upload_arsip(kode_dokumen, transaksi_data)
         elif action == "prepare":
             self._handle_prepare_dokumen(kode_dokumen, transaksi_data)
+        elif action == "open_draft":
+            self._handle_open_draft(kode_dokumen, transaksi_data)
 
     def _get_current_transaksi_data(self) -> Dict[str, Any]:
         """Get current transaksi data from active detail page."""
@@ -798,6 +800,50 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+
+    def _handle_open_draft(self, kode_dokumen: str, transaksi_data: Dict):
+        """Open existing draft document if available."""
+        try:
+            from ..services.dokumen_generator import get_dokumen_generator
+            from pathlib import Path
+            import subprocess
+            import platform
+            import os
+
+            generator = get_dokumen_generator()
+            output_folder = generator.get_output_folder(transaksi=transaksi_data)
+
+            # Find the most recent file matching the kode_dokumen
+            pattern = f"{kode_dokumen}*.docx"
+            matching_files = list(output_folder.glob(pattern))
+
+            if not matching_files:
+                QMessageBox.information(
+                    self,
+                    "Draft Tidak Ditemukan",
+                    f"Belum ada draft dokumen {kode_dokumen}.\n"
+                    "Silakan klik '+ Buat' untuk membuat dokumen baru."
+                )
+                return
+
+            # Sort by modification time (newest first)
+            matching_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+            latest_file = matching_files[0]
+
+            # Open the file with default application
+            if platform.system() == 'Windows':
+                os.startfile(str(latest_file))
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.run(['open', str(latest_file)])
+            else:  # Linux
+                subprocess.run(['xdg-open', str(latest_file)])
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka draft dokumen:\n{str(e)}"
+            )
 
     def _handle_prepare_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle document preparation based on kode_dokumen or jenis_kegiatan."""

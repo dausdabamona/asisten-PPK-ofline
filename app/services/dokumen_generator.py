@@ -244,24 +244,34 @@ class DokumenGenerator:
             data['total'] = total_rincian  # Also set 'total' for template compatibility
             data['jumlah_item'] = len(rincian)
 
+            # Formatted subtotal
+            data['subtotal'] = format_rupiah(total_rincian)
+
             # PPN calculation (11%)
             ppn_persen = transaksi.get('ppn_persen', 0)
             if ppn_persen > 0:
                 data['ppn_persen'] = ppn_persen
-                data['ppn_nilai'] = total_rincian * ppn_persen / 100
-                data['total_dengan_ppn'] = total_rincian + data['ppn_nilai']
-                data['grand_total'] = data['total_dengan_ppn']
+                ppn_nilai = total_rincian * ppn_persen / 100
+                data['ppn_nilai'] = format_rupiah(ppn_nilai)
+                total_dengan_ppn = total_rincian + ppn_nilai
+                data['total_dengan_ppn'] = format_rupiah(total_dengan_ppn)
+                data['grand_total'] = total_dengan_ppn
             else:
                 data['ppn_persen'] = 0
-                data['ppn_nilai'] = 0
-                data['total_dengan_ppn'] = total_rincian
+                data['ppn_nilai'] = format_rupiah(0)
+                data['total_dengan_ppn'] = format_rupiah(total_rincian)
                 data['grand_total'] = total_rincian
 
             # Uang muka calculation (80% or 90% options)
             uang_muka_persen = transaksi.get('uang_muka_persen', 100)
             data['uang_muka_persen'] = uang_muka_persen
-            data['uang_muka_nilai'] = data['grand_total'] * uang_muka_persen / 100
-            data['nilai_diterima'] = data['uang_muka_nilai']
+            uang_muka_nilai = data['grand_total'] * uang_muka_persen / 100
+            data['uang_muka_nilai'] = format_rupiah(uang_muka_nilai)
+            data['nilai_diterima'] = format_rupiah(uang_muka_nilai)
+
+            # Terbilang for the final amount
+            final_amount = uang_muka_nilai if uang_muka_persen < 100 else data['grand_total']
+            data['terbilang'] = terbilang(final_amount).title() + " Rupiah"
 
         return data
 
@@ -348,13 +358,15 @@ class DokumenGenerator:
             # Insert rows for all rincian items
             inserted_rows = []
             for item_idx, item in enumerate(rincian_items):
+                harga = item.get('harga_satuan', 0)
+                jumlah = item.get('jumlah', 0)
                 item_data = {
                     'rincian_no': item_idx + 1,
                     'rincian_uraian': item.get('uraian', ''),
                     'rincian_volume': item.get('volume', 1),
                     'rincian_satuan': item.get('satuan', ''),
-                    'rincian_harga': item.get('harga_satuan', 0),
-                    'rincian_jumlah': item.get('jumlah', 0),
+                    'rincian_harga': format_rupiah(harga),
+                    'rincian_jumlah': format_rupiah(jumlah),
                 }
                 merged_data = {**data, **item_data}
 

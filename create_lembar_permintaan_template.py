@@ -186,9 +186,9 @@ def create_lembar_permintaan():
         for p in cell.paragraphs:
             set_paragraph_format(p, font_size=10, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
-    # Template row with placeholders
+    # Template row with placeholders - MUST match generator placeholders
     template_row = rincian_table.rows[1]
-    template_data = ["{{no}}", "{{uraian}}", "{{volume}}", "{{satuan}}", "{{harga_satuan}}", "{{jumlah}}"]
+    template_data = ["{{rincian_no}}", "{{rincian_uraian}}", "{{rincian_volume}}", "{{rincian_satuan}}", "{{rincian_harga}}", "{{rincian_jumlah}}"]
     for i, data in enumerate(template_data):
         cell = template_row.cells[i]
         cell.text = data

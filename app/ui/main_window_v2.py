@@ -553,20 +553,29 @@ class MainWindowV2(QMainWindow):
         """Handle document creation."""
         try:
             # Get template name from workflow config
-            from ..config.workflow_config import WORKFLOW_CONFIGS
+            from ..config.workflow_config import get_workflow
 
             mekanisme = transaksi_data.get('mekanisme', 'UP')
-            workflow = WORKFLOW_CONFIGS.get(mekanisme, {})
+            workflow = get_workflow(mekanisme)
             template_name = None
+            nama_dokumen = kode_dokumen
 
-            # Find template for this document
-            for fase_config in workflow.get('fases', []):
-                for dok in fase_config.get('dokumen', []):
-                    if dok.get('kode') == kode_dokumen:
-                        template_name = dok.get('template')
+            if workflow:
+                # Search in fase config
+                fase_config = workflow.get('fase', {}).get(fase, {})
+
+                # Search in all dokumen lists within this fase
+                dokumen_lists = ['dokumen', 'dokumen_dengan_sk', 'dokumen_kepanitiaan',
+                                'dokumen_rapat', 'dokumen_jamuan']
+
+                for list_name in dokumen_lists:
+                    for dok in fase_config.get(list_name, []):
+                        if dok.get('kode') == kode_dokumen:
+                            template_name = dok.get('template')
+                            nama_dokumen = dok.get('nama', kode_dokumen)
+                            break
+                    if template_name:
                         break
-                if template_name:
-                    break
 
             if not template_name:
                 QMessageBox.warning(
@@ -596,6 +605,7 @@ class MainWindowV2(QMainWindow):
                 transaksi=transaksi_data,
                 kode_dokumen=kode_dokumen,
                 template_name=template_name,
+                nama_dokumen=nama_dokumen,
                 satker=satker_data,
                 additional_data=additional_data,
                 parent=self

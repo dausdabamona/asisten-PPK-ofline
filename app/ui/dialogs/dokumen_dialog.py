@@ -139,9 +139,20 @@ class DokumenGeneratorDialog(QDialog):
 
         scroll_layout.addWidget(data_group)
 
-        # Rincian group (for Kuitansi)
-        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'LBR_REQ']:
-            rincian_group = QGroupBox("Rincian Barang/Jasa (Opsional)")
+        # Rincian group (for documents with item details)
+        # LBR_REQ = Lembar Permintaan (estimasi)
+        # REKAP_BKT = Rekap Bukti Pengeluaran (realisasi aktual)
+        # KUIT_UM = Kuitansi Uang Muka
+        # KUIT_RAMP = Kuitansi Rampung (final settlement)
+        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'LBR_REQ', 'REKAP_BKT']:
+            # Set label based on document type
+            if self.kode_dokumen == 'REKAP_BKT':
+                rincian_label = "Rincian Bukti Pengeluaran (Realisasi)"
+            elif self.kode_dokumen == 'KUIT_RAMP':
+                rincian_label = "Rincian Realisasi Penggunaan Dana"
+            else:
+                rincian_label = "Rincian Barang/Jasa"
+            rincian_group = QGroupBox(rincian_label)
             rincian_layout = QVBoxLayout(rincian_group)
 
             # Add item form
@@ -364,8 +375,11 @@ class DokumenGeneratorDialog(QDialog):
 
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
-        # For KUIT_UM, KUIT_RAMP - try to load from database if no items provided
-        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP'] and not self.rincian_items:
+        # For documents in the workflow flow - try to load from database if no items provided
+        # KUIT_UM = Kuitansi Uang Muka (loads from LBR_REQ)
+        # REKAP_BKT = Rekap Bukti Pengeluaran (loads from LBR_REQ as template)
+        # KUIT_RAMP = Kuitansi Rampung (loads from REKAP_BKT - actual realisasi)
+        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'REKAP_BKT'] and not self.rincian_items:
             self._load_rincian_from_db()
 
         # Load rincian items if available (either provided or loaded from DB)
@@ -404,7 +418,14 @@ class DokumenGeneratorDialog(QDialog):
             self._update_total()
 
     def _load_rincian_from_db(self):
-        """Load rincian items from database (from Lembar Permintaan)."""
+        """
+        Load rincian items from database based on document flow:
+
+        Document Flow:
+        1. LBR_REQ (Lembar Permintaan) → User enters estimasi items
+        2. REKAP_BKT (Rekap Bukti) → Load from LBR_REQ as template, user modifies with actual
+        3. KUIT_RAMP (Kuitansi Rampung) → Load from REKAP_BKT (realisasi aktual)
+        """
         try:
             transaksi_id = self.transaksi.get('id')
             if not transaksi_id:
@@ -413,20 +434,64 @@ class DokumenGeneratorDialog(QDialog):
             from app.models.pencairan_models import PencairanManager
             manager = PencairanManager()
 
-            # Load rincian from LBR_REQ (Lembar Permintaan)
-            items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+            # Determine source based on document type
+            if self.kode_dokumen == 'KUIT_RAMP':
+                # Kuitansi Rampung: Load from REKAP_BKT (realisasi aktual)
+                # If no REKAP_BKT data, fall back to LBR_REQ
+                items = manager.get_rincian_items(transaksi_id, 'REKAP_BKT')
+                source = 'REKAP_BKT'
+                if not items:
+                    items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                    source = 'LBR_REQ'
+
+            elif self.kode_dokumen == 'REKAP_BKT':
+                # Rekap Bukti: Check if own data exists first
+                items = manager.get_rincian_items(transaksi_id, 'REKAP_BKT')
+                source = 'REKAP_BKT'
+                if not items:
+                    # Load from LBR_REQ as template
+                    items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                    source = 'LBR_REQ (as template)'
+
+            elif self.kode_dokumen == 'KUIT_UM':
+                # Kuitansi Uang Muka: Load from LBR_REQ
+                items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                source = 'LBR_REQ'
+
+            else:
+                # Default: Load from LBR_REQ
+                items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                source = 'LBR_REQ'
 
             if items:
-                self.rincian_items = items
-                print(f"Loaded {len(items)} rincian items from database for transaksi {transaksi_id}")
+                # Convert to proper format (remove database IDs)
+                self.rincian_items = []
+                for item in items:
+                    self.rincian_items.append({
+                        'uraian': item.get('uraian', ''),
+                        'volume': item.get('volume', 1),
+                        'satuan': item.get('satuan', 'paket'),
+                        'harga_satuan': item.get('harga_satuan', 0),
+                        'jumlah': item.get('jumlah', 0),
+                        'ppn_persen': item.get('ppn_persen', 0),
+                        'uang_muka_persen': item.get('uang_muka_persen', 100),
+                    })
+                print(f"Loaded {len(items)} rincian items from {source} for transaksi {transaksi_id}")
 
-                # Also get summary to update estimasi_biaya
-                summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
-                if summary and hasattr(self, 'estimasi_spin'):
-                    # Use uang_muka_nilai as estimasi (the amount actually received)
-                    estimasi = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
-                    self.estimasi_spin.setValue(estimasi)
-                    print(f"Updated estimasi_biaya to {estimasi}")
+                # Update estimasi_biaya based on source
+                if self.kode_dokumen == 'KUIT_RAMP':
+                    # For Kuitansi Rampung, use actual total (realisasi)
+                    total = sum(item.get('jumlah', 0) for item in self.rincian_items)
+                    if hasattr(self, 'estimasi_spin'):
+                        self.estimasi_spin.setValue(total)
+                        print(f"Updated estimasi_biaya to realisasi: {total}")
+                else:
+                    # For other documents, get uang_muka_nilai from LBR_REQ
+                    summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
+                    if summary and hasattr(self, 'estimasi_spin'):
+                        estimasi = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
+                        self.estimasi_spin.setValue(estimasi)
+                        print(f"Updated estimasi_biaya to uang_muka: {estimasi}")
 
         except Exception as e:
             print(f"Error loading rincian from database: {e}")
@@ -570,9 +635,16 @@ class DokumenGeneratorDialog(QDialog):
             self.progress_bar.setValue(50)
             self.status_label.setText("Menyimpan data rincian...")
 
-            # Save rincian items to database for LBR_REQ (Lembar Permintaan)
-            if self.kode_dokumen == 'LBR_REQ' and self.rincian_items:
+            # Save rincian items to database for documents with rincian
+            # LBR_REQ = Lembar Permintaan (estimasi)
+            # REKAP_BKT = Rekap Bukti Pengeluaran (realisasi aktual)
+            if self.kode_dokumen in ['LBR_REQ', 'REKAP_BKT'] and self.rincian_items:
                 self._save_rincian_to_db(form_data)
+
+                # For REKAP_BKT, also update realisasi in transaksi
+                if self.kode_dokumen == 'REKAP_BKT':
+                    total_realisasi = sum(item.get('jumlah', 0) for item in self.rincian_items)
+                    self._update_transaksi_realisasi(total_realisasi)
 
             self.progress_bar.setValue(60)
             self.status_label.setText("Generating dokumen...")
@@ -645,6 +717,21 @@ class DokumenGeneratorDialog(QDialog):
 
         except Exception as e:
             print(f"Error saving rincian to database: {e}")
+
+    def _update_transaksi_realisasi(self, total_realisasi: float):
+        """Update realisasi value in transaksi after saving REKAP_BKT."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+            manager.update_transaksi(transaksi_id, {'realisasi': total_realisasi})
+            print(f"Updated transaksi {transaksi_id} realisasi to {total_realisasi}")
+
+        except Exception as e:
+            print(f"Error updating transaksi realisasi: {e}")
 
     def _open_document(self):
         """Open generated document."""

@@ -705,22 +705,69 @@ class PerhitunganTambahKurangDialog(QDialog):
         return group
 
     def _load_data(self):
-        """Load permintaan and realisasi data."""
-        # Load permintaan from transaksi rincian or use estimasi
-        rincian = self.transaksi.get('rincian_items', [])
-        if rincian:
-            self.permintaan_list = rincian
-        else:
-            # Use single item from estimasi
-            estimasi = self.transaksi.get('estimasi_biaya', 0) or self.transaksi.get('uang_muka', 0)
-            if estimasi:
-                self.permintaan_list = [{
-                    'uraian': self.transaksi.get('nama_kegiatan', 'Kegiatan'),
-                    'volume': 1,
-                    'satuan': 'paket',
-                    'harga_satuan': estimasi,
-                    'jumlah': estimasi,
-                }]
+        """
+        Load permintaan and realisasi data.
+
+        Document Flow:
+        - PERMINTAAN = From LBR_REQ (Lembar Permintaan) - uang muka yang diterima
+        - REALISASI = From REKAP_BKT (Rekap Bukti Pengeluaran) - pengeluaran aktual
+        """
+        try:
+            transaksi_id = self.transaksi.get('id')
+
+            if transaksi_id:
+                from app.models.pencairan_models import PencairanManager
+                manager = PencairanManager()
+
+                # Load PERMINTAAN from LBR_REQ (Lembar Permintaan)
+                lbr_items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                if lbr_items:
+                    self.permintaan_list = []
+                    for item in lbr_items:
+                        self.permintaan_list.append({
+                            'uraian': item.get('uraian', ''),
+                            'volume': item.get('volume', 1),
+                            'satuan': item.get('satuan', 'paket'),
+                            'harga_satuan': item.get('harga_satuan', 0),
+                            'jumlah': item.get('jumlah', 0),
+                        })
+                    print(f"Loaded {len(lbr_items)} permintaan items from LBR_REQ")
+
+                # Load REALISASI from REKAP_BKT (Rekap Bukti Pengeluaran)
+                # Only if bukti_list is empty (not passed from RekapBuktiDialog)
+                if not self.bukti_list:
+                    rekap_items = manager.get_rincian_items(transaksi_id, 'REKAP_BKT')
+                    if rekap_items:
+                        self.bukti_list = []
+                        for item in rekap_items:
+                            self.bukti_list.append({
+                                'uraian': item.get('uraian', ''),
+                                'volume': item.get('volume', 1),
+                                'satuan': item.get('satuan', 'paket'),
+                                'harga_satuan': item.get('harga_satuan', 0),
+                                'jumlah': item.get('jumlah', 0),
+                            })
+                        print(f"Loaded {len(rekap_items)} realisasi items from REKAP_BKT")
+
+        except Exception as e:
+            print(f"Error loading data from database: {e}")
+
+        # Fallback: Load permintaan from transaksi rincian or estimasi
+        if not self.permintaan_list:
+            rincian = self.transaksi.get('rincian_items', [])
+            if rincian:
+                self.permintaan_list = rincian
+            else:
+                # Use single item from estimasi
+                estimasi = self.transaksi.get('estimasi_biaya', 0) or self.transaksi.get('uang_muka', 0)
+                if estimasi:
+                    self.permintaan_list = [{
+                        'uraian': self.transaksi.get('nama_kegiatan', 'Kegiatan'),
+                        'volume': 1,
+                        'satuan': 'paket',
+                        'harga_satuan': estimasi,
+                        'jumlah': estimasi,
+                    }]
 
         self._refresh_tables()
         self._calculate()

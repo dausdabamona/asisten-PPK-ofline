@@ -35,35 +35,51 @@ def format_rupiah(value: float) -> str:
 def terbilang(n: float) -> str:
     """Konversi angka ke terbilang dalam Bahasa Indonesia."""
     if n == 0:
-        return "nol rupiah"
+        return "nol"
 
     satuan = ["", "satu", "dua", "tiga", "empat", "lima",
               "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"]
 
     n = int(n)
 
-    if n < 0:
-        return "minus " + terbilang(-n)
-    elif n < 12:
-        return satuan[n]
-    elif n < 20:
-        return satuan[n - 10] + " belas"
-    elif n < 100:
-        return satuan[n // 10] + " puluh " + satuan[n % 10]
-    elif n < 200:
-        return "seratus " + terbilang(n - 100)
-    elif n < 1000:
-        return satuan[n // 100] + " ratus " + terbilang(n % 100)
-    elif n < 2000:
-        return "seribu " + terbilang(n - 1000)
-    elif n < 1000000:
-        return terbilang(n // 1000) + " ribu " + terbilang(n % 1000)
-    elif n < 1000000000:
-        return terbilang(n // 1000000) + " juta " + terbilang(n % 1000000)
-    elif n < 1000000000000:
-        return terbilang(n // 1000000000) + " miliar " + terbilang(n % 1000000000)
-    else:
-        return terbilang(n // 1000000000000) + " triliun " + terbilang(n % 1000000000000)
+    def _terbilang_internal(num: int) -> str:
+        """Internal recursive function."""
+        if num == 0:
+            return ""
+        elif num < 0:
+            return "minus " + _terbilang_internal(-num)
+        elif num < 12:
+            return satuan[num]
+        elif num < 20:
+            return satuan[num - 10] + " belas"
+        elif num < 100:
+            sisa = num % 10
+            return satuan[num // 10] + " puluh" + (" " + satuan[sisa] if sisa > 0 else "")
+        elif num < 200:
+            sisa = _terbilang_internal(num - 100)
+            return "seratus" + (" " + sisa if sisa else "")
+        elif num < 1000:
+            sisa = _terbilang_internal(num % 100)
+            return satuan[num // 100] + " ratus" + (" " + sisa if sisa else "")
+        elif num < 2000:
+            sisa = _terbilang_internal(num - 1000)
+            return "seribu" + (" " + sisa if sisa else "")
+        elif num < 1000000:
+            sisa = _terbilang_internal(num % 1000)
+            return _terbilang_internal(num // 1000) + " ribu" + (" " + sisa if sisa else "")
+        elif num < 1000000000:
+            sisa = _terbilang_internal(num % 1000000)
+            return _terbilang_internal(num // 1000000) + " juta" + (" " + sisa if sisa else "")
+        elif num < 1000000000000:
+            sisa = _terbilang_internal(num % 1000000000)
+            return _terbilang_internal(num // 1000000000) + " miliar" + (" " + sisa if sisa else "")
+        else:
+            sisa = _terbilang_internal(num % 1000000000000)
+            return _terbilang_internal(num // 1000000000000) + " triliun" + (" " + sisa if sisa else "")
+
+    result = _terbilang_internal(n)
+    # Clean up multiple spaces
+    return ' '.join(result.split())
 
 
 def format_tanggal(date_str: str) -> str:
@@ -104,6 +120,65 @@ class DokumenGenerator:
     def _ensure_directories(self):
         """Pastikan folder output ada."""
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    def generate_nomor_dokumen(self, kode_dokumen: str, tahun: int = None, bulan: int = None) -> str:
+        """
+        Generate nomor dokumen auto-increment.
+        Format: NNN-KODE/BB/YYYY (e.g., 001-LBR_REQ/01/2026)
+
+        Args:
+            kode_dokumen: Kode jenis dokumen (LBR_REQ, KUIT_UM, etc.)
+            tahun: Tahun (default: tahun sekarang)
+            bulan: Bulan (default: bulan sekarang)
+
+        Returns:
+            Nomor dokumen yang sudah diformat
+        """
+        from datetime import datetime
+
+        now = datetime.now()
+        tahun = tahun or now.year
+        bulan = bulan or now.month
+
+        # Get or create counter from database
+        try:
+            from app.core.database_v4 import get_db_manager_v4
+            db = get_db_manager_v4()
+
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # Get current counter for this doc_type and year
+                cursor.execute("""
+                    SELECT counter FROM doc_counter
+                    WHERE doc_type = ? AND tahun = ?
+                """, (kode_dokumen, tahun))
+
+                row = cursor.fetchone()
+
+                if row:
+                    counter = row[0] + 1
+                    cursor.execute("""
+                        UPDATE doc_counter
+                        SET counter = ?, last_updated = CURRENT_TIMESTAMP
+                        WHERE doc_type = ? AND tahun = ?
+                    """, (counter, kode_dokumen, tahun))
+                else:
+                    counter = 1
+                    cursor.execute("""
+                        INSERT INTO doc_counter (doc_type, tahun, counter)
+                        VALUES (?, ?, ?)
+                    """, (kode_dokumen, tahun, counter))
+
+                conn.commit()
+
+        except Exception as e:
+            print(f"Error generating nomor dokumen: {e}")
+            counter = 1
+
+        # Format: NNN-KODE/BB/YYYY
+        nomor = f"{counter:03d}-{kode_dokumen}/{bulan:02d}/{tahun}"
+        return nomor
 
     def _sanitize_folder_name(self, name: str) -> str:
         """Sanitize folder name - remove invalid characters."""
@@ -484,6 +559,14 @@ class DokumenGenerator:
 
         # Prepare data
         data = self.prepare_data(transaksi, satker, pegawai, rincian)
+
+        # Add nomor_dokumen auto-generated
+        if not data.get('nomor_dokumen'):
+            data['nomor_dokumen'] = self.generate_nomor_dokumen(kode_dokumen)
+
+        # Add tanggal_dokumen formatted
+        tanggal_dokumen_raw = data.get('tanggal_dokumen') or datetime.now().strftime("%Y-%m-%d")
+        data['tanggal_dokumen'] = format_tanggal(tanggal_dokumen_raw)
 
         # Add additional data
         if additional_data:

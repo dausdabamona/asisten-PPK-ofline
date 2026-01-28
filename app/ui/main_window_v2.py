@@ -598,6 +598,11 @@ class MainWindowV2(QMainWindow):
     def _handle_create_dokumen(self, kode_dokumen: str, fase: int, transaksi_data: Dict):
         """Handle document creation."""
         try:
+            # Handle REKAP_FINAL - generate combined PDF of all documents
+            if kode_dokumen == 'REKAP_FINAL':
+                self._generate_rekap_transaksi_pdf(transaksi_data)
+                return
+
             # Check for special activity types that need preparation dialogs
             jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
 
@@ -939,6 +944,64 @@ class MainWindowV2(QMainWindow):
                 self,
                 "Error",
                 f"Gagal membuka dialog perhitungan:\n{str(e)}"
+            )
+
+    def _generate_rekap_transaksi_pdf(self, transaksi_data: Dict):
+        """Generate combined PDF rekap of all transaction documents."""
+        try:
+            # Check document completion status first
+            generator = get_dokumen_generator()
+            status = generator.get_completion_status(transaksi_data)
+            missing = generator.get_missing_documents(transaksi_data)
+
+            # Warn if there are missing required documents
+            if missing:
+                missing_names = [doc['nama'] for doc in missing[:5]]
+                if len(missing) > 5:
+                    missing_names.append(f"... dan {len(missing) - 5} lainnya")
+
+                reply = QMessageBox.question(
+                    self,
+                    "Dokumen Belum Lengkap",
+                    f"Ada {len(missing)} dokumen wajib yang belum diupload:\n"
+                    f"- {chr(10).join(missing_names)}\n\n"
+                    "Lanjutkan membuat rekap?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+
+                if reply != QMessageBox.Yes:
+                    return
+
+            # Generate the combined PDF
+            output_path, error = generator.generate_rekap_pdf(transaksi_data)
+
+            if error:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Gagal membuat rekap PDF:\n{error}"
+                )
+                return
+
+            if output_path:
+                reply = QMessageBox.information(
+                    self,
+                    "Rekap Berhasil Dibuat",
+                    f"Rekap transaksi berhasil dibuat:\n{output_path}\n\n"
+                    "Buka file sekarang?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+
+                if reply == QMessageBox.Yes:
+                    generator.open_document(output_path)
+
+                self._refresh_current_page()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuat rekap transaksi:\n{str(e)}"
             )
 
     def _refresh_current_page(self):

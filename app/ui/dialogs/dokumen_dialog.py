@@ -87,55 +87,67 @@ class DokumenGeneratorDialog(QDialog):
         # Basic data
         data_group = QGroupBox("Data Dokumen")
         data_layout = QGridLayout(data_group)
-        data_layout.setSpacing(10)
+        data_layout.setSpacing(5)  # Reduced spacing for compact layout
+        data_layout.setContentsMargins(10, 10, 10, 10)
+
+        row = 0
 
         # Nama Kegiatan
-        data_layout.addWidget(QLabel("Nama Kegiatan:"), 0, 0)
+        data_layout.addWidget(QLabel("Nama Kegiatan:"), row, 0)
         self.nama_kegiatan_edit = QLineEdit()
         self.nama_kegiatan_edit.setText(self.transaksi.get('nama_kegiatan', ''))
-        data_layout.addWidget(self.nama_kegiatan_edit, 0, 1)
+        data_layout.addWidget(self.nama_kegiatan_edit, row, 1)
+        row += 1
 
         # Kode Akun
-        data_layout.addWidget(QLabel("Kode Akun:"), 1, 0)
+        data_layout.addWidget(QLabel("Kode Akun:"), row, 0)
         self.kode_akun_edit = QLineEdit()
         self.kode_akun_edit.setText(self.transaksi.get('kode_akun', ''))
-        data_layout.addWidget(self.kode_akun_edit, 1, 1)
+        data_layout.addWidget(self.kode_akun_edit, row, 1)
+        row += 1
 
-        # Nilai/Estimasi
-        data_layout.addWidget(QLabel("Estimasi Biaya:"), 2, 0)
-        self.estimasi_spin = QDoubleSpinBox()
-        self.estimasi_spin.setRange(0, 999999999999)
-        self.estimasi_spin.setDecimals(0)
-        self.estimasi_spin.setPrefix("Rp ")
-        self.estimasi_spin.setGroupSeparatorShown(True)
-        self.estimasi_spin.setValue(self.transaksi.get('estimasi_biaya', 0))
-        data_layout.addWidget(self.estimasi_spin, 2, 1)
+        # Nilai/Estimasi - Hide for REKAP_BKT (calculated from rincian items)
+        if self.kode_dokumen != 'REKAP_BKT':
+            data_layout.addWidget(QLabel("Estimasi Biaya:"), row, 0)
+            self.estimasi_spin = QDoubleSpinBox()
+            self.estimasi_spin.setRange(0, 999999999999)
+            self.estimasi_spin.setDecimals(0)
+            self.estimasi_spin.setPrefix("Rp ")
+            self.estimasi_spin.setGroupSeparatorShown(True)
+            self.estimasi_spin.setValue(self.transaksi.get('estimasi_biaya', 0))
+            data_layout.addWidget(self.estimasi_spin, row, 1)
+            row += 1
 
         # Tanggal
-        data_layout.addWidget(QLabel("Tanggal:"), 3, 0)
+        data_layout.addWidget(QLabel("Tanggal:"), row, 0)
         self.tanggal_edit = QDateEdit()
         self.tanggal_edit.setDate(QDate.currentDate())
         self.tanggal_edit.setCalendarPopup(True)
-        data_layout.addWidget(self.tanggal_edit, 3, 1)
+        data_layout.addWidget(self.tanggal_edit, row, 1)
+        row += 1
 
-        # Penerima - dropdown with search
-        data_layout.addWidget(QLabel("Nama Penerima:"), 4, 0)
+        # Penerima - dropdown with search (disable scroll wheel)
+        data_layout.addWidget(QLabel("Nama Penerima:"), row, 0)
         self.penerima_nama_combo = QComboBox()
         self.penerima_nama_combo.setEditable(True)
         self.penerima_nama_combo.setInsertPolicy(QComboBox.NoInsert)
+        # Disable scroll wheel on combobox
+        self.penerima_nama_combo.wheelEvent = lambda e: e.ignore()
         self.penerima_nama_combo.currentIndexChanged.connect(self._on_penerima_changed)
         self._load_pegawai_dropdown()
-        data_layout.addWidget(self.penerima_nama_combo, 4, 1)
+        data_layout.addWidget(self.penerima_nama_combo, row, 1)
+        row += 1
 
-        data_layout.addWidget(QLabel("NIP Penerima:"), 5, 0)
+        data_layout.addWidget(QLabel("NIP Penerima:"), row, 0)
         self.penerima_nip_edit = QLineEdit()
         self.penerima_nip_edit.setText(self.transaksi.get('penerima_nip', ''))
-        data_layout.addWidget(self.penerima_nip_edit, 5, 1)
+        data_layout.addWidget(self.penerima_nip_edit, row, 1)
+        row += 1
 
-        data_layout.addWidget(QLabel("Jabatan:"), 6, 0)
+        data_layout.addWidget(QLabel("Jabatan:"), row, 0)
         self.penerima_jabatan_edit = QLineEdit()
         self.penerima_jabatan_edit.setText(self.transaksi.get('penerima_jabatan', ''))
-        data_layout.addWidget(self.penerima_jabatan_edit, 6, 1)
+        data_layout.addWidget(self.penerima_jabatan_edit, row, 1)
 
         scroll_layout.addWidget(data_group)
 
@@ -154,34 +166,53 @@ class DokumenGeneratorDialog(QDialog):
                 rincian_label = "Rincian Barang/Jasa"
             rincian_group = QGroupBox(rincian_label)
             rincian_layout = QVBoxLayout(rincian_group)
+            rincian_layout.setSpacing(5)  # Compact spacing
 
-            # Add item form
-            add_layout = QHBoxLayout()
+            # Add item form - row 1: uraian
+            add_layout1 = QHBoxLayout()
+            add_layout1.addWidget(QLabel("Uraian:"))
             self.uraian_edit = QLineEdit()
             self.uraian_edit.setPlaceholderText("Uraian barang/jasa")
-            add_layout.addWidget(self.uraian_edit, 3)
+            add_layout1.addWidget(self.uraian_edit)
+            rincian_layout.addLayout(add_layout1)
 
+            # Add item form - row 2: volume, satuan, harga, jumlah preview
+            add_layout2 = QHBoxLayout()
+
+            add_layout2.addWidget(QLabel("Vol:"))
             self.volume_spin = QSpinBox()
             self.volume_spin.setRange(1, 9999)
             self.volume_spin.setValue(1)
-            add_layout.addWidget(self.volume_spin)
+            self.volume_spin.valueChanged.connect(self._update_jumlah_preview)
+            add_layout2.addWidget(self.volume_spin)
 
+            add_layout2.addWidget(QLabel("Sat:"))
             self.satuan_combo = QComboBox()
             self.satuan_combo.setEditable(True)
             self.satuan_combo.addItems(["paket", "unit", "buah", "lembar", "orang", "set"])
-            add_layout.addWidget(self.satuan_combo)
+            # Disable scroll wheel on combobox
+            self.satuan_combo.wheelEvent = lambda e: e.ignore()
+            add_layout2.addWidget(self.satuan_combo)
 
+            add_layout2.addWidget(QLabel("Harga:"))
             self.harga_spin = QDoubleSpinBox()
             self.harga_spin.setRange(0, 999999999)
             self.harga_spin.setDecimals(0)
             self.harga_spin.setPrefix("Rp ")
-            add_layout.addWidget(self.harga_spin)
+            self.harga_spin.valueChanged.connect(self._update_jumlah_preview)
+            add_layout2.addWidget(self.harga_spin)
+
+            # Jumlah preview (auto-calculated)
+            add_layout2.addWidget(QLabel("="))
+            self.jumlah_preview = QLabel("Rp 0")
+            self.jumlah_preview.setStyleSheet("font-weight: bold; color: #27ae60; min-width: 100px;")
+            add_layout2.addWidget(self.jumlah_preview)
 
             add_btn = QPushButton("+ Tambah")
             add_btn.clicked.connect(self._add_rincian_item)
-            add_layout.addWidget(add_btn)
+            add_layout2.addWidget(add_btn)
 
-            rincian_layout.addLayout(add_layout)
+            rincian_layout.addLayout(add_layout2)
 
             # Table
             self.rincian_table = QTableWidget()
@@ -206,19 +237,39 @@ class DokumenGeneratorDialog(QDialog):
             total_layout.addWidget(self.total_label)
             rincian_layout.addLayout(total_layout)
 
-            # PPN Option
+            # Tax Options (PPN & PPh)
             from PySide6.QtWidgets import QCheckBox
-            ppn_layout = QHBoxLayout()
-            ppn_layout.addStretch()
-            self.ppn_checkbox = QCheckBox("Tambah PPN 11%")
-            self.ppn_checkbox.stateChanged.connect(self._update_total)
-            ppn_layout.addWidget(self.ppn_checkbox)
-            self.ppn_label = QLabel("PPN: Rp 0")
-            self.ppn_label.setStyleSheet("color: #e74c3c;")
-            ppn_layout.addWidget(self.ppn_label)
-            rincian_layout.addLayout(ppn_layout)
+            tax_group = QGroupBox("Pajak")
+            tax_layout = QGridLayout(tax_group)
+            tax_layout.setSpacing(5)
 
-            # Grand Total with PPN
+            # PPN 11%
+            self.ppn_checkbox = QCheckBox("PPN 11%")
+            self.ppn_checkbox.stateChanged.connect(self._update_total)
+            tax_layout.addWidget(self.ppn_checkbox, 0, 0)
+            self.ppn_label = QLabel("Rp 0")
+            self.ppn_label.setStyleSheet("color: #e74c3c;")
+            tax_layout.addWidget(self.ppn_label, 0, 1)
+
+            # PPh options
+            self.pph_checkbox = QCheckBox("PPh")
+            self.pph_checkbox.stateChanged.connect(self._update_total)
+            tax_layout.addWidget(self.pph_checkbox, 1, 0)
+
+            self.pph_rate_combo = QComboBox()
+            self.pph_rate_combo.addItems(["1.5% (PPh 23)", "2% (PPh 23 Jasa)", "4% (PPh 23)", "15% (PPh 23)"])
+            self.pph_rate_combo.wheelEvent = lambda e: e.ignore()  # Disable scroll
+            self.pph_rate_combo.currentIndexChanged.connect(self._update_total)
+            self.pph_rate_combo.setEnabled(False)
+            tax_layout.addWidget(self.pph_rate_combo, 1, 1)
+
+            self.pph_label = QLabel("Rp 0")
+            self.pph_label.setStyleSheet("color: #e74c3c;")
+            tax_layout.addWidget(self.pph_label, 1, 2)
+
+            rincian_layout.addWidget(tax_group)
+
+            # Grand Total after taxes
             grand_total_layout = QHBoxLayout()
             grand_total_layout.addStretch()
             grand_total_layout.addWidget(QLabel("GRAND TOTAL:"))
@@ -226,6 +277,54 @@ class DokumenGeneratorDialog(QDialog):
             self.grand_total_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #27ae60;")
             grand_total_layout.addWidget(self.grand_total_label)
             rincian_layout.addLayout(grand_total_layout)
+
+            # Perhitungan Tambah/Kurang Panel (for REKAP_BKT)
+            if self.kode_dokumen == 'REKAP_BKT':
+                calc_group = QGroupBox("Perhitungan Tambah/Kurang")
+                calc_group.setStyleSheet("""
+                    QGroupBox {
+                        font-weight: bold;
+                        border: 2px solid #3498db;
+                        border-radius: 5px;
+                        margin-top: 10px;
+                        padding-top: 10px;
+                    }
+                    QGroupBox::title {
+                        subcontrol-origin: margin;
+                        left: 10px;
+                        padding: 0 5px;
+                    }
+                """)
+                calc_layout = QGridLayout(calc_group)
+                calc_layout.setSpacing(5)
+
+                # Uang Muka (from LBR_REQ)
+                calc_layout.addWidget(QLabel("Uang Muka Diterima:"), 0, 0)
+                self.uang_muka_label = QLabel("Rp 0")
+                self.uang_muka_label.setStyleSheet("font-weight: bold;")
+                calc_layout.addWidget(self.uang_muka_label, 0, 1)
+
+                # Realisasi (current input)
+                calc_layout.addWidget(QLabel("Total Realisasi:"), 1, 0)
+                self.realisasi_label = QLabel("Rp 0")
+                self.realisasi_label.setStyleSheet("font-weight: bold;")
+                calc_layout.addWidget(self.realisasi_label, 1, 1)
+
+                # Selisih
+                calc_layout.addWidget(QLabel("Selisih:"), 2, 0)
+                self.selisih_label = QLabel("Rp 0")
+                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+                calc_layout.addWidget(self.selisih_label, 2, 1)
+
+                # Status (Kurang Bayar / Lebih Bayar / Nihil)
+                self.status_calc_label = QLabel("")
+                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
+                calc_layout.addWidget(self.status_calc_label, 3, 0, 1, 2)
+
+                rincian_layout.addWidget(calc_group)
+
+                # Load uang muka from database
+                self._load_uang_muka_for_calc()
 
             # Uang Muka Percentage Option (for KUIT_UM / Kuitansi Uang Muka)
             if self.kode_dokumen == 'KUIT_UM':
@@ -496,6 +595,40 @@ class DokumenGeneratorDialog(QDialog):
         except Exception as e:
             print(f"Error loading rincian from database: {e}")
 
+    def _load_uang_muka_for_calc(self):
+        """Load uang muka value for REKAP_BKT calculation panel."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            # First try to get from transaksi
+            self._uang_muka_nilai = self.transaksi.get('uang_muka', 0) or 0
+
+            # If not set, calculate from LBR_REQ
+            if not self._uang_muka_nilai:
+                from app.models.pencairan_models import PencairanManager
+                manager = PencairanManager()
+                summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
+                if summary:
+                    self._uang_muka_nilai = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
+
+            if hasattr(self, 'uang_muka_label'):
+                self.uang_muka_label.setText(f"Rp {self._uang_muka_nilai:,.0f}".replace(",", "."))
+                print(f"Loaded uang_muka for calculation: {self._uang_muka_nilai}")
+
+        except Exception as e:
+            self._uang_muka_nilai = 0
+            print(f"Error loading uang_muka for calculation: {e}")
+
+    def _update_jumlah_preview(self, *args):
+        """Auto-calculate and display jumlah preview when volume or harga changes."""
+        if hasattr(self, 'volume_spin') and hasattr(self, 'harga_spin') and hasattr(self, 'jumlah_preview'):
+            volume = self.volume_spin.value()
+            harga = self.harga_spin.value()
+            jumlah = volume * harga
+            self.jumlah_preview.setText(f"Rp {jumlah:,.0f}".replace(",", "."))
+
     def _add_rincian_item(self):
         """Add rincian item to table."""
         uraian = self.uraian_edit.text().strip()
@@ -526,10 +659,12 @@ class DokumenGeneratorDialog(QDialog):
             'jumlah': jumlah,
         })
 
-        # Clear inputs
+        # Clear inputs and reset preview
         self.uraian_edit.clear()
         self.volume_spin.setValue(1)
         self.harga_spin.setValue(0)
+        if hasattr(self, 'jumlah_preview'):
+            self.jumlah_preview.setText("Rp 0")
 
         # Update total
         self._update_total()
@@ -548,29 +683,85 @@ class DokumenGeneratorDialog(QDialog):
         self._update_total()
 
     def _update_total(self, *args):
-        """Update total label with PPN and uang muka calculations."""
+        """Update total label with PPN, PPh, and calculation panel."""
         total = sum(item['jumlah'] for item in self.rincian_items)
         self.total_label.setText(f"Rp {total:,.0f}".replace(",", "."))
 
         # Calculate PPN if checkbox exists and is checked
         ppn_nilai = 0
-        grand_total = total
         if hasattr(self, 'ppn_checkbox') and self.ppn_checkbox.isChecked():
             ppn_nilai = total * 0.11  # 11%
-            grand_total = total + ppn_nilai
-            self.ppn_label.setText(f"PPN: Rp {ppn_nilai:,.0f}".replace(",", "."))
+            self.ppn_label.setText(f"Rp {ppn_nilai:,.0f}".replace(",", "."))
         elif hasattr(self, 'ppn_label'):
-            self.ppn_label.setText("PPN: Rp 0")
+            self.ppn_label.setText("Rp 0")
+
+        # Calculate PPh if checkbox exists and is checked
+        pph_nilai = 0
+        if hasattr(self, 'pph_checkbox'):
+            self.pph_rate_combo.setEnabled(self.pph_checkbox.isChecked())
+            if self.pph_checkbox.isChecked():
+                # Parse rate from combo text
+                rate_text = self.pph_rate_combo.currentText()
+                if "1.5%" in rate_text:
+                    pph_rate = 0.015
+                elif "2%" in rate_text:
+                    pph_rate = 0.02
+                elif "4%" in rate_text:
+                    pph_rate = 0.04
+                elif "15%" in rate_text:
+                    pph_rate = 0.15
+                else:
+                    pph_rate = 0.02  # default
+                pph_nilai = total * pph_rate
+                self.pph_label.setText(f"Rp {pph_nilai:,.0f}".replace(",", "."))
+            else:
+                self.pph_label.setText("Rp 0")
+
+        # Grand total = total + PPN - PPh (PPh is a deduction)
+        grand_total = total + ppn_nilai - pph_nilai
 
         if hasattr(self, 'grand_total_label'):
             self.grand_total_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
 
-        # Calculate uang muka percentage
+        # Calculate uang muka percentage (for KUIT_UM)
         if hasattr(self, 'um_btn_group'):
             persen = self.um_btn_group.checkedId()
             if persen > 0:
                 nilai_diterima = grand_total * persen / 100
                 self.um_nilai_label.setText(f"Nilai Diterima: Rp {nilai_diterima:,.0f}".replace(",", "."))
+
+        # Update calculation panel (for REKAP_BKT)
+        if hasattr(self, 'realisasi_label') and hasattr(self, 'selisih_label'):
+            self.realisasi_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
+
+            # Calculate selisih
+            uang_muka = getattr(self, '_uang_muka_nilai', 0) or 0
+            selisih = grand_total - uang_muka
+
+            self.selisih_label.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
+
+            # Update status
+            if selisih > 0:
+                self.status_calc_label.setText("KURANG BAYAR")
+                self.status_calc_label.setStyleSheet(
+                    "font-weight: bold; font-size: 14px; padding: 5px; "
+                    "background-color: #e74c3c; color: white; border-radius: 3px;"
+                )
+                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #e74c3c;")
+            elif selisih < 0:
+                self.status_calc_label.setText("LEBIH BAYAR (Kembali ke Kas)")
+                self.status_calc_label.setStyleSheet(
+                    "font-weight: bold; font-size: 14px; padding: 5px; "
+                    "background-color: #27ae60; color: white; border-radius: 3px;"
+                )
+                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+            else:
+                self.status_calc_label.setText("NIHIL")
+                self.status_calc_label.setStyleSheet(
+                    "font-weight: bold; font-size: 14px; padding: 5px; "
+                    "background-color: #3498db; color: white; border-radius: 3px;"
+                )
+                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #3498db;")
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
@@ -585,12 +776,28 @@ class DokumenGeneratorDialog(QDialog):
         data = {
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
-            'estimasi_biaya': self.estimasi_spin.value(),
+            'estimasi_biaya': self.estimasi_spin.value() if hasattr(self, 'estimasi_spin') else 0,
             'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
             'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
         }
+
+        # Add PPh data if exists
+        if hasattr(self, 'pph_checkbox') and self.pph_checkbox.isChecked():
+            rate_text = self.pph_rate_combo.currentText()
+            if "1.5%" in rate_text:
+                data['pph_persen'] = 1.5
+            elif "2%" in rate_text:
+                data['pph_persen'] = 2
+            elif "4%" in rate_text:
+                data['pph_persen'] = 4
+            elif "15%" in rate_text:
+                data['pph_persen'] = 15
+            else:
+                data['pph_persen'] = 0
+        else:
+            data['pph_persen'] = 0
 
         # Add PPN percentage if checkbox exists and is checked
         if hasattr(self, 'ppn_checkbox') and self.ppn_checkbox.isChecked():

@@ -320,7 +320,7 @@ class PegawaiManager(QDialog):
         # Toolbar
         toolbar = QHBoxLayout()
         
-        btn_add = QPushButton("+ Tambah Pegawai")
+        btn_add = QPushButton("+ Tambah")
         btn_add.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
@@ -335,6 +335,42 @@ class PegawaiManager(QDialog):
         """)
         btn_add.clicked.connect(self.add_pegawai)
         toolbar.addWidget(btn_add)
+
+        # Edit button (yellow/orange)
+        btn_edit = QPushButton("Edit")
+        btn_edit.setStyleSheet("""
+            QPushButton {
+                background-color: #f39c12;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #d68910;
+            }
+        """)
+        btn_edit.clicked.connect(self.edit_pegawai)
+        toolbar.addWidget(btn_edit)
+
+        # Delete/Nonaktifkan button (red)
+        btn_delete = QPushButton("Nonaktifkan")
+        btn_delete.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        btn_delete.clicked.connect(self.deactivate_pegawai)
+        toolbar.addWidget(btn_delete)
+
+        toolbar.addSpacing(20)
 
         # Export button (green)
         btn_export = QPushButton("📤 Export")

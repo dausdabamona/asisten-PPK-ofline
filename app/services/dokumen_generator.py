@@ -483,6 +483,243 @@ class DokumenGenerator:
         folder = self.get_output_folder(transaksi, mekanisme, nama_kegiatan)
         return self.open_document(str(folder))
 
+    def get_document_checklist(self, transaksi: Dict[str, Any], fase: int = None) -> List[Dict[str, Any]]:
+        """
+        Get checklist of required documents and their upload status.
+
+        Args:
+            transaksi: Data transaksi
+            fase: Specific fase to check (optional, checks all if None)
+
+        Returns:
+            List of document items with status
+        """
+        from ..config.workflow_config import get_workflow
+
+        mekanisme = transaksi.get('mekanisme', 'UP')
+        jenis_kegiatan = transaksi.get('jenis_kegiatan', '')
+        workflow = get_workflow(mekanisme)
+
+        if not workflow:
+            return []
+
+        # Get output folder
+        output_folder = self.get_output_folder(transaksi=transaksi)
+
+        # Get all files in output folder
+        existing_files = []
+        if output_folder.exists():
+            existing_files = [f.name for f in output_folder.iterdir() if f.is_file()]
+
+        checklist = []
+        fases = [fase] if fase else list(workflow.get('fase', {}).keys())
+
+        for f in fases:
+            fase_config = workflow.get('fase', {}).get(f, {})
+
+            # Get all dokumen lists for this fase
+            dokumen_lists = ['dokumen', 'dokumen_dengan_sk', 'dokumen_kepanitiaan',
+                           'dokumen_rapat', 'dokumen_jamuan', 'dokumen_kontrak',
+                           'dokumen_surat_tugas', 'dokumen_rapat_jamuan', 'dokumen_lainnya']
+
+            for list_name in dokumen_lists:
+                for dok in fase_config.get(list_name, []):
+                    # Filter by jenis_kegiatan if specified
+                    dok_jenis = dok.get('jenis_kegiatan', [])
+                    if dok_jenis and jenis_kegiatan not in dok_jenis:
+                        continue
+
+                    kode = dok.get('kode', '')
+                    kategori = dok.get('kategori', 'opsional')
+
+                    # Check if document exists (by kode prefix in filename)
+                    is_uploaded = any(f.startswith(kode) for f in existing_files)
+                    file_path = None
+                    if is_uploaded:
+                        for ef in existing_files:
+                            if ef.startswith(kode):
+                                file_path = str(output_folder / ef)
+                                break
+
+                    checklist.append({
+                        'fase': f,
+                        'fase_nama': fase_config.get('nama', f'Fase {f}'),
+                        'kode': kode,
+                        'nama': dok.get('nama', kode),
+                        'kategori': kategori,
+                        'deskripsi': dok.get('deskripsi', ''),
+                        'template': dok.get('template'),
+                        'is_uploaded': is_uploaded,
+                        'file_path': file_path,
+                        'is_required': kategori == 'wajib',
+                    })
+
+        return checklist
+
+    def get_missing_documents(self, transaksi: Dict[str, Any], fase: int = None) -> List[Dict[str, Any]]:
+        """Get list of required documents that haven't been uploaded."""
+        checklist = self.get_document_checklist(transaksi, fase)
+        return [doc for doc in checklist if doc['is_required'] and not doc['is_uploaded']]
+
+    def get_completion_status(self, transaksi: Dict[str, Any], fase: int = None) -> Dict[str, Any]:
+        """
+        Get document completion status.
+
+        Returns:
+            Dict with total, uploaded, required, missing counts and percentage
+        """
+        checklist = self.get_document_checklist(transaksi, fase)
+
+        total = len(checklist)
+        uploaded = sum(1 for d in checklist if d['is_uploaded'])
+        required = sum(1 for d in checklist if d['is_required'])
+        missing = sum(1 for d in checklist if d['is_required'] and not d['is_uploaded'])
+
+        return {
+            'total': total,
+            'uploaded': uploaded,
+            'required': required,
+            'missing': missing,
+            'percentage': (uploaded / total * 100) if total > 0 else 0,
+            'is_complete': missing == 0,
+        }
+
+    def generate_rekap_pdf(self, transaksi: Dict[str, Any],
+                          output_filename: str = None) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Generate a single PDF that combines all documents for a transaction.
+
+        Args:
+            transaksi: Data transaksi
+            output_filename: Custom output filename (optional)
+
+        Returns:
+            Tuple of (output_path, error_message)
+        """
+        try:
+            from pypdf import PdfWriter, PdfReader
+            from PIL import Image
+            import io
+        except ImportError:
+            return None, "Library pypdf atau PIL tidak tersedia. Install dengan: pip install pypdf pillow"
+
+        output_folder = self.get_output_folder(transaksi=transaksi)
+        if not output_folder.exists():
+            return None, "Folder transaksi tidak ditemukan"
+
+        # Get all files sorted by name
+        all_files = sorted([f for f in output_folder.iterdir() if f.is_file()])
+        if not all_files:
+            return None, "Tidak ada dokumen untuk direkap"
+
+        # Create PDF writer
+        pdf_writer = PdfWriter()
+
+        # Process each file
+        for file_path in all_files:
+            ext = file_path.suffix.lower()
+
+            try:
+                if ext == '.pdf':
+                    # Add PDF directly
+                    pdf_reader = PdfReader(str(file_path))
+                    for page in pdf_reader.pages:
+                        pdf_writer.add_page(page)
+
+                elif ext in ['.jpg', '.jpeg', '.png', '.bmp']:
+                    # Convert image to PDF page
+                    img = Image.open(str(file_path))
+                    if img.mode == 'RGBA':
+                        img = img.convert('RGB')
+
+                    # Create PDF from image
+                    img_pdf = io.BytesIO()
+                    img.save(img_pdf, format='PDF')
+                    img_pdf.seek(0)
+
+                    pdf_reader = PdfReader(img_pdf)
+                    for page in pdf_reader.pages:
+                        pdf_writer.add_page(page)
+
+                elif ext == '.docx':
+                    # Convert Word to PDF (requires additional libraries)
+                    # For now, skip Word files or use a fallback
+                    print(f"Skipping Word file: {file_path.name}")
+
+                elif ext == '.xlsx':
+                    # Skip Excel files for now
+                    print(f"Skipping Excel file: {file_path.name}")
+
+            except Exception as e:
+                print(f"Error processing {file_path.name}: {e}")
+                continue
+
+        if len(pdf_writer.pages) == 0:
+            return None, "Tidak ada dokumen PDF atau gambar yang berhasil diproses"
+
+        # Generate output filename
+        if not output_filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            kode = transaksi.get('kode', 'REKAP')
+            output_filename = f"REKAP_TRANSAKSI_{kode}_{timestamp}.pdf"
+
+        output_path = output_folder / output_filename
+
+        # Save combined PDF
+        with open(str(output_path), 'wb') as f:
+            pdf_writer.write(f)
+
+        return str(output_path), None
+
+    def get_document_summary_html(self, transaksi: Dict[str, Any]) -> str:
+        """
+        Generate HTML summary of document checklist for display.
+
+        Returns:
+            HTML string with document checklist
+        """
+        checklist = self.get_document_checklist(transaksi)
+        status = self.get_completion_status(transaksi)
+
+        html = f"""
+        <div style="font-family: sans-serif; padding: 10px;">
+            <h3>Status Kelengkapan Dokumen</h3>
+            <p>Progress: {status['uploaded']} / {status['total']} ({status['percentage']:.0f}%)</p>
+
+            <div style="background: #f0f0f0; border-radius: 5px; height: 20px; margin: 10px 0;">
+                <div style="background: {'#27ae60' if status['is_complete'] else '#3498db'};
+                            width: {status['percentage']}%; height: 100%; border-radius: 5px;"></div>
+            </div>
+        """
+
+        if status['missing'] > 0:
+            html += f"""
+            <div style="background: #fadbd8; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <b>Peringatan:</b> {status['missing']} dokumen wajib belum diupload!
+            </div>
+            """
+
+        # Group by fase
+        current_fase = None
+        for doc in checklist:
+            if doc['fase'] != current_fase:
+                if current_fase is not None:
+                    html += "</ul>"
+                current_fase = doc['fase']
+                html += f"<h4>{doc['fase_nama']}</h4><ul>"
+
+            status_icon = '✅' if doc['is_uploaded'] else ('❌' if doc['is_required'] else '⬜')
+            required_badge = '<span style="color: red; font-size: 10px;">[WAJIB]</span>' if doc['is_required'] else ''
+
+            html += f"""
+            <li style="margin: 5px 0;">
+                {status_icon} {doc['nama']} {required_badge}
+            </li>
+            """
+
+        html += "</ul></div>"
+        return html
+
 
 # Singleton instance
 _generator_instance = None

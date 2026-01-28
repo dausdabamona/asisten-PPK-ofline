@@ -15,5 +15,8 @@ Modules:
 __version__ = "4.0.0"
 __author__ = "PPK Digital Assistant"
 
-# Expose main window for easy import
-from .ui.main_window_v2 import MainWindowV2
+
+def get_main_window():
+    """Get the main window class (lazy import to avoid PySide6 import at module load)."""
+    from .ui.main_window_v2 import MainWindowV2
+    return MainWindowV2

@@ -347,9 +347,24 @@ TUP_WORKFLOW = {
                     "template": None,
                     "deskripsi": "Surat Perintah Pencairan Dana TUP"
                 },
+                {
+                    "kode": "KUIT_UM_TUP",
+                    "nama": "Kuitansi Uang Muka TUP",
+                    "kategori": "wajib",
+                    "template": "kuitansi_uang_muka_tup.docx",
+                    "deskripsi": "Kuitansi penerimaan uang muka TUP"
+                },
+                {
+                    "kode": "BST_UM_TUP",
+                    "nama": "Bukti Serah Terima Uang TUP",
+                    "kategori": "wajib",
+                    "template": "bukti_serah_terima_um.docx",
+                    "deskripsi": "Berita acara serah terima uang muka TUP"
+                },
             ],
             "validasi": [
                 {"field": "dokumen_sp2d_tup", "rule": "required", "message": "SP2D TUP wajib ada"},
+                {"field": "dokumen_kuit_um_tup", "rule": "required", "message": "Kuitansi uang muka TUP wajib ada"},
             ],
             "catatan": "Catat tanggal SP2D untuk menghitung batas 1 bulan",
             "next_condition": "Dana TUP sudah masuk ke rekening bendahara"
@@ -398,6 +413,20 @@ TUP_WORKFLOW = {
             "color": "#27ae60",
             "dokumen": [
                 {
+                    "kode": "KUIT_RAMP_TUP",
+                    "nama": "Kuitansi Rampung TUP",
+                    "kategori": "wajib",
+                    "template": "kuitansi_rampung_tup.docx",
+                    "deskripsi": "Kuitansi penyelesaian/rampung TUP"
+                },
+                {
+                    "kode": "HITUNG_TK_TUP",
+                    "nama": "Perhitungan Tambah/Kurang TUP",
+                    "kategori": "wajib",
+                    "template": "perhitungan_tambah_kurang.xlsx",
+                    "deskripsi": "Perhitungan selisih uang muka vs realisasi TUP"
+                },
+                {
                     "kode": "SPBY_TUP",
                     "nama": "SPBY TUP",
                     "kategori": "wajib",
@@ -431,6 +460,7 @@ TUP_WORKFLOW = {
                 "jika_sisa": "Wajib setor kembali ke kas negara via SSBP",
             },
             "validasi": [
+                {"field": "dokumen_kuit_ramp_tup", "rule": "required", "message": "Kuitansi rampung TUP wajib dibuat"},
                 {"field": "dokumen_spby_tup", "rule": "required", "message": "SPBY TUP wajib dibuat"},
                 {"field": "sisa_tup", "rule": "dikembalikan", "message": "Sisa TUP wajib disetor kembali"},
             ],

@@ -1,8 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PPK DOCUMENT FACTORY v3.0 - PyInstaller Spec File
-==================================================
+PPK DOCUMENT FACTORY v4.0 - PyInstaller Spec File (Workflow Edition)
+=====================================================================
 Build executable dengan: pyinstaller ppk_factory.spec
+
+Versi ini menggunakan UI workflow-based untuk pencairan dana (UP/TUP/LS)
 """
 
 import os
@@ -16,7 +18,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(SPEC))
 # Collect PySide6 data files
 pyside6_datas = collect_data_files('PySide6', include_py_files=False)
 
-# Collect submodules
+# Collect submodules - termasuk modul baru untuk workflow
 hidden_imports = [
     'PySide6.QtCore',
     'PySide6.QtGui',
@@ -41,6 +43,21 @@ hidden_imports = [
     'PIL.TiffImagePlugin',
     'PIL.JpegImagePlugin',
     'PIL.PngImagePlugin',
+    # Modul baru untuk workflow
+    'app.models',
+    'app.models.pencairan_models',
+    'app.config',
+    'app.config.workflow_config',
+    'app.ui.components',
+    'app.ui.components.sidebar',
+    'app.ui.components.dashboard_cards',
+    'app.ui.components.fase_stepper',
+    'app.ui.components.dokumen_checklist',
+    'app.ui.components.kalkulasi_widget',
+    'app.ui.components.countdown_widget',
+    'app.ui.pages',
+    'app.ui.pages.pencairan',
+    'app.ui.main_window_v2',
 ]
 
 # Data files to bundle
@@ -49,6 +66,8 @@ datas = [
     (os.path.join(ROOT_DIR, 'templates', 'word'), os.path.join('templates', 'word')),
     # Excel templates
     (os.path.join(ROOT_DIR, 'templates', 'excel'), os.path.join('templates', 'excel')),
+    # QSS Stylesheet
+    (os.path.join(ROOT_DIR, 'app', 'ui', 'styles'), os.path.join('app', 'ui', 'styles')),
 ]
 
 # Add PySide6 data

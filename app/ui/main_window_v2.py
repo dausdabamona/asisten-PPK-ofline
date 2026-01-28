@@ -326,6 +326,8 @@ class MainWindowV2(QMainWindow):
             self._show_legacy_page("satker")
         elif menu_id == "template":
             self._show_legacy_page("template")
+        elif menu_id == "backup":
+            self._show_backup_dialog()
         else:
             QMessageBox.information(
                 self,
@@ -379,6 +381,19 @@ class MainWindowV2(QMainWindow):
                 self,
                 "Error",
                 f"Terjadi kesalahan:\n{str(e)}"
+            )
+
+    def _show_backup_dialog(self):
+        """Show backup and restore dialog."""
+        try:
+            from .dialogs.backup_dialog import BackupRestoreDialog
+            dialog = BackupRestoreDialog(self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog backup:\n{str(e)}"
             )
 
     def _refresh_data(self):

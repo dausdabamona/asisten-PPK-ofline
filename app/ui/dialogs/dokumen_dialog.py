@@ -227,8 +227,8 @@ class DokumenGeneratorDialog(QDialog):
             grand_total_layout.addWidget(self.grand_total_label)
             rincian_layout.addLayout(grand_total_layout)
 
-            # Uang Muka Percentage Option (for LBR_REQ / Lembar Permintaan)
-            if self.kode_dokumen == 'LBR_REQ':
+            # Uang Muka Percentage Option (for KUIT_UM / Kuitansi Uang Muka)
+            if self.kode_dokumen == 'KUIT_UM':
                 from PySide6.QtWidgets import QRadioButton, QButtonGroup
                 um_group_box = QGroupBox("Persentase Uang Muka Diterima")
                 um_layout = QHBoxLayout(um_group_box)
@@ -646,6 +646,16 @@ class DokumenGeneratorDialog(QDialog):
                     total_realisasi = sum(item.get('jumlah', 0) for item in self.rincian_items)
                     self._update_transaksi_realisasi(total_realisasi)
 
+            # For KUIT_UM, update uang_muka in transaksi based on percentage selected
+            if self.kode_dokumen == 'KUIT_UM' and self.rincian_items:
+                total = sum(item.get('jumlah', 0) for item in self.rincian_items)
+                ppn_persen = form_data.get('ppn_persen', 0)
+                ppn_nilai = total * ppn_persen / 100 if ppn_persen > 0 else 0
+                grand_total = total + ppn_nilai
+                uang_muka_persen = form_data.get('uang_muka_persen', 100)
+                uang_muka_nilai = grand_total * uang_muka_persen / 100
+                self._update_transaksi_uang_muka(uang_muka_nilai)
+
             self.progress_bar.setValue(60)
             self.status_label.setText("Generating dokumen...")
 
@@ -732,6 +742,21 @@ class DokumenGeneratorDialog(QDialog):
 
         except Exception as e:
             print(f"Error updating transaksi realisasi: {e}")
+
+    def _update_transaksi_uang_muka(self, uang_muka_nilai: float):
+        """Update uang_muka value in transaksi after generating KUIT_UM."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+            manager.update_transaksi(transaksi_id, {'uang_muka': uang_muka_nilai})
+            print(f"Updated transaksi {transaksi_id} uang_muka to {uang_muka_nilai}")
+
+        except Exception as e:
+            print(f"Error updating transaksi uang_muka: {e}")
 
     def _open_document(self):
         """Open generated document."""

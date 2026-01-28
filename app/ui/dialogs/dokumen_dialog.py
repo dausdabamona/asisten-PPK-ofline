@@ -488,8 +488,8 @@ class UploadDokumenDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        # View file button (hidden initially)
-        self.view_file_btn = QPushButton("Lihat File")
+        # View file button (hidden initially) - renamed to "Buka"
+        self.view_file_btn = QPushButton("Buka")
         self.view_file_btn.setVisible(False)
         self.view_file_btn.setStyleSheet("""
             QPushButton {
@@ -506,6 +506,25 @@ class UploadDokumenDialog(QDialog):
         """)
         self.view_file_btn.clicked.connect(self._view_file)
         btn_layout.addWidget(self.view_file_btn)
+
+        # Download button (hidden initially)
+        self.download_btn = QPushButton("Download")
+        self.download_btn.setVisible(False)
+        self.download_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+        """)
+        self.download_btn.clicked.connect(self._download_file)
+        btn_layout.addWidget(self.download_btn)
 
         # Open folder button (hidden initially)
         self.open_folder_btn = QPushButton("Buka Folder")
@@ -603,6 +622,7 @@ class UploadDokumenDialog(QDialog):
 
             # Show view buttons
             self.view_file_btn.setVisible(True)
+            self.download_btn.setVisible(True)
             self.open_folder_btn.setVisible(True)
 
             # Change upload button to "Upload Lagi"
@@ -652,3 +672,34 @@ class UploadDokumenDialog(QDialog):
                     subprocess.run(['xdg-open', folder])
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Gagal membuka folder:\n{str(e)}")
+
+    def _download_file(self):
+        """Download/save file to user-selected location."""
+        if not self.uploaded_path:
+            return
+
+        import os
+        import shutil
+        from pathlib import Path
+
+        if not os.path.exists(self.uploaded_path):
+            QMessageBox.warning(self, "Peringatan", "File tidak ditemukan!")
+            return
+
+        # Get original filename
+        original_name = Path(self.uploaded_path).name
+
+        # Ask user where to save
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Simpan File",
+            original_name,
+            "All Files (*)"
+        )
+
+        if save_path:
+            try:
+                shutil.copy2(self.uploaded_path, save_path)
+                QMessageBox.information(self, "Sukses", f"File berhasil disimpan:\n{save_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal menyimpan file:\n{str(e)}")

@@ -234,6 +234,9 @@ class MainWindowV2(QMainWindow):
         self.up_list_page.item_double_clicked.connect(
             lambda id: self._on_transaksi_selected(id, "UP")
         )
+        self.up_list_page.edit_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "UP")
+        )
         self.up_list_page.refresh_requested.connect(lambda: self._refresh_list("UP"))
 
         # UP detail signals
@@ -253,6 +256,9 @@ class MainWindowV2(QMainWindow):
         self.tup_list_page.item_double_clicked.connect(
             lambda id: self._on_transaksi_selected(id, "TUP")
         )
+        self.tup_list_page.edit_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "TUP")
+        )
         self.tup_list_page.refresh_requested.connect(lambda: self._refresh_list("TUP"))
 
         # TUP detail signals
@@ -271,6 +277,9 @@ class MainWindowV2(QMainWindow):
         self.ls_list_page.new_clicked.connect(lambda: self._on_new_transaksi("LS"))
         self.ls_list_page.item_double_clicked.connect(
             lambda id: self._on_transaksi_selected(id, "LS")
+        )
+        self.ls_list_page.edit_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "LS")
         )
         self.ls_list_page.refresh_requested.connect(lambda: self._refresh_list("LS"))
 
@@ -451,6 +460,23 @@ class MainWindowV2(QMainWindow):
         form_page = self._page_map.get(form_page_id)
         if form_page:
             form_page.clear()
+
+    def _on_edit_transaksi(self, transaksi_id: int, mekanisme: str):
+        """Handle edit transaksi."""
+        # Get transaksi data
+        transaksi = self.db.get_transaksi(transaksi_id)
+        if not transaksi:
+            QMessageBox.warning(self, "Error", "Transaksi tidak ditemukan.")
+            return
+
+        # Navigate to form page
+        form_page_id = f"{mekanisme.lower()}_form"
+        self._navigate_to(form_page_id)
+
+        # Load data into form
+        form_page = self._page_map.get(form_page_id)
+        if form_page:
+            form_page.set_data(transaksi)
 
     def _on_form_saved(self, data: Dict[str, Any]):
         """Handle form save."""

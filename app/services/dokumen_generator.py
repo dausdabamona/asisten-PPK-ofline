@@ -244,6 +244,25 @@ class DokumenGenerator:
             data['total'] = total_rincian  # Also set 'total' for template compatibility
             data['jumlah_item'] = len(rincian)
 
+            # PPN calculation (11%)
+            ppn_persen = transaksi.get('ppn_persen', 0)
+            if ppn_persen > 0:
+                data['ppn_persen'] = ppn_persen
+                data['ppn_nilai'] = total_rincian * ppn_persen / 100
+                data['total_dengan_ppn'] = total_rincian + data['ppn_nilai']
+                data['grand_total'] = data['total_dengan_ppn']
+            else:
+                data['ppn_persen'] = 0
+                data['ppn_nilai'] = 0
+                data['total_dengan_ppn'] = total_rincian
+                data['grand_total'] = total_rincian
+
+            # Uang muka calculation (80% or 90% options)
+            uang_muka_persen = transaksi.get('uang_muka_persen', 100)
+            data['uang_muka_persen'] = uang_muka_persen
+            data['uang_muka_nilai'] = data['grand_total'] * uang_muka_persen / 100
+            data['nilai_diterima'] = data['uang_muka_nilai']
+
         return data
 
     def _apply_format(self, value: Any, format_type: str) -> str:
@@ -293,9 +312,10 @@ class DokumenGenerator:
     def _process_table(self, table, data: Dict[str, Any]):
         """Process a table to replace placeholders, including rincian rows."""
         from copy import deepcopy
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
 
         rincian_items = data.get('rincian_items', [])
-        rows_to_process = []
         rincian_row_idx = None
 
         # First pass: identify rincian row
@@ -307,48 +327,67 @@ class DokumenGenerator:
 
         # If there's a rincian row, handle it specially
         if rincian_row_idx is not None and rincian_items:
+            template_row = table.rows[rincian_row_idx]
+            template_row_xml = template_row._tr
+
+            # Get cells template text for cloning
+            template_cells_text = []
+            for cell in template_row.cells:
+                cell_texts = []
+                for para in cell.paragraphs:
+                    cell_texts.append(para.text)
+                template_cells_text.append(cell_texts)
+
             # Process rows before rincian
             for idx, row in enumerate(table.rows):
                 if idx < rincian_row_idx:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
                             self._process_paragraph(paragraph, data)
-                elif idx == rincian_row_idx:
-                    # Get the rincian template row
-                    template_row = row
-                    # Clone and fill for each item
-                    for item_idx, item in enumerate(rincian_items):
-                        item_data = {
-                            'rincian_no': item_idx + 1,
-                            'rincian_uraian': item.get('uraian', ''),
-                            'rincian_volume': item.get('volume', 1),
-                            'rincian_satuan': item.get('satuan', ''),
-                            'rincian_harga': item.get('harga_satuan', 0),
-                            'rincian_jumlah': item.get('jumlah', 0),
-                        }
-                        merged_data = {**data, **item_data}
 
-                        if item_idx == 0:
-                            # Use existing row for first item
-                            for cell in row.cells:
-                                for paragraph in cell.paragraphs:
-                                    self._process_paragraph(paragraph, merged_data)
-                        else:
-                            # Add new row for subsequent items
-                            new_row = table.add_row()
-                            for cell_idx, cell in enumerate(new_row.cells):
-                                src_cell = template_row.cells[cell_idx]
-                                # Copy text with replacements
-                                for para_idx, paragraph in enumerate(cell.paragraphs):
-                                    if para_idx < len(src_cell.paragraphs):
-                                        src_text = src_cell.paragraphs[para_idx].text
-                                        new_text = self._replace_placeholder(src_text, merged_data)
-                                        paragraph.text = new_text
-                else:
-                    # Process rows after rincian
-                    for cell in row.cells:
+            # Insert rows for all rincian items
+            inserted_rows = []
+            for item_idx, item in enumerate(rincian_items):
+                item_data = {
+                    'rincian_no': item_idx + 1,
+                    'rincian_uraian': item.get('uraian', ''),
+                    'rincian_volume': item.get('volume', 1),
+                    'rincian_satuan': item.get('satuan', ''),
+                    'rincian_harga': item.get('harga_satuan', 0),
+                    'rincian_jumlah': item.get('jumlah', 0),
+                }
+                merged_data = {**data, **item_data}
+
+                if item_idx == 0:
+                    # Use existing template row for first item
+                    for cell in template_row.cells:
                         for paragraph in cell.paragraphs:
-                            self._process_paragraph(paragraph, data)
+                            self._process_paragraph(paragraph, merged_data)
+                else:
+                    # Create new row by copying XML
+                    new_tr = deepcopy(template_row_xml)
+                    # Insert after template row (or last inserted row)
+                    template_row_xml.addnext(new_tr)
+
+                    # Get the new row object
+                    new_row_idx = rincian_row_idx + item_idx
+                    new_row = table.rows[new_row_idx]
+
+                    # Fill in the data
+                    for cell_idx, cell in enumerate(new_row.cells):
+                        for para_idx, paragraph in enumerate(cell.paragraphs):
+                            if para_idx < len(template_cells_text[cell_idx]):
+                                src_text = template_cells_text[cell_idx][para_idx]
+                                new_text = self._replace_placeholder(src_text, merged_data)
+                                paragraph.text = new_text
+
+            # Process rows after rincian (need to recalculate indices)
+            rows_after_start = rincian_row_idx + len(rincian_items)
+            for idx in range(rows_after_start, len(table.rows)):
+                row = table.rows[idx]
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        self._process_paragraph(paragraph, data)
         else:
             # No rincian rows, process normally
             for row in table.rows:

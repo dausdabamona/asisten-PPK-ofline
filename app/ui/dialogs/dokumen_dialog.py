@@ -195,6 +195,55 @@ class DokumenGeneratorDialog(QDialog):
             total_layout.addWidget(self.total_label)
             rincian_layout.addLayout(total_layout)
 
+            # PPN Option
+            from PySide6.QtWidgets import QCheckBox
+            ppn_layout = QHBoxLayout()
+            ppn_layout.addStretch()
+            self.ppn_checkbox = QCheckBox("Tambah PPN 11%")
+            self.ppn_checkbox.stateChanged.connect(self._update_total)
+            ppn_layout.addWidget(self.ppn_checkbox)
+            self.ppn_label = QLabel("PPN: Rp 0")
+            self.ppn_label.setStyleSheet("color: #e74c3c;")
+            ppn_layout.addWidget(self.ppn_label)
+            rincian_layout.addLayout(ppn_layout)
+
+            # Grand Total with PPN
+            grand_total_layout = QHBoxLayout()
+            grand_total_layout.addStretch()
+            grand_total_layout.addWidget(QLabel("GRAND TOTAL:"))
+            self.grand_total_label = QLabel("Rp 0")
+            self.grand_total_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #27ae60;")
+            grand_total_layout.addWidget(self.grand_total_label)
+            rincian_layout.addLayout(grand_total_layout)
+
+            # Uang Muka Percentage Option (for LBR_REQ / Lembar Permintaan)
+            if self.kode_dokumen == 'LBR_REQ':
+                from PySide6.QtWidgets import QRadioButton, QButtonGroup
+                um_group_box = QGroupBox("Persentase Uang Muka Diterima")
+                um_layout = QHBoxLayout(um_group_box)
+
+                self.um_btn_group = QButtonGroup(self)
+                self.um_100 = QRadioButton("100%")
+                self.um_100.setChecked(True)
+                self.um_90 = QRadioButton("90%")
+                self.um_80 = QRadioButton("80%")
+
+                self.um_btn_group.addButton(self.um_100, 100)
+                self.um_btn_group.addButton(self.um_90, 90)
+                self.um_btn_group.addButton(self.um_80, 80)
+
+                um_layout.addWidget(self.um_100)
+                um_layout.addWidget(self.um_90)
+                um_layout.addWidget(self.um_80)
+                um_layout.addStretch()
+
+                self.um_nilai_label = QLabel("Nilai Diterima: Rp 0")
+                self.um_nilai_label.setStyleSheet("font-weight: bold; color: #3498db;")
+                um_layout.addWidget(self.um_nilai_label)
+
+                self.um_btn_group.buttonClicked.connect(self._update_total)
+                rincian_layout.addWidget(um_group_box)
+
             scroll_layout.addWidget(rincian_group)
 
         scroll_layout.addStretch()
@@ -382,10 +431,30 @@ class DokumenGeneratorDialog(QDialog):
 
         self._update_total()
 
-    def _update_total(self):
-        """Update total label."""
+    def _update_total(self, *args):
+        """Update total label with PPN and uang muka calculations."""
         total = sum(item['jumlah'] for item in self.rincian_items)
         self.total_label.setText(f"Rp {total:,.0f}".replace(",", "."))
+
+        # Calculate PPN if checkbox exists and is checked
+        ppn_nilai = 0
+        grand_total = total
+        if hasattr(self, 'ppn_checkbox') and self.ppn_checkbox.isChecked():
+            ppn_nilai = total * 0.11  # 11%
+            grand_total = total + ppn_nilai
+            self.ppn_label.setText(f"PPN: Rp {ppn_nilai:,.0f}".replace(",", "."))
+        elif hasattr(self, 'ppn_label'):
+            self.ppn_label.setText("PPN: Rp 0")
+
+        if hasattr(self, 'grand_total_label'):
+            self.grand_total_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
+
+        # Calculate uang muka percentage
+        if hasattr(self, 'um_btn_group'):
+            persen = self.um_btn_group.checkedId()
+            if persen > 0:
+                nilai_diterima = grand_total * persen / 100
+                self.um_nilai_label.setText(f"Nilai Diterima: Rp {nilai_diterima:,.0f}".replace(",", "."))
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
@@ -406,6 +475,18 @@ class DokumenGeneratorDialog(QDialog):
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
         }
+
+        # Add PPN percentage if checkbox exists and is checked
+        if hasattr(self, 'ppn_checkbox') and self.ppn_checkbox.isChecked():
+            data['ppn_persen'] = 11
+        else:
+            data['ppn_persen'] = 0
+
+        # Add uang muka percentage if option exists
+        if hasattr(self, 'um_btn_group'):
+            data['uang_muka_persen'] = self.um_btn_group.checkedId()
+        else:
+            data['uang_muka_persen'] = 100
 
         # Merge with transaksi data
         for key, value in self.transaksi.items():

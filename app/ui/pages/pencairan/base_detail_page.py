@@ -333,6 +333,64 @@ class BaseDetailPage(QWidget):
 
         layout.addWidget(dasar_frame)
 
+        # Document status checklist
+        status_frame = QFrame()
+        status_frame.setStyleSheet("""
+            QFrame {
+                background-color: #f8f9fa;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
+
+        status_layout = QVBoxLayout(status_frame)
+        status_layout.setSpacing(8)
+
+        status_title = QLabel("Status Kelengkapan Dokumen")
+        status_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50;")
+        status_layout.addWidget(status_title)
+
+        # Progress bar
+        self.doc_progress_frame = QFrame()
+        self.doc_progress_frame.setFixedHeight(8)
+        self.doc_progress_frame.setStyleSheet("background-color: #e0e0e0; border-radius: 4px;")
+        progress_layout = QHBoxLayout(self.doc_progress_frame)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(0)
+
+        self.doc_progress_bar = QFrame()
+        self.doc_progress_bar.setStyleSheet("background-color: #3498db; border-radius: 4px;")
+        progress_layout.addWidget(self.doc_progress_bar)
+        progress_layout.addStretch()
+
+        status_layout.addWidget(self.doc_progress_frame)
+
+        self.doc_progress_label = QLabel("0 / 0 dokumen (0%)")
+        self.doc_progress_label.setStyleSheet("font-size: 11px; color: #7f8c8d;")
+        status_layout.addWidget(self.doc_progress_label)
+
+        # Warning for missing docs
+        self.doc_warning_label = QLabel("")
+        self.doc_warning_label.setStyleSheet("""
+            font-size: 11px;
+            color: #e74c3c;
+            background-color: #fadbd8;
+            padding: 5px 8px;
+            border-radius: 3px;
+        """)
+        self.doc_warning_label.setWordWrap(True)
+        self.doc_warning_label.setVisible(False)
+        status_layout.addWidget(self.doc_warning_label)
+
+        # Missing document list
+        self.missing_docs_label = QLabel("")
+        self.missing_docs_label.setStyleSheet("font-size: 10px; color: #7f8c8d;")
+        self.missing_docs_label.setWordWrap(True)
+        self.missing_docs_label.setVisible(False)
+        status_layout.addWidget(self.missing_docs_label)
+
+        layout.addWidget(status_frame)
+
         layout.addStretch()
 
         return widget
@@ -574,6 +632,57 @@ class BaseDetailPage(QWidget):
         jenis_kegiatan = data.get('jenis_kegiatan', '')
         special_activities = ['PERJALANAN_DINAS', 'KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL']
         self.prepare_btn.setVisible(jenis_kegiatan in special_activities)
+
+        # Update document status checklist
+        self._update_document_status()
+
+    def _update_document_status(self):
+        """Update document completion status display."""
+        try:
+            from ...services.dokumen_generator import get_dokumen_generator
+
+            generator = get_dokumen_generator()
+            status = generator.get_completion_status(self._transaksi_data)
+            missing_docs = generator.get_missing_documents(self._transaksi_data)
+
+            # Update progress bar width
+            percentage = status.get('percentage', 0)
+            # Set minimum width to show some color
+            bar_width = max(int(percentage), 5) if status.get('uploaded', 0) > 0 else 0
+            self.doc_progress_bar.setFixedWidth(int(self.doc_progress_frame.width() * bar_width / 100))
+
+            # Update progress label
+            uploaded = status.get('uploaded', 0)
+            total = status.get('total', 0)
+            self.doc_progress_label.setText(f"{uploaded} / {total} dokumen ({percentage:.0f}%)")
+
+            # Update progress bar color based on completion
+            if status.get('is_complete', False):
+                self.doc_progress_bar.setStyleSheet("background-color: #27ae60; border-radius: 4px;")
+            elif percentage >= 50:
+                self.doc_progress_bar.setStyleSheet("background-color: #f39c12; border-radius: 4px;")
+            else:
+                self.doc_progress_bar.setStyleSheet("background-color: #3498db; border-radius: 4px;")
+
+            # Update warning
+            missing_count = status.get('missing', 0)
+            if missing_count > 0:
+                self.doc_warning_label.setText(f"Peringatan: {missing_count} dokumen wajib belum diupload!")
+                self.doc_warning_label.setVisible(True)
+
+                # Show missing document names
+                missing_names = [doc['nama'] for doc in missing_docs[:5]]  # Show max 5
+                if len(missing_docs) > 5:
+                    missing_names.append(f"... dan {len(missing_docs) - 5} lainnya")
+                self.missing_docs_label.setText("Dokumen: " + ", ".join(missing_names))
+                self.missing_docs_label.setVisible(True)
+            else:
+                self.doc_warning_label.setVisible(False)
+                self.missing_docs_label.setVisible(False)
+
+        except Exception as e:
+            print(f"Error updating document status: {e}")
+            self.doc_progress_label.setText("Tidak dapat memuat status")
 
     def set_dokumen_list(self, dokumen_list: List[Dict[str, Any]]):
         """Set document list for current fase."""

@@ -71,14 +71,6 @@ UP_WORKFLOW = {
             # Dokumen WAJIB untuk kegiatan yang memerlukan SK (KEPANITIAAN, JAMUAN_TAMU, RAPAT, LAINNYA)
             "dokumen_dengan_sk": [
                 {
-                    "kode": "ND_REQ",
-                    "nama": "Nota Dinas Permintaan",
-                    "kategori": "wajib",
-                    "template": "nota_dinas_pp.docx",
-                    "deskripsi": "Nota dinas permohonan uang muka kegiatan",
-                    "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "PERJALANAN_LOKAL", "LAINNYA"]
-                },
-                {
                     "kode": "SK_KPA",
                     "nama": "SK KPA / Surat Tugas",
                     "kategori": "wajib",

@@ -55,9 +55,16 @@ UP_WORKFLOW = {
                 {
                     "kode": "CHECKLIST",
                     "nama": "Checklist Kelengkapan Dokumen",
-                    "kategori": "wajib",
-                    "template": "checklist_up.docx",
-                    "deskripsi": "Checklist kelengkapan dokumen pencairan UP"
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Upload checklist kelengkapan dokumen pencairan UP"
+                },
+                {
+                    "kode": "SK_UPLOAD",
+                    "nama": "Upload SK (Opsional)",
+                    "kategori": "opsional",
+                    "template": None,
+                    "deskripsi": "Upload scan SK jika diperlukan"
                 },
             ],
 
@@ -621,9 +628,9 @@ LS_WORKFLOW = {
                 {
                     "kode": "CHECKLIST",
                     "nama": "Checklist Kelengkapan Dokumen",
-                    "kategori": "wajib",
-                    "template": "checklist_ls.docx",
-                    "deskripsi": "Checklist kelengkapan dokumen pencairan LS"
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Upload checklist kelengkapan dokumen pencairan LS"
                 },
             ],
 

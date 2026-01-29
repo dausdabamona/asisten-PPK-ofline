@@ -234,6 +234,124 @@ CREATE TABLE IF NOT EXISTS counter_transaksi (
 """
 
 # ============================================================================
+# MASTER DATA SCHEMAS
+# ============================================================================
+
+SCHEMA_MASTER_JENIS_BELANJA = """
+CREATE TABLE IF NOT EXISTS master_jenis_belanja (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kode TEXT UNIQUE NOT NULL,
+    nama TEXT NOT NULL,
+    icon TEXT DEFAULT 'box',
+    akun_default TEXT,
+    urutan INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+SCHEMA_MASTER_JENIS_KEGIATAN = """
+CREATE TABLE IF NOT EXISTS master_jenis_kegiatan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kode TEXT UNIQUE NOT NULL,
+    nama TEXT NOT NULL,
+    mekanisme TEXT DEFAULT 'UP',
+    urutan INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+SCHEMA_MASTER_CHECKLIST_ITEM = """
+CREATE TABLE IF NOT EXISTS master_checklist_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kode TEXT NOT NULL,
+    nama TEXT NOT NULL,
+    mekanisme TEXT NOT NULL,
+    jenis_kegiatan TEXT,
+    fase INTEGER DEFAULT 1,
+    urutan INTEGER DEFAULT 0,
+    is_required INTEGER DEFAULT 1,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_mekanisme ON master_checklist_item(mekanisme);
+CREATE INDEX IF NOT EXISTS idx_checklist_fase ON master_checklist_item(mekanisme, fase);
+"""
+
+# ============================================================================
+# SEED DATA
+# ============================================================================
+
+SEED_JENIS_BELANJA = """
+INSERT OR IGNORE INTO master_jenis_belanja (kode, nama, icon, akun_default, urutan) VALUES
+('honorarium', 'Honorarium', 'wallet', '5.2.1.01', 1),
+('jamuan', 'Jamuan Tamu / Konsumsi Rapat', 'utensils', '5.2.2.03', 2),
+('perdin', 'Perjalanan Dinas', 'plane', '5.2.4.01', 3),
+('pjlp', 'PJLP (Tenaga Kontrak)', 'users', '5.2.1.02', 4),
+('atk', 'Belanja ATK / Perlengkapan', 'shopping-cart', '5.2.2.01', 5),
+('lainnya', 'Belanja Lainnya', 'box', '5.2.2.99', 99);
+"""
+
+SEED_JENIS_KEGIATAN = """
+INSERT OR IGNORE INTO master_jenis_kegiatan (kode, nama, mekanisme, urutan) VALUES
+('OPERASIONAL', 'Belanja Operasional Kantor (< Rp 1 juta)', 'UP', 1),
+('KEPANITIAAN', 'Kegiatan Kepanitiaan', 'UP', 2),
+('JAMUAN_TAMU', 'Jamuan Tamu', 'UP', 3),
+('RAPAT', 'Rapat/Pertemuan/Workshop', 'UP', 4),
+('PERJALANAN_LOKAL', 'Perjalanan Lokal', 'UP', 5),
+('LAINNYA', 'Kegiatan Lainnya', 'UP', 99);
+"""
+
+SEED_CHECKLIST_ITEMS = """
+-- Checklist UP Fase 1 - Semua Jenis Kegiatan
+INSERT OR IGNORE INTO master_checklist_item (kode, nama, mekanisme, jenis_kegiatan, fase, urutan, is_required) VALUES
+('CHK_FORM_PERMINTAAN', 'Form permintaan sudah diisi lengkap', 'UP', NULL, 1, 1, 1),
+('CHK_ESTIMASI_BIAYA', 'Estimasi biaya sudah dihitung', 'UP', NULL, 1, 2, 1),
+('CHK_PAGU_TERSEDIA', 'Pagu anggaran tersedia', 'UP', NULL, 1, 3, 1),
+('CHK_KODE_AKUN', 'Kode akun belanja sesuai', 'UP', NULL, 1, 4, 1),
+
+-- Checklist UP Fase 1 - Khusus Non-Perjalanan Dinas
+('CHK_LBR_PERMINTAAN', 'Lembar permintaan sudah ditandatangani', 'UP', 'NON_PERDIN', 1, 10, 1),
+
+-- Checklist UP Fase 1 - Khusus Perjalanan Dinas
+('CHK_SURAT_TUGAS', 'Surat tugas sudah diterbitkan', 'UP', 'PERJALANAN_LOKAL', 1, 10, 1),
+('CHK_TUJUAN_JELAS', 'Tujuan perjalanan sudah jelas', 'UP', 'PERJALANAN_LOKAL', 1, 11, 1),
+('CHK_JADWAL_JELAS', 'Jadwal perjalanan sudah ditentukan', 'UP', 'PERJALANAN_LOKAL', 1, 12, 1),
+
+-- Checklist UP Fase 1 - Khusus Kepanitiaan
+('CHK_SK_PANITIA', 'SK Panitia sudah diterbitkan', 'UP', 'KEPANITIAAN', 1, 10, 1),
+('CHK_TOR_LENGKAP', 'TOR/KAK sudah lengkap', 'UP', 'KEPANITIAAN', 1, 11, 1),
+('CHK_RAB_DETAIL', 'RAB sudah detail dan sesuai SBM', 'UP', 'KEPANITIAAN', 1, 12, 1),
+
+-- Checklist UP Fase 3 - Pelaksanaan
+('CHK_FOTO_KEGIATAN', 'Dokumentasi foto kegiatan ada', 'UP', NULL, 3, 1, 1),
+('CHK_NOTA_FAKTUR', 'Nota/faktur pembelian lengkap', 'UP', NULL, 3, 2, 1),
+('CHK_KWITANSI', 'Kwitansi pembayaran ada', 'UP', NULL, 3, 3, 1),
+
+-- Checklist UP Fase 4 - Pertanggungjawaban
+('CHK_KUIT_RAMPUNG', 'Kuitansi rampung sudah dibuat', 'UP', NULL, 4, 1, 1),
+('CHK_HITUNG_SELISIH', 'Perhitungan selisih sudah benar', 'UP', NULL, 4, 2, 1),
+('CHK_BUKTI_LENGKAP', 'Bukti pengeluaran sudah lengkap', 'UP', NULL, 4, 3, 1),
+
+-- Checklist UP Fase 5 - Rekap & Arsip
+('CHK_REKAP_FINAL', 'Rekap final sudah dibuat', 'UP', NULL, 5, 1, 1),
+('CHK_SPBY_SAKTI', 'SPBY sudah diinput di SAKTI', 'UP', NULL, 5, 2, 1),
+('CHK_ARSIP_LENGKAP', 'Dokumen sudah diarsipkan', 'UP', NULL, 5, 3, 1),
+
+-- Checklist LS Fase 1 - Kontrak
+('CHK_SPK_LENGKAP', 'SPK/Kontrak sudah lengkap', 'LS', 'KONTRAK', 1, 1, 1),
+('CHK_JAMINAN_ADA', 'Jaminan pelaksanaan ada (jika diperlukan)', 'LS', 'KONTRAK', 1, 2, 0),
+('CHK_SPMK_TERBIT', 'SPMK sudah diterbitkan', 'LS', 'KONTRAK', 1, 3, 1),
+
+-- Checklist LS Fase 1 - Perjalanan Dinas
+('CHK_ST_LS', 'Surat Tugas sudah diterbitkan', 'LS', 'SURAT_TUGAS', 1, 1, 1),
+('CHK_SPD_LENGKAP', 'SPD sudah lengkap', 'LS', 'SURAT_TUGAS', 1, 2, 1),
+('CHK_RAB_SPPD', 'RAB perjalanan sudah sesuai SBM', 'LS', 'SURAT_TUGAS', 1, 3, 1);
+"""
+
+# ============================================================================
 # DATABASE MANAGER CLASS
 # ============================================================================
 
@@ -276,8 +394,18 @@ class PencairanManager:
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
 
+            # Create master data tables
+            cursor.executescript(SCHEMA_MASTER_JENIS_BELANJA)
+            cursor.executescript(SCHEMA_MASTER_JENIS_KEGIATAN)
+            cursor.executescript(SCHEMA_MASTER_CHECKLIST_ITEM)
+
             # Run migrations for existing databases
             self._run_migrations(conn)
+
+            # Seed master data (INSERT OR IGNORE - won't duplicate)
+            cursor.executescript(SEED_JENIS_BELANJA)
+            cursor.executescript(SEED_JENIS_KEGIATAN)
+            cursor.executescript(SEED_CHECKLIST_ITEMS)
 
             conn.commit()
 
@@ -306,6 +434,145 @@ class PencairanManager:
                 )
             except Exception:
                 pass
+
+    # ========================================================================
+    # MASTER DATA QUERIES
+    # ========================================================================
+
+    def get_jenis_belanja_list(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get list jenis belanja dari database."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            sql = "SELECT * FROM master_jenis_belanja"
+            if active_only:
+                sql += " WHERE is_active = 1"
+            sql += " ORDER BY urutan"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            if rows:
+                return [dict(row) for row in rows]
+            # Fallback ke konstanta jika tabel kosong
+            return JENIS_BELANJA
+
+    def get_jenis_kegiatan_list(self, mekanisme: str = "UP", active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get list jenis kegiatan dari database."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            sql = "SELECT * FROM master_jenis_kegiatan WHERE mekanisme = ?"
+            params = [mekanisme]
+            if active_only:
+                sql += " AND is_active = 1"
+            sql += " ORDER BY urutan"
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            if rows:
+                return [dict(row) for row in rows]
+            # Fallback ke konstanta jika tabel kosong
+            return JENIS_KEGIATAN_UP
+
+    def get_checklist_items(self, mekanisme: str, fase: int, jenis_kegiatan: str = None) -> List[Dict[str, Any]]:
+        """
+        Get checklist items untuk mekanisme, fase, dan jenis kegiatan tertentu.
+
+        Args:
+            mekanisme: UP, TUP, atau LS
+            fase: Nomor fase (1-5)
+            jenis_kegiatan: Kode jenis kegiatan (opsional)
+
+        Returns:
+            List checklist items yang sesuai
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get items yang berlaku untuk semua (jenis_kegiatan IS NULL)
+            # dan items khusus untuk jenis_kegiatan tertentu
+            sql = """
+                SELECT * FROM master_checklist_item
+                WHERE mekanisme = ? AND fase = ? AND is_active = 1
+                AND (jenis_kegiatan IS NULL OR jenis_kegiatan = ?)
+                ORDER BY urutan
+            """
+            cursor.execute(sql, (mekanisme, fase, jenis_kegiatan or ''))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def add_jenis_belanja(self, kode: str, nama: str, icon: str = 'box',
+                          akun_default: str = None, urutan: int = 0) -> int:
+        """Tambah jenis belanja baru."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO master_jenis_belanja (kode, nama, icon, akun_default, urutan)
+                VALUES (?, ?, ?, ?, ?)
+            """, (kode, nama, icon, akun_default, urutan))
+            conn.commit()
+            return cursor.lastrowid
+
+    def add_jenis_kegiatan(self, kode: str, nama: str, mekanisme: str = 'UP',
+                           urutan: int = 0) -> int:
+        """Tambah jenis kegiatan baru."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO master_jenis_kegiatan (kode, nama, mekanisme, urutan)
+                VALUES (?, ?, ?, ?)
+            """, (kode, nama, mekanisme, urutan))
+            conn.commit()
+            return cursor.lastrowid
+
+    def add_checklist_item(self, kode: str, nama: str, mekanisme: str,
+                           fase: int = 1, jenis_kegiatan: str = None,
+                           urutan: int = 0, is_required: bool = True) -> int:
+        """Tambah checklist item baru."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO master_checklist_item
+                (kode, nama, mekanisme, jenis_kegiatan, fase, urutan, is_required)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (kode, nama, mekanisme, jenis_kegiatan, fase, urutan, 1 if is_required else 0))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_master_item(self, table: str, item_id: int, **kwargs) -> bool:
+        """Update item di tabel master."""
+        allowed_tables = ['master_jenis_belanja', 'master_jenis_kegiatan', 'master_checklist_item']
+        if table not in allowed_tables:
+            return False
+
+        updates = []
+        values = []
+        for key, value in kwargs.items():
+            updates.append(f"{key} = ?")
+            values.append(value)
+
+        if not updates:
+            return False
+
+        values.append(item_id)
+        sql = f"UPDATE {table} SET {', '.join(updates)} WHERE id = ?"
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, values)
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_master_item(self, table: str, item_id: int, soft_delete: bool = True) -> bool:
+        """Delete item di tabel master (soft delete by default)."""
+        allowed_tables = ['master_jenis_belanja', 'master_jenis_kegiatan', 'master_checklist_item']
+        if table not in allowed_tables:
+            return False
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if soft_delete:
+                cursor.execute(f"UPDATE {table} SET is_active = 0 WHERE id = ?", (item_id,))
+            else:
+                cursor.execute(f"DELETE FROM {table} WHERE id = ?", (item_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
     # ========================================================================
     # TRANSAKSI PENCAIRAN CRUD

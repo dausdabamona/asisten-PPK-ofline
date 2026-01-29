@@ -312,7 +312,7 @@ class DokumenGeneratorDialog(QDialog):
             grand_total_layout.addWidget(self.grand_total_label)
             rincian_layout.addLayout(grand_total_layout)
 
-            # Perhitungan Tambah/Kurang Panel (for REKAP_BKT)
+            # Perhitungan Tambah/Kurang Panel (for REKAP_BKT) - Table Format
             if self.kode_dokumen == 'REKAP_BKT':
                 calc_group = QGroupBox("Perhitungan Tambah/Kurang")
                 calc_group.setStyleSheet("""
@@ -322,7 +322,7 @@ class DokumenGeneratorDialog(QDialog):
                         border: 2px solid #3498db;
                         border-radius: 8px;
                         margin-top: 15px;
-                        padding: 15px;
+                        padding: 10px;
                         background-color: #f8f9fa;
                     }
                     QGroupBox::title {
@@ -333,49 +333,81 @@ class DokumenGeneratorDialog(QDialog):
                         background-color: #f8f9fa;
                     }
                 """)
-                calc_layout = QGridLayout(calc_group)
-                calc_layout.setSpacing(12)
-                calc_layout.setContentsMargins(15, 20, 15, 15)
+                calc_layout = QVBoxLayout(calc_group)
+                calc_layout.setSpacing(10)
+                calc_layout.setContentsMargins(10, 15, 10, 10)
 
-                # Style for labels
-                label_style = "font-size: 13px; color: #2c3e50; padding: 5px;"
-                value_style = "font-weight: bold; font-size: 14px; color: #2c3e50; padding: 5px;"
+                # Create calculation table
+                self.calc_table = QTableWidget(3, 2)
+                self.calc_table.setHorizontalHeaderLabels(["Keterangan", "Nilai"])
+                self.calc_table.verticalHeader().setVisible(False)
+                self.calc_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+                self.calc_table.setSelectionMode(QAbstractItemView.NoSelection)
+                self.calc_table.setMaximumHeight(130)
 
-                # Uang Muka (from LBR_REQ)
-                lbl_um = QLabel("Uang Muka Diterima:")
-                lbl_um.setStyleSheet(label_style)
-                calc_layout.addWidget(lbl_um, 0, 0)
-                self.uang_muka_label = QLabel("Rp 0")
-                self.uang_muka_label.setStyleSheet(value_style + "color: #3498db;")
-                calc_layout.addWidget(self.uang_muka_label, 0, 1)
+                # Set column widths
+                self.calc_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+                self.calc_table.setColumnWidth(1, 180)
 
-                # Realisasi (current input)
-                lbl_real = QLabel("Total Realisasi:")
-                lbl_real.setStyleSheet(label_style)
-                calc_layout.addWidget(lbl_real, 1, 0)
-                self.realisasi_label = QLabel("Rp 0")
-                self.realisasi_label.setStyleSheet(value_style)
-                calc_layout.addWidget(self.realisasi_label, 1, 1)
+                # Row height
+                self.calc_table.verticalHeader().setDefaultSectionSize(38)
 
-                # Separator line
-                separator = QFrame()
-                separator.setFrameShape(QFrame.HLine)
-                separator.setStyleSheet("background-color: #bdc3c7; margin: 5px 0;")
-                calc_layout.addWidget(separator, 2, 0, 1, 2)
+                # Styling
+                self.calc_table.setStyleSheet("""
+                    QTableWidget {
+                        font-size: 13px;
+                        font-family: 'Segoe UI', Arial, sans-serif;
+                        border: 1px solid #c0c0c0;
+                        background-color: white;
+                    }
+                    QTableWidget::item {
+                        padding: 8px;
+                    }
+                    QHeaderView::section {
+                        background-color: #3498db;
+                        color: white;
+                        padding: 8px;
+                        font-weight: bold;
+                        font-size: 12px;
+                        border: none;
+                    }
+                """)
 
-                # Selisih
-                lbl_selisih = QLabel("Selisih:")
-                lbl_selisih.setStyleSheet(label_style + "font-weight: bold;")
-                calc_layout.addWidget(lbl_selisih, 3, 0)
-                self.selisih_label = QLabel("Rp 0")
-                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; padding: 5px;")
-                calc_layout.addWidget(self.selisih_label, 3, 1)
+                # Row 0: Uang Muka
+                um_label = QTableWidgetItem("Uang Muka Diterima")
+                um_label.setFont(QFont('Segoe UI', 11))
+                self.calc_table.setItem(0, 0, um_label)
+                self.uang_muka_item = QTableWidgetItem("Rp 0")
+                self.uang_muka_item.setFont(QFont('Segoe UI', 11, QFont.Bold))
+                self.uang_muka_item.setForeground(Qt.blue)
+                self.uang_muka_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.calc_table.setItem(0, 1, self.uang_muka_item)
+
+                # Row 1: Realisasi
+                real_label = QTableWidgetItem("Total Realisasi")
+                real_label.setFont(QFont('Segoe UI', 11))
+                self.calc_table.setItem(1, 0, real_label)
+                self.realisasi_item = QTableWidgetItem("Rp 0")
+                self.realisasi_item.setFont(QFont('Segoe UI', 11, QFont.Bold))
+                self.realisasi_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.calc_table.setItem(1, 1, self.realisasi_item)
+
+                # Row 2: Selisih
+                selisih_label = QTableWidgetItem("SELISIH")
+                selisih_label.setFont(QFont('Segoe UI', 11, QFont.Bold))
+                self.calc_table.setItem(2, 0, selisih_label)
+                self.selisih_item = QTableWidgetItem("Rp 0")
+                self.selisih_item.setFont(QFont('Segoe UI', 12, QFont.Bold))
+                self.selisih_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.calc_table.setItem(2, 1, self.selisih_item)
+
+                calc_layout.addWidget(self.calc_table)
 
                 # Status (Kurang Bayar / Lebih Bayar / Nihil)
                 self.status_calc_label = QLabel("")
-                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 8px; margin-top: 5px;")
+                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px; margin-top: 5px;")
                 self.status_calc_label.setAlignment(Qt.AlignCenter)
-                calc_layout.addWidget(self.status_calc_label, 4, 0, 1, 2)
+                calc_layout.addWidget(self.status_calc_label)
 
                 rincian_layout.addWidget(calc_group)
 
@@ -911,9 +943,12 @@ class DokumenGeneratorDialog(QDialog):
                 if summary:
                     self._uang_muka_nilai = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
 
-            if hasattr(self, 'uang_muka_label'):
+            # Update table item if using table format, otherwise update label
+            if hasattr(self, 'uang_muka_item'):
+                self.uang_muka_item.setText(f"Rp {self._uang_muka_nilai:,.0f}".replace(",", "."))
+            elif hasattr(self, 'uang_muka_label'):
                 self.uang_muka_label.setText(f"Rp {self._uang_muka_nilai:,.0f}".replace(",", "."))
-                print(f"Loaded uang_muka for calculation: {self._uang_muka_nilai}")
+            print(f"Loaded uang_muka for calculation: {self._uang_muka_nilai}")
 
         except Exception as e:
             self._uang_muka_nilai = 0
@@ -1120,33 +1155,50 @@ class DokumenGeneratorDialog(QDialog):
                 nilai_diterima = grand_total * persen / 100
                 self.um_nilai_label.setText(f"Nilai Diterima: Rp {nilai_diterima:,.0f}".replace(",", "."))
 
-        # Update calculation panel (for REKAP_BKT)
-        if hasattr(self, 'realisasi_label') and hasattr(self, 'selisih_label'):
+        # Update calculation panel (for REKAP_BKT) - supports both table and label formats
+        # Calculate selisih
+        uang_muka = getattr(self, '_uang_muka_nilai', 0) or 0
+        selisih = grand_total - uang_muka
+
+        # Update table items if using table format
+        if hasattr(self, 'realisasi_item') and hasattr(self, 'selisih_item'):
+            self.realisasi_item.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
+            self.selisih_item.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
+
+            # Color coding for selisih
+            if selisih > 0:
+                self.selisih_item.setForeground(Qt.red)
+            elif selisih < 0:
+                self.selisih_item.setForeground(Qt.darkGreen)
+            else:
+                self.selisih_item.setForeground(Qt.blue)
+
+        # Fallback to label format
+        elif hasattr(self, 'realisasi_label') and hasattr(self, 'selisih_label'):
             self.realisasi_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
-
-            # Calculate selisih
-            uang_muka = getattr(self, '_uang_muka_nilai', 0) or 0
-            selisih = grand_total - uang_muka
-
             self.selisih_label.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
 
-            # Styling constants
-            base_status_style = "font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px; margin-top: 5px;"
             base_selisih_style = "font-weight: bold; font-size: 16px; padding: 5px;"
+            if selisih > 0:
+                self.selisih_label.setStyleSheet(base_selisih_style + "color: #e74c3c;")
+            elif selisih < 0:
+                self.selisih_label.setStyleSheet(base_selisih_style + "color: #27ae60;")
+            else:
+                self.selisih_label.setStyleSheet(base_selisih_style + "color: #3498db;")
 
-            # Update status
+        # Update status label (common for both formats)
+        if hasattr(self, 'status_calc_label'):
+            base_status_style = "font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px; margin-top: 5px;"
+
             if selisih > 0:
                 self.status_calc_label.setText("⚠ KURANG BAYAR")
                 self.status_calc_label.setStyleSheet(base_status_style + "background-color: #e74c3c; color: white;")
-                self.selisih_label.setStyleSheet(base_selisih_style + "color: #e74c3c;")
             elif selisih < 0:
                 self.status_calc_label.setText("✓ LEBIH BAYAR (Kembali ke Kas)")
                 self.status_calc_label.setStyleSheet(base_status_style + "background-color: #27ae60; color: white;")
-                self.selisih_label.setStyleSheet(base_selisih_style + "color: #27ae60;")
             else:
                 self.status_calc_label.setText("✓ NIHIL")
                 self.status_calc_label.setStyleSheet(base_status_style + "background-color: #3498db; color: white;")
-                self.selisih_label.setStyleSheet(base_selisih_style + "color: #3498db;")
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""

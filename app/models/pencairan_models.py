@@ -233,6 +233,27 @@ CREATE TABLE IF NOT EXISTS counter_transaksi (
 );
 """
 
+SCHEMA_RINCIAN_TRANSAKSI = """
+CREATE TABLE IF NOT EXISTS rincian_transaksi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_id INTEGER NOT NULL,
+    nama_item TEXT NOT NULL,
+    satuan TEXT DEFAULT 'unit',
+    volume REAL DEFAULT 1,
+    harga_satuan REAL DEFAULT 0,
+    jumlah REAL DEFAULT 0,
+    keterangan TEXT,
+    urutan INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (transaksi_id) REFERENCES transaksi_pencairan(id) ON DELETE CASCADE
+);
+
+-- Index untuk lookup
+CREATE INDEX IF NOT EXISTS idx_rincian_transaksi ON rincian_transaksi(transaksi_id);
+"""
+
 # ============================================================================
 # MASTER DATA SCHEMAS
 # ============================================================================
@@ -393,6 +414,7 @@ class PencairanManager:
             cursor.executescript(SCHEMA_FASE_LOG)
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
+            cursor.executescript(SCHEMA_RINCIAN_TRANSAKSI)
 
             # Create master data tables
             cursor.executescript(SCHEMA_MASTER_JENIS_BELANJA)
@@ -573,6 +595,154 @@ class PencairanManager:
                 cursor.execute(f"DELETE FROM {table} WHERE id = ?", (item_id,))
             conn.commit()
             return cursor.rowcount > 0
+
+    # ========================================================================
+    # RINCIAN TRANSAKSI CRUD
+    # ========================================================================
+
+    def get_rincian_transaksi(self, transaksi_id: int) -> List[Dict[str, Any]]:
+        """
+        Get semua rincian barang/jasa untuk transaksi.
+
+        Args:
+            transaksi_id: ID transaksi
+
+        Returns:
+            List rincian items
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM rincian_transaksi
+                WHERE transaksi_id = ?
+                ORDER BY urutan, id
+            """, (transaksi_id,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def add_rincian_item(self, transaksi_id: int, nama_item: str, satuan: str = 'unit',
+                         volume: float = 1, harga_satuan: float = 0, keterangan: str = None,
+                         urutan: int = 0) -> int:
+        """
+        Tambah item rincian barang/jasa.
+
+        Returns:
+            ID item yang baru ditambahkan
+        """
+        jumlah = volume * harga_satuan
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO rincian_transaksi
+                (transaksi_id, nama_item, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (transaksi_id, nama_item, satuan, volume, harga_satuan, jumlah, keterangan, urutan))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_rincian_item(self, item_id: int, **kwargs) -> bool:
+        """
+        Update item rincian.
+
+        Args:
+            item_id: ID item
+            **kwargs: Fields to update (nama_item, satuan, volume, harga_satuan, keterangan, urutan)
+
+        Returns:
+            True jika berhasil
+        """
+        allowed_fields = ['nama_item', 'satuan', 'volume', 'harga_satuan', 'keterangan', 'urutan']
+        updates = []
+        values = []
+
+        for key, value in kwargs.items():
+            if key in allowed_fields:
+                updates.append(f"{key} = ?")
+                values.append(value)
+
+        if not updates:
+            return False
+
+        # Recalculate jumlah if volume or harga_satuan changed
+        if 'volume' in kwargs or 'harga_satuan' in kwargs:
+            updates.append("jumlah = volume * harga_satuan")
+
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(item_id)
+
+        sql = f"UPDATE rincian_transaksi SET {', '.join(updates)} WHERE id = ?"
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, values)
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_rincian_item(self, item_id: int) -> bool:
+        """Delete item rincian."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM rincian_transaksi WHERE id = ?", (item_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_total_rincian(self, transaksi_id: int) -> float:
+        """
+        Get total jumlah dari semua rincian transaksi.
+
+        Args:
+            transaksi_id: ID transaksi
+
+        Returns:
+            Total jumlah
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COALESCE(SUM(jumlah), 0) as total
+                FROM rincian_transaksi
+                WHERE transaksi_id = ?
+            """, (transaksi_id,))
+            row = cursor.fetchone()
+            return row['total'] if row else 0
+
+    def save_rincian_batch(self, transaksi_id: int, items: List[Dict]) -> bool:
+        """
+        Simpan batch rincian (hapus semua lalu insert baru).
+
+        Args:
+            transaksi_id: ID transaksi
+            items: List of dicts dengan keys: nama_item, satuan, volume, harga_satuan, keterangan
+
+        Returns:
+            True jika berhasil
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Delete existing items
+            cursor.execute("DELETE FROM rincian_transaksi WHERE transaksi_id = ?", (transaksi_id,))
+
+            # Insert new items
+            for idx, item in enumerate(items):
+                jumlah = item.get('volume', 1) * item.get('harga_satuan', 0)
+                cursor.execute("""
+                    INSERT INTO rincian_transaksi
+                    (transaksi_id, nama_item, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    transaksi_id,
+                    item.get('nama_item', ''),
+                    item.get('satuan', 'unit'),
+                    item.get('volume', 1),
+                    item.get('harga_satuan', 0),
+                    jumlah,
+                    item.get('keterangan'),
+                    idx
+                ))
+
+            conn.commit()
+            return True
 
     # ========================================================================
     # TRANSAKSI PENCAIRAN CRUD

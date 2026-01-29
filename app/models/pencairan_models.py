@@ -40,6 +40,16 @@ JENIS_BELANJA = [
     {"kode": "lainnya", "nama": "Belanja Lainnya", "icon": "box", "akun_default": "5.2.2.99"},
 ]
 
+# Jenis Kegiatan untuk UP workflow (menentukan dokumen kondisional)
+JENIS_KEGIATAN_UP = [
+    {"kode": "OPERASIONAL", "nama": "Belanja Operasional Kantor (< Rp 1 juta)"},
+    {"kode": "KEPANITIAAN", "nama": "Kegiatan Kepanitiaan"},
+    {"kode": "JAMUAN_TAMU", "nama": "Jamuan Tamu"},
+    {"kode": "RAPAT", "nama": "Rapat/Pertemuan/Workshop"},
+    {"kode": "PERJALANAN_LOKAL", "nama": "Perjalanan Lokal"},
+    {"kode": "LAINNYA", "nama": "Kegiatan Lainnya"},
+]
+
 # ============================================================================
 # ENUM CLASSES
 # ============================================================================
@@ -99,13 +109,17 @@ CREATE TABLE IF NOT EXISTS transaksi_pencairan (
     tanggal_dasar DATE,
     perihal_dasar TEXT,
 
-    -- Penerima (untuk UP/TUP)
+    -- Penerima (untuk UP/TUP) - normalized with FK
+    penerima_id INTEGER,
     penerima_nama TEXT,
     penerima_nip TEXT,
     penerima_jabatan TEXT,
     penerima_npwp TEXT,
     penerima_rekening TEXT,
     penerima_bank TEXT,
+
+    -- Jenis Kegiatan (untuk UP workflow)
+    jenis_kegiatan TEXT,
 
     -- Penyedia (untuk LS)
     penyedia_id INTEGER,
@@ -138,6 +152,7 @@ CREATE TABLE IF NOT EXISTS transaksi_pencairan (
     created_by TEXT,
     updated_by TEXT,
 
+    FOREIGN KEY (penerima_id) REFERENCES pegawai(id),
     FOREIGN KEY (penyedia_id) REFERENCES penyedia(id)
 );
 
@@ -146,6 +161,8 @@ CREATE INDEX IF NOT EXISTS idx_transaksi_mekanisme ON transaksi_pencairan(mekani
 CREATE INDEX IF NOT EXISTS idx_transaksi_status ON transaksi_pencairan(status);
 CREATE INDEX IF NOT EXISTS idx_transaksi_tahun ON transaksi_pencairan(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_transaksi_jenis ON transaksi_pencairan(jenis_belanja);
+CREATE INDEX IF NOT EXISTS idx_transaksi_penerima ON transaksi_pencairan(penerima_id);
+CREATE INDEX IF NOT EXISTS idx_transaksi_jenis_kegiatan ON transaksi_pencairan(jenis_kegiatan);
 """
 
 SCHEMA_DOKUMEN_TRANSAKSI = """
@@ -335,8 +352,9 @@ class PencairanManager:
                     estimasi_biaya, uang_muka, realisasi,
                     fase_aktif, status,
                     jenis_dasar, nomor_dasar, tanggal_dasar, perihal_dasar,
-                    penerima_nama, penerima_nip, penerima_jabatan,
+                    penerima_id, penerima_nama, penerima_nip, penerima_jabatan,
                     penerima_npwp, penerima_rekening, penerima_bank,
+                    jenis_kegiatan,
                     penyedia_id, nilai_kontrak, nomor_kontrak, tanggal_kontrak,
                     kode_akun, nama_akun, nomor_mak,
                     tahun_anggaran,
@@ -347,8 +365,9 @@ class PencairanManager:
                     ?, ?, ?,
                     ?, ?,
                     ?, ?, ?, ?,
+                    ?, ?, ?, ?,
                     ?, ?, ?,
-                    ?, ?, ?,
+                    ?,
                     ?, ?, ?, ?,
                     ?, ?, ?,
                     ?,
@@ -369,12 +388,14 @@ class PencairanManager:
                 data.get('nomor_dasar'),
                 data.get('tanggal_dasar'),
                 data.get('perihal_dasar'),
+                data.get('penerima_id'),
                 data.get('penerima_nama'),
                 data.get('penerima_nip'),
                 data.get('penerima_jabatan'),
                 data.get('penerima_npwp'),
                 data.get('penerima_rekening'),
                 data.get('penerima_bank'),
+                data.get('jenis_kegiatan'),
                 data.get('penyedia_id'),
                 data.get('nilai_kontrak'),
                 data.get('nomor_kontrak'),
@@ -413,11 +434,20 @@ class PencairanManager:
             cursor.execute("""
                 SELECT
                     t.*,
+                    -- Penerima: prioritaskan dari pegawai jika ada penerima_id
+                    COALESCE(peg.nama, t.penerima_nama) as penerima_nama,
+                    COALESCE(peg.nip, t.penerima_nip) as penerima_nip,
+                    COALESCE(peg.jabatan, t.penerima_jabatan) as penerima_jabatan,
+                    COALESCE(peg.npwp, t.penerima_npwp) as penerima_npwp,
+                    COALESCE(peg.no_rekening, t.penerima_rekening) as penerima_rekening,
+                    COALESCE(peg.nama_bank, t.penerima_bank) as penerima_bank,
+                    -- Penyedia
                     p.nama as penyedia_nama,
                     p.alamat as penyedia_alamat,
                     p.npwp as penyedia_npwp,
                     (t.realisasi - t.uang_muka) as selisih
                 FROM transaksi_pencairan t
+                LEFT JOIN pegawai peg ON t.penerima_id = peg.id
                 LEFT JOIN penyedia p ON t.penyedia_id = p.id
                 WHERE t.id = ?
             """, (transaksi_id,))
@@ -434,9 +464,15 @@ class PencairanManager:
             cursor.execute("""
                 SELECT
                     t.*,
+                    -- Penerima: prioritaskan dari pegawai jika ada penerima_id
+                    COALESCE(peg.nama, t.penerima_nama) as penerima_nama,
+                    COALESCE(peg.nip, t.penerima_nip) as penerima_nip,
+                    COALESCE(peg.jabatan, t.penerima_jabatan) as penerima_jabatan,
+                    -- Penyedia
                     p.nama as penyedia_nama,
                     (t.realisasi - t.uang_muka) as selisih
                 FROM transaksi_pencairan t
+                LEFT JOIN pegawai peg ON t.penerima_id = peg.id
                 LEFT JOIN penyedia p ON t.penyedia_id = p.id
                 WHERE t.kode_transaksi = ?
             """, (kode,))
@@ -462,8 +498,9 @@ class PencairanManager:
             'jenis_belanja', 'nama_kegiatan',
             'estimasi_biaya', 'uang_muka', 'realisasi',
             'jenis_dasar', 'nomor_dasar', 'tanggal_dasar', 'perihal_dasar',
-            'penerima_nama', 'penerima_nip', 'penerima_jabatan',
+            'penerima_id', 'penerima_nama', 'penerima_nip', 'penerima_jabatan',
             'penerima_npwp', 'penerima_rekening', 'penerima_bank',
+            'jenis_kegiatan',
             'penyedia_id', 'nilai_kontrak', 'nomor_kontrak', 'tanggal_kontrak',
             'kode_akun', 'nama_akun', 'nomor_mak',
             'tanggal_kegiatan_mulai', 'tanggal_kegiatan_selesai',
@@ -618,9 +655,14 @@ class PencairanManager:
             cursor.execute(f"""
                 SELECT
                     t.*,
+                    -- Penerima: prioritaskan dari pegawai jika ada penerima_id
+                    COALESCE(peg.nama, t.penerima_nama) as penerima_nama,
+                    COALESCE(peg.nip, t.penerima_nip) as penerima_nip,
+                    -- Penyedia
                     p.nama as penyedia_nama,
                     (t.realisasi - t.uang_muka) as selisih
                 FROM transaksi_pencairan t
+                LEFT JOIN pegawai peg ON t.penerima_id = peg.id
                 LEFT JOIN penyedia p ON t.penyedia_id = p.id
                 WHERE {where_clause}
                 ORDER BY t.created_at DESC

@@ -53,6 +53,13 @@ UP_WORKFLOW = {
             # Dokumen WAJIB untuk SEMUA jenis kegiatan
             "dokumen": [
                 {
+                    "kode": "CHECKLIST",
+                    "nama": "Checklist Kelengkapan Dokumen",
+                    "kategori": "wajib",
+                    "template": "checklist_up.docx",
+                    "deskripsi": "Checklist kelengkapan dokumen pencairan UP"
+                },
+                {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
@@ -338,18 +345,11 @@ UP_WORKFLOW = {
         },
 
         5: {
-            "nama": "SPBY & Penyelesaian",
-            "deskripsi": "Pembuatan SPBY dan arsip dokumen final",
+            "nama": "Rekap & Arsip",
+            "deskripsi": "Rekap final dan arsip dokumen (SPBY diinput via SAKTI)",
             "icon": "check-circle",
             "color": "#27ae60",
             "dokumen": [
-                {
-                    "kode": "SPBY",
-                    "nama": "Surat Pernyataan Tanggung Jawab Belanja",
-                    "kategori": "wajib",
-                    "template": "spby.docx",
-                    "deskripsi": "SPBY untuk pertanggungjawaban belanja"
-                },
                 {
                     "kode": "REKAP_FINAL",
                     "nama": "Rekap Final Transaksi",
@@ -359,14 +359,14 @@ UP_WORKFLOW = {
                 },
             ],
             "aksi_tambahan": [
-                "Upload ke SAKTI/Aplikasi Keuangan",
+                "Input SPBY di SAKTI",
                 "Arsip ke folder tahun berjalan",
                 "Update sisa UP tersedia",
             ],
             "validasi": [
-                {"field": "dokumen_spby", "rule": "required", "message": "SPBY wajib dibuat"},
-                {"field": "dokumen_spby", "rule": "signed", "message": "SPBY wajib sudah ditandatangani"},
+                {"field": "dokumen_rekap_final", "rule": "required", "message": "Rekap final wajib dibuat"},
             ],
+            "catatan": "SPBY diinput langsung di aplikasi SAKTI, bukan di aplikasi ini",
             "next_condition": "Transaksi selesai dan semua dokumen diarsipkan"
         }
     }
@@ -1145,7 +1145,7 @@ NAMA_FASE = {
         2: "Pencairan UM",
         3: "Pelaksanaan",
         4: "Pertanggungjawaban",
-        5: "SPBY & Selesai"
+        5: "Rekap & Arsip"
     },
     "TUP": {
         1: "Pengajuan TUP",

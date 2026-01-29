@@ -68,6 +68,11 @@ class RincianKalkulasiWidget(QFrame):
     """
     Widget untuk input rincian barang/jasa dan kalkulasi otomatis.
 
+    Modes:
+        - editable (default): Full edit, add, delete - untuk Lembar Permintaan
+        - inline_edit: Edit volume/harga di tabel - untuk Kuitansi Rampung
+        - readonly: Hanya tampil, tidak bisa edit - untuk Kuitansi Uang Muka
+
     Signals:
         total_changed(float): Emitted when total changes
         items_changed(): Emitted when items are modified
@@ -76,14 +81,21 @@ class RincianKalkulasiWidget(QFrame):
     total_changed = Signal(float)
     items_changed = Signal()
 
-    def __init__(self, title: str = "Rincian Barang/Jasa", parent=None):
+    def __init__(self, title: str = "Rincian Barang/Jasa", editable: bool = True,
+                 inline_edit: bool = False, parent=None):
         super().__init__(parent)
         self._title = title
         self._items: List[Dict[str, Any]] = []
         self._total = 0.0
+        self._editable = editable
+        self._inline_edit = inline_edit
 
         self._setup_ui()
         self._add_shadow()
+
+        # Apply mode
+        if not editable:
+            self.set_readonly(True)
 
     def _setup_ui(self):
         """Setup widget UI."""
@@ -494,3 +506,145 @@ class RincianKalkulasiWidget(QFrame):
             'total_terbilang': self.get_terbilang(),
             'jumlah_item': len(self._items),
         }
+
+    def set_readonly(self, readonly: bool = True):
+        """Set widget to readonly mode (for Kuitansi Uang Muka)."""
+        self._editable = not readonly
+
+        # Hide add button and input form
+        if hasattr(self, 'input_frame'):
+            self.input_frame.hide()
+
+        # Find and hide add/delete buttons
+        for child in self.findChildren(QPushButton):
+            if "Tambah" in child.text() or "Hapus" in child.text():
+                child.setVisible(not readonly)
+
+        # Disable table editing
+        if readonly:
+            self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        else:
+            self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
+
+    def set_inline_edit(self, enabled: bool = True):
+        """
+        Enable inline editing mode (for Kuitansi Rampung).
+        Allows editing volume and harga_satuan directly in table.
+        """
+        self._inline_edit = enabled
+
+        if enabled:
+            # Hide add button and form
+            if hasattr(self, 'input_frame'):
+                self.input_frame.hide()
+            for child in self.findChildren(QPushButton):
+                if "Tambah Item" in child.text():
+                    child.hide()
+
+            # Enable cell editing
+            self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
+            self.table.cellChanged.connect(self._on_cell_changed)
+        else:
+            self.table.cellChanged.disconnect(self._on_cell_changed)
+
+    def _on_cell_changed(self, row: int, col: int):
+        """Handle cell value changed for inline editing."""
+        if not self._inline_edit or row >= len(self._items):
+            return
+
+        try:
+            # Only allow editing volume (col 2) and harga_satuan (col 4)
+            if col == 2:  # Volume
+                new_volume = int(self.table.item(row, col).text())
+                self._items[row]['volume'] = new_volume
+            elif col == 4:  # Harga satuan
+                # Parse rupiah format
+                text = self.table.item(row, col).text()
+                text = text.replace("Rp", "").replace(".", "").replace(",", "").strip()
+                new_harga = float(text) if text else 0
+                self._items[row]['harga_satuan'] = new_harga
+
+            # Recalculate jumlah
+            volume = self._items[row]['volume']
+            harga = self._items[row]['harga_satuan']
+            jumlah = volume * harga
+            self._items[row]['jumlah'] = jumlah
+
+            # Update jumlah column
+            self.table.blockSignals(True)
+            self.table.setItem(row, 5, QTableWidgetItem(format_rupiah(jumlah)))
+            self.table.item(row, 5).setTextAlignment(Qt.AlignCenter)
+            self.table.blockSignals(False)
+
+            # Update total
+            self._update_total()
+            self.items_changed.emit()
+
+        except (ValueError, AttributeError):
+            pass
+
+    def load_from_db(self, db_manager, transaksi_id: int):
+        """
+        Load rincian items from database.
+
+        Args:
+            db_manager: PencairanManager instance
+            transaksi_id: ID transaksi
+        """
+        try:
+            items = db_manager.get_rincian_transaksi(transaksi_id)
+            # Convert db format to widget format
+            widget_items = []
+            for item in items:
+                widget_items.append({
+                    'uraian': item.get('nama_item', ''),
+                    'volume': item.get('volume', 1),
+                    'satuan': item.get('satuan', 'unit'),
+                    'harga_satuan': item.get('harga_satuan', 0),
+                    'jumlah': item.get('jumlah', 0),
+                    'keterangan': item.get('keterangan', ''),
+                    'db_id': item.get('id'),  # Keep track of DB id
+                })
+            self.set_items(widget_items)
+        except Exception as e:
+            print(f"Error loading rincian from db: {e}")
+
+    def save_to_db(self, db_manager, transaksi_id: int) -> bool:
+        """
+        Save rincian items to database.
+
+        Args:
+            db_manager: PencairanManager instance
+            transaksi_id: ID transaksi
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Convert widget format to db format
+            db_items = []
+            for item in self._items:
+                db_items.append({
+                    'nama_item': item.get('uraian', ''),
+                    'satuan': item.get('satuan', 'unit'),
+                    'volume': item.get('volume', 1),
+                    'harga_satuan': item.get('harga_satuan', 0),
+                    'keterangan': item.get('keterangan', ''),
+                })
+            return db_manager.save_rincian_batch(transaksi_id, db_items)
+        except Exception as e:
+            print(f"Error saving rincian to db: {e}")
+            return False
+
+    def get_items_for_db(self) -> List[Dict[str, Any]]:
+        """Get items formatted for database save."""
+        return [
+            {
+                'nama_item': item.get('uraian', ''),
+                'satuan': item.get('satuan', 'unit'),
+                'volume': item.get('volume', 1),
+                'harga_satuan': item.get('harga_satuan', 0),
+                'keterangan': item.get('keterangan', ''),
+            }
+            for item in self._items
+        ]

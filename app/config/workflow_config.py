@@ -318,10 +318,8 @@ UP_WORKFLOW = {
                     "kode": "REKAP_BKT",
                     "nama": "Rekap Bukti Pengeluaran",
                     "kategori": "wajib",
-                    "template": "rekap_bukti_pengeluaran.xlsx",
-                    "deskripsi": "Rekap seluruh bukti pengeluaran",
-                    "action": "prepare",
-                    "dialog": "RekapBuktiPengeluaranDialog"
+                    "template": "rekap_bukti_pengeluaran.docx",
+                    "deskripsi": "Rekap seluruh bukti pengeluaran"
                 },
                 {
                     "kode": "KUIT_RAMP",

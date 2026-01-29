@@ -285,42 +285,64 @@ class DokumenGeneratorDialog(QDialog):
                 calc_group.setStyleSheet("""
                     QGroupBox {
                         font-weight: bold;
+                        font-size: 14px;
                         border: 2px solid #3498db;
-                        border-radius: 5px;
-                        margin-top: 10px;
-                        padding-top: 10px;
+                        border-radius: 8px;
+                        margin-top: 15px;
+                        padding: 15px;
+                        background-color: #f8f9fa;
                     }
                     QGroupBox::title {
                         subcontrol-origin: margin;
-                        left: 10px;
-                        padding: 0 5px;
+                        left: 15px;
+                        padding: 0 10px;
+                        color: #2c3e50;
+                        background-color: #f8f9fa;
                     }
                 """)
                 calc_layout = QGridLayout(calc_group)
-                calc_layout.setSpacing(5)
+                calc_layout.setSpacing(12)
+                calc_layout.setContentsMargins(15, 20, 15, 15)
+
+                # Style for labels
+                label_style = "font-size: 13px; color: #2c3e50; padding: 5px;"
+                value_style = "font-weight: bold; font-size: 14px; color: #2c3e50; padding: 5px;"
 
                 # Uang Muka (from LBR_REQ)
-                calc_layout.addWidget(QLabel("Uang Muka Diterima:"), 0, 0)
+                lbl_um = QLabel("Uang Muka Diterima:")
+                lbl_um.setStyleSheet(label_style)
+                calc_layout.addWidget(lbl_um, 0, 0)
                 self.uang_muka_label = QLabel("Rp 0")
-                self.uang_muka_label.setStyleSheet("font-weight: bold;")
+                self.uang_muka_label.setStyleSheet(value_style + "color: #3498db;")
                 calc_layout.addWidget(self.uang_muka_label, 0, 1)
 
                 # Realisasi (current input)
-                calc_layout.addWidget(QLabel("Total Realisasi:"), 1, 0)
+                lbl_real = QLabel("Total Realisasi:")
+                lbl_real.setStyleSheet(label_style)
+                calc_layout.addWidget(lbl_real, 1, 0)
                 self.realisasi_label = QLabel("Rp 0")
-                self.realisasi_label.setStyleSheet("font-weight: bold;")
+                self.realisasi_label.setStyleSheet(value_style)
                 calc_layout.addWidget(self.realisasi_label, 1, 1)
 
+                # Separator line
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setStyleSheet("background-color: #bdc3c7; margin: 5px 0;")
+                calc_layout.addWidget(separator, 2, 0, 1, 2)
+
                 # Selisih
-                calc_layout.addWidget(QLabel("Selisih:"), 2, 0)
+                lbl_selisih = QLabel("Selisih:")
+                lbl_selisih.setStyleSheet(label_style + "font-weight: bold;")
+                calc_layout.addWidget(lbl_selisih, 3, 0)
                 self.selisih_label = QLabel("Rp 0")
-                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-                calc_layout.addWidget(self.selisih_label, 2, 1)
+                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; padding: 5px;")
+                calc_layout.addWidget(self.selisih_label, 3, 1)
 
                 # Status (Kurang Bayar / Lebih Bayar / Nihil)
                 self.status_calc_label = QLabel("")
-                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
-                calc_layout.addWidget(self.status_calc_label, 3, 0, 1, 2)
+                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 8px; margin-top: 5px;")
+                self.status_calc_label.setAlignment(Qt.AlignCenter)
+                calc_layout.addWidget(self.status_calc_label, 4, 0, 1, 2)
 
                 rincian_layout.addWidget(calc_group)
 
@@ -489,46 +511,53 @@ class DokumenGeneratorDialog(QDialog):
                 border: 2px solid #2c3e50;
                 border-radius: 8px;
                 margin-top: 15px;
-                padding: 15px;
+                padding: 20px;
+                background-color: #f8f9fa;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 10px;
                 color: #2c3e50;
+                background-color: #f8f9fa;
             }
         """)
         summary_layout = QGridLayout(summary_group)
-        summary_layout.setSpacing(10)
+        summary_layout.setSpacing(12)
+        summary_layout.setContentsMargins(20, 25, 20, 20)
+
+        # Style for labels
+        label_style = "font-size: 14px; color: #2c3e50; padding: 8px 5px;"
+        value_style = "font-weight: bold; font-size: 15px; padding: 8px 5px;"
 
         # Uang Muka Diterima
         lbl_um = QLabel("Uang Muka Diterima:")
-        lbl_um.setStyleSheet("font-size: 13px;")
+        lbl_um.setStyleSheet(label_style)
         summary_layout.addWidget(lbl_um, 0, 0)
         self.kr_uang_muka_label = QLabel(f"Rp {self._kr_uang_muka:,.0f}".replace(",", "."))
-        self.kr_uang_muka_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.kr_uang_muka_label.setStyleSheet(value_style + "color: #3498db;")
         summary_layout.addWidget(self.kr_uang_muka_label, 0, 1)
 
         # Total Realisasi
         lbl_real = QLabel("Total Realisasi Belanja:")
-        lbl_real.setStyleSheet("font-size: 13px;")
+        lbl_real.setStyleSheet(label_style)
         summary_layout.addWidget(lbl_real, 1, 0)
         self.kr_realisasi_label = QLabel(f"Rp {self._kr_realisasi:,.0f}".replace(",", "."))
-        self.kr_realisasi_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.kr_realisasi_label.setStyleSheet(value_style + "color: #2c3e50;")
         summary_layout.addWidget(self.kr_realisasi_label, 1, 1)
 
         # Separator line
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
-        separator.setStyleSheet("background-color: #bdc3c7;")
+        separator.setStyleSheet("background-color: #bdc3c7; margin: 8px 0;")
         summary_layout.addWidget(separator, 2, 0, 1, 2)
 
         # Selisih
         lbl_selisih = QLabel("Selisih:")
-        lbl_selisih.setStyleSheet("font-size: 13px;")
+        lbl_selisih.setStyleSheet(label_style + "font-weight: bold;")
         summary_layout.addWidget(lbl_selisih, 3, 0)
         self.kr_selisih_label = QLabel(f"Rp {abs(self._kr_selisih):,.0f}".replace(",", "."))
-        self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 18px; padding: 8px 5px;")
         summary_layout.addWidget(self.kr_selisih_label, 3, 1)
 
         # Status Badge
@@ -546,28 +575,34 @@ class DokumenGeneratorDialog(QDialog):
         klausul_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
+                font-size: 14px;
                 border: 2px solid #27ae60;
                 border-radius: 8px;
-                margin-top: 10px;
-                padding: 10px;
+                margin-top: 15px;
+                padding: 15px;
+                background-color: #f8f9fa;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 10px;
                 color: #27ae60;
+                background-color: #f8f9fa;
             }
         """)
         klausul_layout = QVBoxLayout(klausul_group)
+        klausul_layout.setContentsMargins(15, 20, 15, 15)
 
         self.kr_klausul_text = QTextEdit()
-        self.kr_klausul_text.setMaximumHeight(100)
+        self.kr_klausul_text.setMaximumHeight(120)
         self.kr_klausul_text.setStyleSheet("""
             QTextEdit {
                 border: 1px solid #bdc3c7;
                 border-radius: 5px;
-                padding: 8px;
-                font-size: 12px;
+                padding: 12px;
+                font-size: 13px;
+                line-height: 1.5;
+                background-color: white;
             }
         """)
 
@@ -624,27 +659,21 @@ class DokumenGeneratorDialog(QDialog):
 
     def _update_kuitansi_rampung_status(self):
         """Update status label styling for Kuitansi Rampung."""
+        base_status_style = "font-weight: bold; font-size: 16px; padding: 12px 25px; margin-top: 10px; border-radius: 8px;"
+        base_selisih_style = "font-weight: bold; font-size: 18px; padding: 8px 5px;"
+
         if self._kr_status == 'KURANG_BAYAR':
-            self.kr_status_label.setText("KURANG BAYAR")
-            self.kr_status_label.setStyleSheet("""
-                font-weight: bold; font-size: 16px; padding: 10px 20px;
-                background-color: #e74c3c; color: white; border-radius: 5px;
-            """)
-            self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #e74c3c;")
+            self.kr_status_label.setText("⚠ KURANG BAYAR")
+            self.kr_status_label.setStyleSheet(base_status_style + "background-color: #e74c3c; color: white;")
+            self.kr_selisih_label.setStyleSheet(base_selisih_style + "color: #e74c3c;")
         elif self._kr_status == 'LEBIH_BAYAR':
-            self.kr_status_label.setText("LEBIH BAYAR (Dikembalikan ke Kas)")
-            self.kr_status_label.setStyleSheet("""
-                font-weight: bold; font-size: 16px; padding: 10px 20px;
-                background-color: #27ae60; color: white; border-radius: 5px;
-            """)
-            self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #27ae60;")
+            self.kr_status_label.setText("✓ LEBIH BAYAR (Dikembalikan ke Kas)")
+            self.kr_status_label.setStyleSheet(base_status_style + "background-color: #27ae60; color: white;")
+            self.kr_selisih_label.setStyleSheet(base_selisih_style + "color: #27ae60;")
         else:
-            self.kr_status_label.setText("NIHIL (Pas)")
-            self.kr_status_label.setStyleSheet("""
-                font-weight: bold; font-size: 16px; padding: 10px 20px;
-                background-color: #3498db; color: white; border-radius: 5px;
-            """)
-            self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #3498db;")
+            self.kr_status_label.setText("✓ NIHIL (Pas)")
+            self.kr_status_label.setStyleSheet(base_status_style + "background-color: #3498db; color: white;")
+            self.kr_selisih_label.setStyleSheet(base_selisih_style + "color: #3498db;")
 
     def _generate_klausul_text(self):
         """Generate klausul text based on calculation status."""
@@ -949,28 +978,23 @@ class DokumenGeneratorDialog(QDialog):
 
             self.selisih_label.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
 
+            # Styling constants
+            base_status_style = "font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px; margin-top: 5px;"
+            base_selisih_style = "font-weight: bold; font-size: 16px; padding: 5px;"
+
             # Update status
             if selisih > 0:
-                self.status_calc_label.setText("KURANG BAYAR")
-                self.status_calc_label.setStyleSheet(
-                    "font-weight: bold; font-size: 14px; padding: 5px; "
-                    "background-color: #e74c3c; color: white; border-radius: 3px;"
-                )
-                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #e74c3c;")
+                self.status_calc_label.setText("⚠ KURANG BAYAR")
+                self.status_calc_label.setStyleSheet(base_status_style + "background-color: #e74c3c; color: white;")
+                self.selisih_label.setStyleSheet(base_selisih_style + "color: #e74c3c;")
             elif selisih < 0:
-                self.status_calc_label.setText("LEBIH BAYAR (Kembali ke Kas)")
-                self.status_calc_label.setStyleSheet(
-                    "font-weight: bold; font-size: 14px; padding: 5px; "
-                    "background-color: #27ae60; color: white; border-radius: 3px;"
-                )
-                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+                self.status_calc_label.setText("✓ LEBIH BAYAR (Kembali ke Kas)")
+                self.status_calc_label.setStyleSheet(base_status_style + "background-color: #27ae60; color: white;")
+                self.selisih_label.setStyleSheet(base_selisih_style + "color: #27ae60;")
             else:
-                self.status_calc_label.setText("NIHIL")
-                self.status_calc_label.setStyleSheet(
-                    "font-weight: bold; font-size: 14px; padding: 5px; "
-                    "background-color: #3498db; color: white; border-radius: 3px;"
-                )
-                self.selisih_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #3498db;")
+                self.status_calc_label.setText("✓ NIHIL")
+                self.status_calc_label.setStyleSheet(base_status_style + "background-color: #3498db; color: white;")
+                self.selisih_label.setStyleSheet(base_selisih_style + "color: #3498db;")
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""

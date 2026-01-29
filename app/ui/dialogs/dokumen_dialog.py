@@ -222,34 +222,35 @@ class DokumenGeneratorDialog(QDialog):
             self.rincian_table.verticalHeader().setDefaultSectionSize(38)
             self.rincian_table.verticalHeader().setVisible(False)
 
-            # Table styling - larger font for better editing
+            # Table styling - simple and readable
             self.rincian_table.setStyleSheet("""
                 QTableWidget {
                     font-size: 13px;
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                    gridline-color: #d0d0d0;
-                    border: 1px solid #b0b0b0;
                     background-color: white;
+                    color: #000000;
+                    gridline-color: #c0c0c0;
                 }
                 QTableWidget::item {
-                    padding: 8px 6px;
-                    border-bottom: 1px solid #e0e0e0;
+                    color: #000000;
+                    padding: 5px;
                 }
                 QTableWidget::item:selected {
-                    background-color: #3498db;
-                    color: white;
+                    background-color: #cce5ff;
+                    color: #000000;
                 }
-                QTableWidget::item:focus {
-                    background-color: #fff9c4;
-                    color: #333;
+                QTableWidget QLineEdit {
+                    background-color: white;
+                    color: #000000;
+                    font-size: 13px;
+                    padding: 2px;
+                    border: 1px solid #3498db;
                 }
                 QHeaderView::section {
-                    background-color: #e8e8e8;
-                    padding: 8px 6px;
-                    font-size: 12px;
+                    background-color: #3498db;
+                    color: white;
+                    padding: 6px;
                     font-weight: bold;
-                    border: 1px solid #c0c0c0;
-                    color: #333;
+                    border: 1px solid #2980b9;
                 }
             """)
 

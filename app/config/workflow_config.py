@@ -43,6 +43,18 @@ UP_WORKFLOW = {
         "LAINNYA": "Kegiatan Lainnya",
     },
 
+    # Jenis Pertanggungjawaban untuk checklist dokumen
+    # Lihat app/config/checklist_config.py untuk detail dokumen per jenis
+    "jenis_pertanggungjawaban_categories": [
+        "HONORARIUM",           # Berbagai jenis honorarium
+        "PERJALANAN_DINAS",     # Dalam negeri, luar negeri, transport lokal
+        "LEMBUR",               # Uang lembur
+        "SEWA_KONSUMSI",        # Sewa kendaraan, gedung, konsumsi
+        "PENGADAAN",            # Barang, konstruksi, jasa konsultan
+        "OPERASIONAL",          # Langganan, BBM, pemeliharaan
+        "BANTUAN_PEMERINTAH",   # Bantuan bentuk barang/uang
+    ],
+
     "fase": {
         1: {
             "nama": "Inisiasi & SK",

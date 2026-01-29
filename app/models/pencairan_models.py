@@ -276,7 +276,36 @@ class PencairanManager:
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
 
+            # Run migrations for existing databases
+            self._run_migrations(conn)
+
             conn.commit()
+
+    def _run_migrations(self, conn):
+        """Run database migrations for existing databases."""
+        cursor = conn.cursor()
+
+        # Check existing columns in transaksi_pencairan
+        cursor.execute("PRAGMA table_info(transaksi_pencairan)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        # Migration: Add penerima_id column if not exists
+        if 'penerima_id' not in columns:
+            try:
+                cursor.execute(
+                    "ALTER TABLE transaksi_pencairan ADD COLUMN penerima_id INTEGER REFERENCES pegawai(id)"
+                )
+            except Exception:
+                pass
+
+        # Migration: Add jenis_kegiatan column if not exists
+        if 'jenis_kegiatan' not in columns:
+            try:
+                cursor.execute(
+                    "ALTER TABLE transaksi_pencairan ADD COLUMN jenis_kegiatan TEXT"
+                )
+            except Exception:
+                pass
 
     # ========================================================================
     # TRANSAKSI PENCAIRAN CRUD

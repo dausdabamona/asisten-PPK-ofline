@@ -12,6 +12,35 @@ Mekanisme Pencairan Dana:
 from typing import Dict, List, Any, Optional
 
 # ============================================================================
+# JENIS BELANJA MAPPING (menentukan dokumen dasar di Fase 1)
+# ============================================================================
+# Mapping dari kode jenis_belanja ke dokumen yang diperlukan:
+# - perdin (Perjalanan Dinas) → Upload Surat Tugas
+# - honorarium, jamuan (Kegiatan) → Upload SK
+# - atk, pjlp, lainnya (Belanja Barang/Operasional) → Lembar Permintaan
+
+JENIS_BELANJA_DOKUMEN_MAP = {
+    # Perjalanan Dinas → Upload Surat Tugas
+    "perdin": "SURAT_TUGAS",
+
+    # Kegiatan (dengan SK) → Upload SK
+    "honorarium": "SK_UPLOAD",
+    "jamuan": "SK_UPLOAD",
+
+    # Belanja Barang/Operasional → Lembar Permintaan
+    "atk": "LBR_REQ",
+    "pjlp": "LBR_REQ",
+    "lainnya": "LBR_REQ",
+}
+
+# Grouping untuk filter dokumen
+JENIS_BELANJA_GROUPS = {
+    "PERJALANAN_DINAS": ["perdin"],
+    "KEGIATAN": ["honorarium", "jamuan"],
+    "BELANJA_BARANG": ["atk", "pjlp", "lainnya"],
+}
+
+# ============================================================================
 # JENIS KEGIATAN CONFIGURATION
 # ============================================================================
 
@@ -104,67 +133,69 @@ UP_WORKFLOW = {
                     "deskripsi": "Checklist kelengkapan dokumen pencairan UP",
                     "untuk_semua": True,
                 },
-                # SK Upload - Opsional untuk semua
+
+                # ========================================
+                # DOKUMEN BERDASARKAN JENIS BELANJA
+                # ========================================
+
+                # Upload SK - Untuk jenis belanja KEGIATAN (honorarium, jamuan)
                 {
                     "kode": "SK_UPLOAD",
-                    "nama": "Upload SK (Opsional)",
+                    "nama": "Upload SK Kegiatan",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Upload scan SK jika diperlukan",
-                    "untuk_semua": True,
+                    "deskripsi": "Upload scan SK Panitia/SK Kegiatan",
+                    "jenis_belanja": ["honorarium", "jamuan"],
                 },
-                # Lembar Permintaan - Untuk NON perjalanan dinas
-                {
-                    "kode": "LBR_REQ",
-                    "nama": "Lembar Permintaan",
-                    "kategori": "wajib",
-                    "template": "lembar_permintaan.docx",
-                    "deskripsi": "Lembar permintaan pencairan dana",
-                    "jenis_kegiatan": ["OPERASIONAL", "KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "LAINNYA"],
-                },
-                # Surat Tugas - Untuk perjalanan dinas
+                # Upload Surat Tugas - Untuk jenis belanja PERJALANAN_DINAS (perdin)
                 {
                     "kode": "SURAT_TUGAS",
                     "nama": "Upload Surat Tugas",
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Upload scan Surat Tugas perjalanan dinas",
-                    "jenis_kegiatan": ["PERJALANAN_DINAS"],
+                    "jenis_belanja": ["perdin"],
                 },
-                # TOR/KAK - Untuk kepanitiaan
+                # Lembar Permintaan - Untuk jenis belanja BARANG/OPERASIONAL (atk, pjlp, lainnya)
+                {
+                    "kode": "LBR_REQ",
+                    "nama": "Lembar Permintaan",
+                    "kategori": "wajib",
+                    "template": "lembar_permintaan.docx",
+                    "deskripsi": "Lembar permintaan pencairan dana dengan rincian barang/jasa",
+                    "jenis_belanja": ["atk", "pjlp", "lainnya"],
+                },
+
+                # ========================================
+                # DOKUMEN TAMBAHAN BERDASARKAN JENIS KEGIATAN
+                # ========================================
+
+                # TOR/KAK - Untuk kegiatan dengan SK (honorarium, jamuan)
                 {
                     "kode": "TOR",
                     "nama": "TOR/KAK",
                     "kategori": "wajib",
                     "template": "kak.docx",
                     "deskripsi": "Terms of Reference / Kerangka Acuan Kerja",
-                    "jenis_kegiatan": ["KEPANITIAAN"],
+                    "jenis_belanja": ["honorarium", "jamuan"],
                 },
-                # RAB - Untuk kepanitiaan dan rapat (opsional untuk rapat)
+                # RAB - Untuk kegiatan dengan SK
                 {
                     "kode": "RAB",
                     "nama": "Rencana Anggaran Biaya",
                     "kategori": "wajib",
                     "template": "rab_swakelola.xlsx",
                     "deskripsi": "Rincian estimasi biaya kegiatan",
-                    "jenis_kegiatan": ["KEPANITIAAN"],
+                    "jenis_belanja": ["honorarium", "jamuan"],
                 },
-                {
-                    "kode": "RAB",
-                    "nama": "Rencana Anggaran Biaya",
-                    "kategori": "opsional",
-                    "template": "rab_swakelola.xlsx",
-                    "deskripsi": "Rincian estimasi biaya rapat (jika diperlukan)",
-                    "jenis_kegiatan": ["RAPAT"],
-                },
-                # Undangan - Untuk jamuan tamu dan rapat
+                # Undangan - Untuk kegiatan dengan SK
                 {
                     "kode": "UNDANGAN",
                     "nama": "Undangan",
-                    "kategori": "wajib",
+                    "kategori": "opsional",
                     "template": "undangan_pl.docx",
-                    "deskripsi": "Surat undangan",
-                    "jenis_kegiatan": ["JAMUAN_TAMU", "RAPAT"],
+                    "deskripsi": "Surat undangan (jika diperlukan)",
+                    "jenis_belanja": ["honorarium", "jamuan"],
                 },
             ],
 
@@ -960,15 +991,16 @@ def get_fase_config(mekanisme: str, fase: int) -> Optional[Dict[str, Any]]:
     return None
 
 
-def get_dokumen_list(mekanisme: str, fase: int, jenis_kegiatan: str = None, jenis_dasar: str = None) -> List[Dict[str, Any]]:
+def get_dokumen_list(mekanisme: str, fase: int, jenis_kegiatan: str = None, jenis_dasar: str = None, jenis_belanja: str = None) -> List[Dict[str, Any]]:
     """
-    Get daftar dokumen untuk fase tertentu, difilter berdasarkan jenis kegiatan/dasar.
+    Get daftar dokumen untuk fase tertentu, difilter berdasarkan jenis kegiatan/dasar/belanja.
 
     Args:
         mekanisme: UP, TUP, atau LS
         fase: Nomor fase (1-5)
-        jenis_kegiatan: Untuk UP (OPERASIONAL, KEPANITIAAN, dll)
+        jenis_kegiatan: Untuk UP (OPERASIONAL, KEPANITIAAN, dll) - legacy
         jenis_dasar: Untuk LS (KONTRAK atau PERJALANAN_DINAS)
+        jenis_belanja: Jenis belanja (PERJALANAN_DINAS, KEGIATAN, BELANJA_BARANG, OPERASIONAL, LAINNYA)
 
     Returns:
         List dokumen yang sesuai
@@ -986,7 +1018,13 @@ def get_dokumen_list(mekanisme: str, fase: int, jenis_kegiatan: str = None, jeni
             filtered_docs.append(doc)
             continue
 
-        # Filter berdasarkan jenis_kegiatan (untuk UP)
+        # Filter berdasarkan jenis_belanja (prioritas utama untuk Fase 1)
+        if jenis_belanja and "jenis_belanja" in doc:
+            if jenis_belanja in doc["jenis_belanja"]:
+                filtered_docs.append(doc)
+            continue
+
+        # Filter berdasarkan jenis_kegiatan (untuk UP - legacy)
         if jenis_kegiatan and "jenis_kegiatan" in doc:
             if jenis_kegiatan in doc["jenis_kegiatan"]:
                 filtered_docs.append(doc)
@@ -999,13 +1037,13 @@ def get_dokumen_list(mekanisme: str, fase: int, jenis_kegiatan: str = None, jeni
             continue
 
         # Dokumen tanpa filter khusus (untuk TUP atau dokumen umum)
-        if "jenis_kegiatan" not in doc and "jenis_dasar" not in doc:
+        if "jenis_kegiatan" not in doc and "jenis_dasar" not in doc and "jenis_belanja" not in doc:
             filtered_docs.append(doc)
 
     return filtered_docs
 
 
-def get_all_dokumen(mekanisme: str, jenis_kegiatan: str = None, jenis_dasar: str = None) -> List[Dict[str, Any]]:
+def get_all_dokumen(mekanisme: str, jenis_kegiatan: str = None, jenis_dasar: str = None, jenis_belanja: str = None) -> List[Dict[str, Any]]:
     """
     Get semua dokumen untuk mekanisme tertentu.
 
@@ -1018,7 +1056,7 @@ def get_all_dokumen(mekanisme: str, jenis_kegiatan: str = None, jenis_dasar: str
 
     dokumen_list = []
     for fase_num in workflow.get("fase", {}).keys():
-        docs = get_dokumen_list(mekanisme, fase_num, jenis_kegiatan, jenis_dasar)
+        docs = get_dokumen_list(mekanisme, fase_num, jenis_kegiatan, jenis_dasar, jenis_belanja)
         for dok in docs:
             dok_copy = dok.copy()
             dok_copy["fase"] = fase_num
@@ -1026,6 +1064,11 @@ def get_all_dokumen(mekanisme: str, jenis_kegiatan: str = None, jenis_dasar: str
             dokumen_list.append(dok_copy)
 
     return dokumen_list
+
+
+def get_jenis_belanja_options() -> Dict[str, Dict]:
+    """Get opsi jenis belanja."""
+    return JENIS_BELANJA
 
 
 def get_jenis_kegiatan_options(mekanisme: str) -> Dict[str, Dict]:

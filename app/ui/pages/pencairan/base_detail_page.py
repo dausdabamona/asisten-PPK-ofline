@@ -437,7 +437,18 @@ class BaseDetailPage(QWidget):
         # Get dokumen list from config
         from ....config.workflow_config import get_dokumen_list, get_nama_fase
 
-        dokumen_list = get_dokumen_list(self.MEKANISME, fase)
+        # Get jenis_belanja from transaksi data for filtering Fase 1 documents
+        jenis_belanja = self._transaksi_data.get('jenis_belanja')
+        jenis_kegiatan = self._transaksi_data.get('jenis_kegiatan')
+        jenis_dasar = self._transaksi_data.get('jenis_dasar')
+
+        dokumen_list = get_dokumen_list(
+            self.MEKANISME,
+            fase,
+            jenis_kegiatan=jenis_kegiatan,
+            jenis_dasar=jenis_dasar,
+            jenis_belanja=jenis_belanja
+        )
         nama_fase = get_nama_fase(self.MEKANISME, fase)
 
         # Convert to format expected by checklist

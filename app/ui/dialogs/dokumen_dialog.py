@@ -340,6 +340,17 @@ class DokumenGeneratorDialog(QDialog):
             # Uang Muka Percentage Option (for KUIT_UM / Kuitansi Uang Muka)
             if self.kode_dokumen == 'KUIT_UM':
                 from PySide6.QtWidgets import QRadioButton, QButtonGroup
+
+                # Nomor Tanda Terima (auto-generated)
+                nomor_tt_group = QGroupBox("Nomor Tanda Terima Uang Muka")
+                nomor_tt_layout = QHBoxLayout(nomor_tt_group)
+                self._generate_nomor_tanda_terima()
+                self.nomor_tt_label = QLabel(self._nomor_tanda_terima)
+                self.nomor_tt_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60; padding: 5px;")
+                nomor_tt_layout.addWidget(self.nomor_tt_label)
+                nomor_tt_layout.addStretch()
+                rincian_layout.addWidget(nomor_tt_group)
+
                 um_group_box = QGroupBox("Persentase Uang Muka Diterima")
                 um_layout = QHBoxLayout(um_group_box)
 
@@ -806,6 +817,27 @@ class DokumenGeneratorDialog(QDialog):
         except Exception as e:
             print(f"Error loading rincian from database: {e}")
 
+    def _generate_nomor_tanda_terima(self):
+        """Generate nomor tanda terima uang muka."""
+        try:
+            from app.services.dokumen_generator import get_dokumen_generator
+            generator = get_dokumen_generator()
+
+            if self.kode_dokumen == 'KUIT_UM':
+                self._nomor_tanda_terima = generator.generate_nomor_tanda_terima('UM')
+            elif self.kode_dokumen == 'KUIT_RAMP':
+                self._nomor_tanda_terima = generator.generate_nomor_tanda_terima('RAMP')
+            else:
+                self._nomor_tanda_terima = ""
+
+            print(f"Generated nomor tanda terima: {self._nomor_tanda_terima}")
+
+        except Exception as e:
+            print(f"Error generating nomor tanda terima: {e}")
+            from datetime import datetime
+            now = datetime.now()
+            self._nomor_tanda_terima = f"001/TT-UM/{now.year}"
+
     def _load_uang_muka_for_calc(self):
         """Load uang muka value for REKAP_BKT calculation panel."""
         try:
@@ -1015,6 +1047,10 @@ class DokumenGeneratorDialog(QDialog):
             data['uang_muka_persen'] = self.um_btn_group.checkedId()
         else:
             data['uang_muka_persen'] = 100
+
+        # Add nomor tanda terima if generated (for KUIT_UM)
+        if hasattr(self, '_nomor_tanda_terima') and self._nomor_tanda_terima:
+            data['nomor_tanda_terima'] = self._nomor_tanda_terima
 
         # Add Kuitansi Rampung specific data
         if self.kode_dokumen == 'KUIT_RAMP':

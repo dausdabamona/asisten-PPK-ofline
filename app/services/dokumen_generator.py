@@ -180,6 +180,64 @@ class DokumenGenerator:
         nomor = f"{counter:03d}-{kode_dokumen}/{bulan:02d}/{tahun}"
         return nomor
 
+    def generate_nomor_tanda_terima(self, jenis: str = "UM", tahun: int = None) -> str:
+        """
+        Generate nomor tanda terima uang muka auto-increment.
+        Format: NNN/TT-UM/YYYY (e.g., 001/TT-UM/2026)
+
+        Args:
+            jenis: Jenis tanda terima (UM = Uang Muka, RAMP = Rampung)
+            tahun: Tahun (default: tahun sekarang)
+
+        Returns:
+            Nomor tanda terima yang sudah diformat
+        """
+        from datetime import datetime
+
+        now = datetime.now()
+        tahun = tahun or now.year
+
+        # Use doc_counter with special prefix for tanda terima
+        doc_type = f"TT_{jenis}"
+
+        try:
+            from app.core.database_v4 import get_db_manager_v4
+            db = get_db_manager_v4()
+
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    SELECT counter FROM doc_counter
+                    WHERE doc_type = ? AND tahun = ?
+                """, (doc_type, tahun))
+
+                row = cursor.fetchone()
+
+                if row:
+                    counter = row[0] + 1
+                    cursor.execute("""
+                        UPDATE doc_counter
+                        SET counter = ?, last_updated = CURRENT_TIMESTAMP
+                        WHERE doc_type = ? AND tahun = ?
+                    """, (counter, doc_type, tahun))
+                else:
+                    counter = 1
+                    cursor.execute("""
+                        INSERT INTO doc_counter (doc_type, tahun, counter)
+                        VALUES (?, ?, ?)
+                    """, (doc_type, tahun, counter))
+
+                conn.commit()
+
+        except Exception as e:
+            print(f"Error generating nomor tanda terima: {e}")
+            counter = 1
+
+        # Format: NNN/TT-UM/YYYY or NNN/TT-RAMP/YYYY
+        nomor = f"{counter:03d}/TT-{jenis}/{tahun}"
+        return nomor
+
     def _sanitize_folder_name(self, name: str) -> str:
         """Sanitize folder name - remove invalid characters."""
         if not name:
@@ -660,6 +718,12 @@ class DokumenGenerator:
         # Add nomor_dokumen auto-generated
         if not data.get('nomor_dokumen'):
             data['nomor_dokumen'] = self.generate_nomor_dokumen(kode_dokumen)
+
+        # Add nomor_tanda_terima for kuitansi documents
+        if kode_dokumen == 'KUIT_UM' and not data.get('nomor_tanda_terima'):
+            data['nomor_tanda_terima'] = self.generate_nomor_tanda_terima('UM')
+        elif kode_dokumen == 'KUIT_RAMP' and not data.get('nomor_tanda_terima'):
+            data['nomor_tanda_terima'] = self.generate_nomor_tanda_terima('RAMP')
 
         # Add tanggal_dokumen formatted
         tanggal_dokumen_raw = data.get('tanggal_dokumen') or datetime.now().strftime("%Y-%m-%d")

@@ -18,6 +18,9 @@ from PySide6.QtGui import QFont
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
+# Import RincianKalkulasiWidget
+from app.ui.components.rincian_kalkulasi_widget import RincianKalkulasiWidget
+
 
 class DokumenGeneratorDialog(QDialog):
     """Dialog untuk generate dokumen dari template."""
@@ -27,7 +30,8 @@ class DokumenGeneratorDialog(QDialog):
     def __init__(self, transaksi: Dict[str, Any], kode_dokumen: str,
                  template_name: str, nama_dokumen: str = None,
                  satker: Dict[str, Any] = None,
-                 additional_data: Dict[str, Any] = None, parent=None):
+                 additional_data: Dict[str, Any] = None,
+                 db_manager=None, parent=None):
         super().__init__(parent)
         self.transaksi = transaksi
         self.kode_dokumen = kode_dokumen
@@ -36,6 +40,7 @@ class DokumenGeneratorDialog(QDialog):
         self.satker = satker or {}
         self.additional_data = additional_data or {}
         self.rincian_items = self.additional_data.get('rincian_items', [])
+        self.db_manager = db_manager  # For saving rincian to database
         self.generated_path = None
 
         self._setup_ui()
@@ -136,63 +141,38 @@ class DokumenGeneratorDialog(QDialog):
 
         scroll_layout.addWidget(data_group)
 
-        # Rincian group (for Kuitansi)
-        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'LBR_REQ']:
-            rincian_group = QGroupBox("Rincian Barang/Jasa (Opsional)")
-            rincian_layout = QVBoxLayout(rincian_group)
+        # Rincian widget (for LBR_REQ, KUIT_UM, KUIT_RAMP)
+        self.rincian_widget = None
+        if self.kode_dokumen in ['LBR_REQ', 'KUIT_UM', 'KUIT_RAMP']:
+            # Determine mode based on document type
+            if self.kode_dokumen == 'LBR_REQ':
+                # Full editable mode for Lembar Permintaan
+                self.rincian_widget = RincianKalkulasiWidget(
+                    title="Rincian Barang/Jasa",
+                    editable=True,
+                    inline_edit=False
+                )
+            elif self.kode_dokumen == 'KUIT_UM':
+                # Readonly mode for Kuitansi Uang Muka - shows items from LBR_REQ
+                self.rincian_widget = RincianKalkulasiWidget(
+                    title="Rincian Barang/Jasa (dari Lembar Permintaan)",
+                    editable=False,
+                    inline_edit=False
+                )
+                self.rincian_widget.set_readonly(True)
+            elif self.kode_dokumen == 'KUIT_RAMP':
+                # Inline edit mode for Kuitansi Rampung
+                self.rincian_widget = RincianKalkulasiWidget(
+                    title="Rincian Barang/Jasa (edit volume/harga)",
+                    editable=True,
+                    inline_edit=True
+                )
+                self.rincian_widget.set_inline_edit(True)
 
-            # Add item form
-            add_layout = QHBoxLayout()
-            self.uraian_edit = QLineEdit()
-            self.uraian_edit.setPlaceholderText("Uraian barang/jasa")
-            add_layout.addWidget(self.uraian_edit, 3)
+            # Connect total_changed signal to update estimasi
+            self.rincian_widget.total_changed.connect(self._on_rincian_total_changed)
 
-            self.volume_spin = QSpinBox()
-            self.volume_spin.setRange(1, 9999)
-            self.volume_spin.setValue(1)
-            add_layout.addWidget(self.volume_spin)
-
-            self.satuan_combo = QComboBox()
-            self.satuan_combo.setEditable(True)
-            self.satuan_combo.addItems(["paket", "unit", "buah", "lembar", "orang", "set"])
-            add_layout.addWidget(self.satuan_combo)
-
-            self.harga_spin = QDoubleSpinBox()
-            self.harga_spin.setRange(0, 999999999)
-            self.harga_spin.setDecimals(0)
-            self.harga_spin.setPrefix("Rp ")
-            add_layout.addWidget(self.harga_spin)
-
-            add_btn = QPushButton("+ Tambah")
-            add_btn.clicked.connect(self._add_rincian_item)
-            add_layout.addWidget(add_btn)
-
-            rincian_layout.addLayout(add_layout)
-
-            # Table
-            self.rincian_table = QTableWidget()
-            self.rincian_table.setColumnCount(5)
-            self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga", "Jumlah"])
-            self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-            self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-            self.rincian_table.setMinimumHeight(150)
-            rincian_layout.addWidget(self.rincian_table)
-
-            # Delete button
-            del_btn = QPushButton("Hapus Terpilih")
-            del_btn.clicked.connect(self._delete_rincian_item)
-            rincian_layout.addWidget(del_btn)
-
-            # Total
-            total_layout = QHBoxLayout()
-            total_layout.addStretch()
-            total_layout.addWidget(QLabel("TOTAL:"))
-            self.total_label = QLabel("Rp 0")
-            self.total_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            total_layout.addWidget(self.total_label)
-            rincian_layout.addLayout(total_layout)
-
-            scroll_layout.addWidget(rincian_group)
+            scroll_layout.addWidget(self.rincian_widget)
 
         scroll_layout.addStretch()
         scroll.setWidget(scroll_widget)
@@ -247,77 +227,24 @@ class DokumenGeneratorDialog(QDialog):
 
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
-        # Load rincian items if provided
-        if self.rincian_items and hasattr(self, 'rincian_table'):
-            for item in self.rincian_items:
-                row = self.rincian_table.rowCount()
-                self.rincian_table.insertRow(row)
+        # For KUIT_UM and KUIT_RAMP, load rincian from database
+        if self.rincian_widget and self.db_manager and self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP']:
+            transaksi_id = self.transaksi.get('id')
+            if transaksi_id:
+                try:
+                    self.rincian_widget.load_from_db(self.db_manager, transaksi_id)
+                    return
+                except Exception as e:
+                    print(f"Warning: Gagal memuat rincian dari database: {e}")
 
-                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
-                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(item.get('volume', 1))))
-                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
-                harga = item.get('harga_satuan', 0)
-                jumlah = item.get('jumlah', 0)
-                self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-                self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+        # Load rincian items into widget if provided (fallback or for LBR_REQ)
+        if self.rincian_items and self.rincian_widget:
+            self.rincian_widget.set_items(self.rincian_items)
 
-            self._update_total()
-
-    def _add_rincian_item(self):
-        """Add rincian item to table."""
-        uraian = self.uraian_edit.text().strip()
-        if not uraian:
-            return
-
-        volume = self.volume_spin.value()
-        satuan = self.satuan_combo.currentText()
-        harga = self.harga_spin.value()
-        jumlah = volume * harga
-
-        # Add to table
-        row = self.rincian_table.rowCount()
-        self.rincian_table.insertRow(row)
-
-        self.rincian_table.setItem(row, 0, QTableWidgetItem(uraian))
-        self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
-        self.rincian_table.setItem(row, 2, QTableWidgetItem(satuan))
-        self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-        self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
-
-        # Add to list
-        self.rincian_items.append({
-            'uraian': uraian,
-            'volume': volume,
-            'satuan': satuan,
-            'harga_satuan': harga,
-            'jumlah': jumlah,
-        })
-
-        # Clear inputs
-        self.uraian_edit.clear()
-        self.volume_spin.setValue(1)
-        self.harga_spin.setValue(0)
-
-        # Update total
-        self._update_total()
-
-    def _delete_rincian_item(self):
-        """Delete selected rincian item."""
-        rows = set()
-        for item in self.rincian_table.selectedItems():
-            rows.add(item.row())
-
-        for row in sorted(rows, reverse=True):
-            self.rincian_table.removeRow(row)
-            if row < len(self.rincian_items):
-                self.rincian_items.pop(row)
-
-        self._update_total()
-
-    def _update_total(self):
-        """Update total label."""
-        total = sum(item['jumlah'] for item in self.rincian_items)
-        self.total_label.setText(f"Rp {total:,.0f}".replace(",", "."))
+    def _on_rincian_total_changed(self, total: float):
+        """Handle rincian total change - update estimasi biaya."""
+        if hasattr(self, 'estimasi_spin'):
+            self.estimasi_spin.setValue(total)
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
@@ -330,6 +257,15 @@ class DokumenGeneratorDialog(QDialog):
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
         }
+
+        # Get rincian data from widget if available
+        if self.rincian_widget:
+            kuitansi_data = self.rincian_widget.get_data_for_kuitansi()
+            data['rincian_items'] = self.rincian_widget.get_items()
+            data['rincian_total'] = kuitansi_data.get('total', 0)
+            data['rincian_total_rupiah'] = kuitansi_data.get('total_rupiah', 'Rp 0')
+            data['rincian_total_terbilang'] = kuitansi_data.get('total_terbilang', 'nol rupiah')
+            data['jumlah_item'] = kuitansi_data.get('jumlah_item', 0)
 
         # Merge with transaksi data
         for key, value in self.transaksi.items():
@@ -362,13 +298,18 @@ class DokumenGeneratorDialog(QDialog):
             self.progress_bar.setValue(60)
             self.status_label.setText("Generating dokumen...")
 
+            # Get rincian items from widget if available
+            rincian_items = None
+            if self.rincian_widget:
+                rincian_items = self.rincian_widget.get_items()
+
             # Generate document
             output_path, error = generator.generate_document(
                 transaksi=merged_transaksi,
                 kode_dokumen=self.kode_dokumen,
                 template_name=self.template_name,
                 satker=self.satker,
-                rincian=self.rincian_items if self.rincian_items else None,
+                rincian=rincian_items if rincian_items else self.rincian_items,
                 additional_data=form_data
             )
 
@@ -382,6 +323,15 @@ class DokumenGeneratorDialog(QDialog):
                 self.generated_path = output_path
                 self.status_label.setText(f"Dokumen berhasil dibuat: {output_path}")
                 self.status_label.setStyleSheet("color: #27ae60;")
+
+                # Save rincian to database if we have db_manager and items
+                if self.db_manager and self.rincian_widget and self.kode_dokumen == 'LBR_REQ':
+                    transaksi_id = self.transaksi.get('id')
+                    if transaksi_id:
+                        try:
+                            self.rincian_widget.save_to_db(self.db_manager, transaksi_id)
+                        except Exception as db_err:
+                            print(f"Warning: Gagal menyimpan rincian ke database: {db_err}")
 
                 # Show open buttons
                 self.open_folder_btn.setVisible(True)

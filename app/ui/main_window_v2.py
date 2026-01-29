@@ -593,7 +593,7 @@ class MainWindowV2(QMainWindow):
                 }
 
             # Get satker data
-            satker_data = self.db.get_satker_aktif()
+            satker_data = self.db_v4.get_satker()
 
             # Show dialog
             dialog = DokumenGeneratorDialog(

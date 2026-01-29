@@ -238,6 +238,7 @@ CREATE TABLE IF NOT EXISTS rincian_transaksi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     transaksi_id INTEGER NOT NULL,
     nama_item TEXT NOT NULL,
+    spesifikasi TEXT,
     satuan TEXT DEFAULT 'unit',
     volume REAL DEFAULT 1,
     harga_satuan REAL DEFAULT 0,
@@ -620,9 +621,9 @@ class PencairanManager:
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
-    def add_rincian_item(self, transaksi_id: int, nama_item: str, satuan: str = 'unit',
-                         volume: float = 1, harga_satuan: float = 0, keterangan: str = None,
-                         urutan: int = 0) -> int:
+    def add_rincian_item(self, transaksi_id: int, nama_item: str, spesifikasi: str = None,
+                         satuan: str = 'unit', volume: float = 1, harga_satuan: float = 0,
+                         keterangan: str = None, urutan: int = 0) -> int:
         """
         Tambah item rincian barang/jasa.
 
@@ -634,9 +635,9 @@ class PencairanManager:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO rincian_transaksi
-                (transaksi_id, nama_item, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (transaksi_id, nama_item, satuan, volume, harga_satuan, jumlah, keterangan, urutan))
+                (transaksi_id, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (transaksi_id, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan, urutan))
             conn.commit()
             return cursor.lastrowid
 
@@ -646,12 +647,12 @@ class PencairanManager:
 
         Args:
             item_id: ID item
-            **kwargs: Fields to update (nama_item, satuan, volume, harga_satuan, keterangan, urutan)
+            **kwargs: Fields to update (nama_item, spesifikasi, satuan, volume, harga_satuan, keterangan, urutan)
 
         Returns:
             True jika berhasil
         """
-        allowed_fields = ['nama_item', 'satuan', 'volume', 'harga_satuan', 'keterangan', 'urutan']
+        allowed_fields = ['nama_item', 'spesifikasi', 'satuan', 'volume', 'harga_satuan', 'keterangan', 'urutan']
         updates = []
         values = []
 
@@ -712,7 +713,7 @@ class PencairanManager:
 
         Args:
             transaksi_id: ID transaksi
-            items: List of dicts dengan keys: nama_item, satuan, volume, harga_satuan, keterangan
+            items: List of dicts dengan keys: nama_item, spesifikasi, satuan, volume, harga_satuan, keterangan
 
         Returns:
             True jika berhasil
@@ -728,11 +729,12 @@ class PencairanManager:
                 jumlah = item.get('volume', 1) * item.get('harga_satuan', 0)
                 cursor.execute("""
                     INSERT INTO rincian_transaksi
-                    (transaksi_id, nama_item, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (transaksi_id, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     transaksi_id,
                     item.get('nama_item', ''),
+                    item.get('spesifikasi', ''),
                     item.get('satuan', 'unit'),
                     item.get('volume', 1),
                     item.get('harga_satuan', 0),

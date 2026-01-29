@@ -275,6 +275,8 @@ class DokumenGenerator:
         data['selisih'] = data['realisasi'] - data['uang_muka']
         data['mekanisme'] = transaksi.get('mekanisme', '')
         data['jenis_kegiatan'] = transaksi.get('jenis_kegiatan', '')
+        # nilai for SPR/SPPR - use uang_muka or estimasi_biaya
+        data['nilai'] = transaksi.get('uang_muka', 0) or transaksi.get('estimasi_biaya', 0)
 
         # Tanggal
         data['tanggal_pengajuan'] = transaksi.get('tanggal_pengajuan', '')
@@ -291,6 +293,22 @@ class DokumenGenerator:
             data['kementerian'] = satker.get('kementerian', '')
             data['unit_organisasi'] = satker.get('unit_organisasi', '')
             data['lokasi'] = satker.get('kota', '')
+            data['kota'] = satker.get('kota', '')
+
+            # Kop surat - combine kementerian, unit, and satker name
+            kop_parts = []
+            if satker.get('kementerian'):
+                kop_parts.append(satker.get('kementerian'))
+            if satker.get('unit_organisasi'):
+                kop_parts.append(satker.get('unit_organisasi'))
+            if satker.get('nama'):
+                kop_parts.append(satker.get('nama'))
+            data['kop_surat'] = '\n'.join(kop_parts)
+
+            # Bank account data for SPR/SPPR
+            data['nama_bank'] = satker.get('nama_bank', 'Bank BRI')
+            data['nomor_rekening'] = satker.get('no_rekening', '')
+            data['nama_rekening'] = satker.get('nama_rekening', satker.get('bendahara_nama', ''))
 
         # Data penerima/pegawai
         if pegawai:
@@ -310,6 +328,9 @@ class DokumenGenerator:
             data['kpa_nip'] = satker.get('kpa_nip', '')
             data['bendahara_nama'] = satker.get('bendahara_nama', '')
             data['bendahara_nip'] = satker.get('bendahara_nip', '')
+            # Aliases for SPR/SPPR templates
+            data['nama_ppk'] = satker.get('ppk_nama', '')
+            data['nip_ppk'] = satker.get('ppk_nip', '')
 
         # Rincian items
         if rincian:

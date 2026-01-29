@@ -106,18 +106,6 @@ class DokumenGeneratorDialog(QDialog):
         data_layout.addWidget(self.kode_akun_edit, row, 1)
         row += 1
 
-        # Nilai/Estimasi - Hide for REKAP_BKT, KUIT_RAMP, and LPJ (calculated from rincian items)
-        if self.kode_dokumen not in ['REKAP_BKT', 'KUIT_RAMP', 'LPJ']:
-            data_layout.addWidget(QLabel("Estimasi Biaya:"), row, 0)
-            self.estimasi_spin = QDoubleSpinBox()
-            self.estimasi_spin.setRange(0, 999999999999)
-            self.estimasi_spin.setDecimals(0)
-            self.estimasi_spin.setPrefix("Rp ")
-            self.estimasi_spin.setGroupSeparatorShown(True)
-            self.estimasi_spin.setValue(self.transaksi.get('estimasi_biaya', 0))
-            data_layout.addWidget(self.estimasi_spin, row, 1)
-            row += 1
-
         # Tanggal
         data_layout.addWidget(QLabel("Tanggal:"), row, 0)
         self.tanggal_edit = QDateEdit()
@@ -815,21 +803,6 @@ class DokumenGeneratorDialog(QDialog):
                     })
                 print(f"Loaded {len(items)} rincian items from {source} for transaksi {transaksi_id}")
 
-                # Update estimasi_biaya based on source
-                if self.kode_dokumen == 'KUIT_RAMP':
-                    # For Kuitansi Rampung, use actual total (realisasi)
-                    total = sum(item.get('jumlah', 0) for item in self.rincian_items)
-                    if hasattr(self, 'estimasi_spin'):
-                        self.estimasi_spin.setValue(total)
-                        print(f"Updated estimasi_biaya to realisasi: {total}")
-                else:
-                    # For other documents, get uang_muka_nilai from LBR_REQ
-                    summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
-                    if summary and hasattr(self, 'estimasi_spin'):
-                        estimasi = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
-                        self.estimasi_spin.setValue(estimasi)
-                        print(f"Updated estimasi_biaya to uang_muka: {estimasi}")
-
         except Exception as e:
             print(f"Error loading rincian from database: {e}")
 
@@ -1009,7 +982,6 @@ class DokumenGeneratorDialog(QDialog):
         data = {
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
-            'estimasi_biaya': self.estimasi_spin.value() if hasattr(self, 'estimasi_spin') else 0,
             'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
             'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),

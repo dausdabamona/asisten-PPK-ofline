@@ -30,10 +30,12 @@ from PySide6.QtWidgets import (
     QLabel, QFrame, QSpacerItem, QSizePolicy,
     QScrollArea, QGraphicsDropShadowEffect
 )
-from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize
+from PySide6.QtGui import QFont, QColor, QIcon, QPixmap
 
 from typing import Dict, Optional
+
+from app.ui.icons.icon_provider import IconProvider
 
 
 class SidebarBadge(QLabel):
@@ -64,10 +66,13 @@ class SidebarBadge(QLabel):
 class SidebarMenuItem(QPushButton):
     """Menu item dalam sidebar."""
 
+    # Icon size constant
+    ICON_SIZE = 20
+
     def __init__(
         self,
         text: str,
-        icon: str = None,
+        icon_name: str = None,
         menu_id: str = None,
         parent=None,
         indent: int = 0,
@@ -77,23 +82,25 @@ class SidebarMenuItem(QPushButton):
         self.menu_id = menu_id or text.lower().replace(" ", "_")
         self.indent = indent
         self._is_active = False
+        self._icon_name = icon_name
 
         # Setup layout
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20 + (indent * 15), 12, 15, 12)
         layout.setSpacing(12)
 
-        # Icon placeholder (using text for now, can be replaced with QIcon)
-        if icon:
-            icon_label = QLabel(icon)
-            icon_label.setFixedWidth(20)
-            icon_label.setStyleSheet("color: inherit;")
-            layout.addWidget(icon_label)
+        # Icon using IconProvider
+        self.icon_label = QLabel()
+        self.icon_label.setFixedSize(self.ICON_SIZE, self.ICON_SIZE)
+        self.icon_label.setAlignment(Qt.AlignCenter)
+        if icon_name:
+            self._set_icon(icon_name, "#bdc3c7")  # Default inactive color
+        layout.addWidget(self.icon_label)
 
         # Text
-        text_label = QLabel(text)
-        text_label.setStyleSheet("color: inherit; background: transparent;")
-        layout.addWidget(text_label)
+        self.text_label = QLabel(text)
+        self.text_label.setStyleSheet("color: inherit; background: transparent;")
+        layout.addWidget(self.text_label)
 
         # Spacer
         layout.addStretch()
@@ -108,6 +115,27 @@ class SidebarMenuItem(QPushButton):
         self.setMinimumHeight(44)
         self._update_style()
 
+    def _set_icon(self, icon_name: str, color: str = "#ffffff") -> None:
+        """
+        Set icon using IconProvider.
+
+        Args:
+            icon_name: Name of the icon from IconProvider
+            color: Color to tint the icon (hex string)
+        """
+        try:
+            pixmap = IconProvider.get_pixmap(icon_name, self.ICON_SIZE, color)
+            if not pixmap.isNull():
+                self.icon_label.setPixmap(pixmap)
+            else:
+                # Fallback to text if icon not found
+                self.icon_label.setText(icon_name[0].upper() if icon_name else "?")
+                self.icon_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+        except Exception:
+            # Fallback to text on any error
+            self.icon_label.setText(icon_name[0].upper() if icon_name else "?")
+            self.icon_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+
     def set_active(self, active: bool):
         """Set active state."""
         self._is_active = active
@@ -120,6 +148,9 @@ class SidebarMenuItem(QPushButton):
 
     def _update_style(self):
         """Update styling based on state."""
+        # Determine icon color based on state
+        icon_color = "#bdc3c7"  # Default inactive color
+
         base_style = """
             QPushButton {
                 background-color: transparent;
@@ -135,6 +166,8 @@ class SidebarMenuItem(QPushButton):
         """
 
         if self._is_active:
+            icon_color = "#ffffff"  # White for active state
+
             # Determine color based on menu_id
             if "up" in self.menu_id.lower() and "tup" not in self.menu_id.lower():
                 bg_color = "#27ae60"
@@ -163,6 +196,10 @@ class SidebarMenuItem(QPushButton):
             """
 
         self.setStyleSheet(base_style)
+
+        # Update icon color
+        if self._icon_name:
+            self._set_icon(self._icon_name, icon_color)
 
 
 class SidebarSection(QWidget):
@@ -346,7 +383,7 @@ class Sidebar(QWidget):
         self,
         layout: QVBoxLayout,
         text: str,
-        icon: str,
+        icon_name: str,
         menu_id: str,
         indent: int = 0,
         badge_count: int = 0
@@ -354,7 +391,7 @@ class Sidebar(QWidget):
         """Add a menu item to the sidebar."""
         item = SidebarMenuItem(
             text=text,
-            icon=self._get_icon_char(icon),
+            icon_name=icon_name,
             menu_id=menu_id,
             indent=indent,
             badge_count=badge_count
@@ -363,22 +400,6 @@ class Sidebar(QWidget):
 
         self._menu_items[menu_id] = item
         layout.addWidget(item)
-
-    def _get_icon_char(self, icon_name: str) -> str:
-        """Get unicode character for icon (placeholder - can be replaced with actual icons)."""
-        icons = {
-            "home": "H",
-            "wallet": "W",
-            "plus-circle": "+",
-            "send": "S",
-            "package": "P",
-            "users": "U",
-            "box": "B",
-            "building": "O",
-            "user": "U",
-            "file-text": "F",
-        }
-        return icons.get(icon_name, "*")
 
     def _on_menu_clicked(self, menu_id: str):
         """Handle menu item click."""

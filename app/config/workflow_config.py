@@ -95,20 +95,20 @@ UP_WORKFLOW = {
             "color": "#3498db",
 
             "dokumen": [
-                # Checklist - WAJIB untuk semua
+                # Checklist - WAJIB untuk semua (generate dari template)
                 {
                     "kode": "CHECKLIST",
                     "nama": "Checklist Kelengkapan Dokumen",
-                    "kategori": "upload",
-                    "template": None,
-                    "deskripsi": "Upload checklist kelengkapan dokumen",
+                    "kategori": "wajib",
+                    "template": "checklist_up.docx",
+                    "deskripsi": "Checklist kelengkapan dokumen pencairan UP",
                     "untuk_semua": True,
                 },
                 # SK Upload - Opsional untuk semua
                 {
                     "kode": "SK_UPLOAD",
                     "nama": "Upload SK (Opsional)",
-                    "kategori": "opsional",
+                    "kategori": "upload",
                     "template": None,
                     "deskripsi": "Upload scan SK jika diperlukan",
                     "untuk_semua": True,
@@ -569,13 +569,22 @@ LS_WORKFLOW = {
             "color": "#3498db",
 
             "dokumen": [
-                # Checklist - Wajib untuk semua
+                # Checklist - Wajib untuk semua (generate dari template)
                 {
                     "kode": "CHECKLIST",
                     "nama": "Checklist Kelengkapan Dokumen",
+                    "kategori": "wajib",
+                    "template": "checklist_ls.docx",
+                    "deskripsi": "Checklist kelengkapan dokumen pencairan LS",
+                    "untuk_semua": True,
+                },
+                # SK Upload - Opsional untuk semua
+                {
+                    "kode": "SK_UPLOAD",
+                    "nama": "Upload SK (Opsional)",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Upload checklist kelengkapan dokumen pencairan LS",
+                    "deskripsi": "Upload scan SK jika diperlukan",
                     "untuk_semua": True,
                 },
 

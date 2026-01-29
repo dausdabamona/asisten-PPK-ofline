@@ -546,23 +546,47 @@ class BaseDetailPage(QWidget):
 
     def _update_checklist_for_fase(self, fase: int):
         """Update document checklist for given fase."""
-        # Get dokumen list from config
-        from ....config.workflow_config import get_dokumen_list, get_nama_fase
+        from ....config.workflow_config import get_nama_fase
 
-        dokumen_list = get_dokumen_list(self.MEKANISME, fase)
         nama_fase = get_nama_fase(self.MEKANISME, fase)
 
-        # Convert to format expected by checklist
+        # Get document checklist with actual status from dokumen_generator
         dokumen_data = []
-        for dok in dokumen_list:
-            dokumen_data.append({
-                'kode': dok.get('kode', ''),
-                'nama': dok.get('nama', ''),
-                'kategori': dok.get('kategori', 'wajib'),
-                'status': 'pending',  # Would get from database
-                'deskripsi': dok.get('deskripsi'),
-                'template': dok.get('template'),
-            })
+        try:
+            from ....services.dokumen_generator import get_dokumen_generator
+
+            generator = get_dokumen_generator()
+            checklist = generator.get_document_checklist(self._transaksi_data, fase)
+
+            for dok in checklist:
+                # Map is_uploaded to status
+                if dok.get('is_uploaded', False):
+                    status = 'final'
+                else:
+                    status = 'pending'
+
+                dokumen_data.append({
+                    'kode': dok.get('kode', ''),
+                    'nama': dok.get('nama', ''),
+                    'kategori': dok.get('kategori', 'wajib'),
+                    'status': status,
+                    'deskripsi': dok.get('deskripsi'),
+                    'template': dok.get('template'),
+                })
+        except Exception as e:
+            print(f"Error getting document checklist: {e}")
+            # Fallback to workflow config without status
+            from ....config.workflow_config import get_dokumen_list
+            dokumen_list = get_dokumen_list(self.MEKANISME, fase)
+            for dok in dokumen_list:
+                dokumen_data.append({
+                    'kode': dok.get('kode', ''),
+                    'nama': dok.get('nama', ''),
+                    'kategori': dok.get('kategori', 'wajib'),
+                    'status': 'pending',
+                    'deskripsi': dok.get('deskripsi'),
+                    'template': dok.get('template'),
+                })
 
         self.checklist.fase = fase
         self.checklist.nama_fase = nama_fase
@@ -928,3 +952,15 @@ class BaseDetailPage(QWidget):
             item_layout.addWidget(time_label)
 
             self.log_container.addWidget(item)
+
+    def refresh(self):
+        """Refresh the page - update checklist and document status."""
+        if self._transaksi_id and self._transaksi_data:
+            # Get current fase
+            fase_aktif = self._transaksi_data.get('fase_aktif', 1)
+
+            # Refresh checklist for current fase
+            self._update_checklist_for_fase(fase_aktif)
+
+            # Update document status display
+            self._update_document_status()

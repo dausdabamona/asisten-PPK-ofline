@@ -790,6 +790,8 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+        # Always refresh document list after dialog closes
+        self._refresh_current_page()
 
     def _handle_upload_arsip(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle uploading document archive."""
@@ -800,6 +802,8 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+        # Always refresh document list after dialog closes
+        self._refresh_current_page()
 
     def _handle_open_draft(self, kode_dokumen: str, transaksi_data: Dict):
         """Open existing draft document if available."""

@@ -616,19 +616,27 @@ LS_WORKFLOW = {
             "icon": "file-signature",
             "color": "#3498db",
 
-            # Dokumen umum untuk semua jenis
+            # Dokumen WAJIB untuk semua jenis
             "dokumen": [
                 {
-                    "kode": "LBR_REQ",
-                    "nama": "Lembar Permintaan",
+                    "kode": "CHECKLIST",
+                    "nama": "Checklist Kelengkapan Dokumen",
                     "kategori": "wajib",
-                    "template": "lembar_permintaan.docx",
-                    "deskripsi": "Lembar permintaan pencairan dana"
+                    "template": "checklist_ls.docx",
+                    "deskripsi": "Checklist kelengkapan dokumen pencairan LS"
                 },
             ],
 
             # Dokumen khusus KONTRAK (ditampilkan jika jenis_dasar == KONTRAK)
             "dokumen_kontrak": [
+                {
+                    "kode": "LBR_REQ",
+                    "nama": "Lembar Permintaan",
+                    "kategori": "wajib",
+                    "template": "lembar_permintaan.docx",
+                    "deskripsi": "Lembar permintaan pencairan dana",
+                    "jenis_dasar": "KONTRAK"
+                },
                 {
                     "kode": "SPK",
                     "nama": "Surat Perjanjian Kerja",
@@ -679,14 +687,14 @@ LS_WORKFLOW = {
                 },
             ],
 
-            # Dokumen khusus SURAT_TUGAS (ditampilkan jika jenis_dasar == SURAT_TUGAS)
+            # Dokumen khusus SURAT_TUGAS / Perjalanan Dinas (ditampilkan jika jenis_dasar == SURAT_TUGAS)
             "dokumen_surat_tugas": [
                 {
-                    "kode": "ST",
-                    "nama": "Surat Tugas",
-                    "kategori": "wajib",
-                    "template": "surat_tugas.docx",
-                    "deskripsi": "Surat Tugas dari pejabat berwenang",
+                    "kode": "SURAT_TUGAS",
+                    "nama": "Upload Surat Tugas",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Upload scan Surat Tugas perjalanan dinas",
                     "jenis_dasar": "SURAT_TUGAS"
                 },
                 {

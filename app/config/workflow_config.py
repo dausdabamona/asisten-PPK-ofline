@@ -339,6 +339,20 @@ UP_WORKFLOW = {
             "color": "#27ae60",
             "dokumen": [
                 {
+                    "kode": "SPR",
+                    "nama": "Surat Pendebitan Rekening",
+                    "kategori": "opsional",
+                    "template": "spr.docx",
+                    "deskripsi": "Surat pendebitan rekening untuk penarikan tunai via teller bank"
+                },
+                {
+                    "kode": "SPPR",
+                    "nama": "Surat Perintah Pendebitan Rekening",
+                    "kategori": "opsional",
+                    "template": "sppr.docx",
+                    "deskripsi": "Surat perintah pendebitan rekening menggunakan Kartu Debit"
+                },
+                {
                     "kode": "REKAP_FINAL",
                     "nama": "Rekap Final Transaksi",
                     "kategori": "opsional",

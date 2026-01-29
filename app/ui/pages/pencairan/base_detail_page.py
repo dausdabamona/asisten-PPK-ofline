@@ -408,20 +408,30 @@ class BaseDetailPage(QWidget):
         docs_layout = QVBoxLayout(docs_frame)
         docs_layout.setSpacing(8)
 
-        docs_title = QLabel("📄 Dokumen yang Sudah Dibuat")
+        docs_title = QLabel("📋 Status Dokumen Per Fase")
         docs_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; background-color: transparent;")
         docs_layout.addWidget(docs_title)
 
-        # Container for document list
-        self.docs_list_container = QVBoxLayout()
-        self.docs_list_container.setSpacing(4)
+        # Scroll area for document list per fase
+        docs_scroll = QScrollArea()
+        docs_scroll.setWidgetResizable(True)
+        docs_scroll.setFrameShape(QFrame.NoFrame)
+        docs_scroll.setMaximumHeight(300)
+        docs_scroll.setStyleSheet("background-color: transparent;")
+
+        docs_scroll_widget = QWidget()
+        docs_scroll_widget.setStyleSheet("background-color: transparent;")
+        self.docs_per_fase_layout = QVBoxLayout(docs_scroll_widget)
+        self.docs_per_fase_layout.setSpacing(8)
+        self.docs_per_fase_layout.setContentsMargins(0, 0, 0, 0)
 
         # Placeholder
-        self.docs_empty_label = QLabel("Belum ada dokumen")
+        self.docs_empty_label = QLabel("Memuat dokumen...")
         self.docs_empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
-        self.docs_list_container.addWidget(self.docs_empty_label)
+        self.docs_per_fase_layout.addWidget(self.docs_empty_label)
 
-        docs_layout.addLayout(self.docs_list_container)
+        docs_scroll.setWidget(docs_scroll_widget)
+        docs_layout.addWidget(docs_scroll)
 
         layout.addWidget(docs_frame)
 
@@ -746,59 +756,159 @@ class BaseDetailPage(QWidget):
             self.doc_progress_label.setText("Tidak dapat memuat status")
 
     def _update_docs_list(self):
-        """Update the list of generated and uploaded documents."""
+        """Update the list of documents per fase with status."""
         try:
             # Clear existing items
-            while self.docs_list_container.count():
-                child = self.docs_list_container.takeAt(0)
+            while self.docs_per_fase_layout.count():
+                child = self.docs_per_fase_layout.takeAt(0)
                 if child.widget():
                     child.widget().deleteLater()
 
-            # Get generated/uploaded documents from output folder
-            from ...services.dokumen_generator import get_dokumen_generator
-            from pathlib import Path
+            # Get document checklist from generator
+            from ....services.dokumen_generator import get_dokumen_generator
+            from ....config.workflow_config import get_workflow
 
             generator = get_dokumen_generator()
-            output_folder = generator.get_output_folder(transaksi=self._transaksi_data)
+            workflow = get_workflow(self.MEKANISME)
 
-            if not output_folder.exists():
-                self.docs_empty_label = QLabel("Belum ada dokumen")
-                self.docs_empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
-                self.docs_list_container.addWidget(self.docs_empty_label)
+            if not workflow:
+                empty_label = QLabel("Tidak ada konfigurasi workflow")
+                empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
+                self.docs_per_fase_layout.addWidget(empty_label)
                 return
 
-            # List all files in output folder
-            word_files = list(output_folder.glob("*.docx"))
-            pdf_files = list(output_folder.glob("*.pdf"))
-            image_files = list(output_folder.glob("*.jpg")) + list(output_folder.glob("*.jpeg")) + list(output_folder.glob("*.png"))
+            # Get checklist for all phases
+            all_checklist = generator.get_document_checklist(self._transaksi_data, fase=None)
 
-            all_files = word_files + pdf_files + image_files
+            # Group by fase
+            docs_by_fase = {}
+            for dok in all_checklist:
+                fase = dok.get('fase', 1)
+                if fase not in docs_by_fase:
+                    docs_by_fase[fase] = []
+                docs_by_fase[fase].append(dok)
 
-            if not all_files:
-                self.docs_empty_label = QLabel("Belum ada dokumen")
-                self.docs_empty_label.setStyleSheet("font-size: 11px; color: #95a5a6; font-style: italic; background-color: transparent;")
-                self.docs_list_container.addWidget(self.docs_empty_label)
-                return
+            # Display each fase
+            for fase_num in sorted(docs_by_fase.keys()):
+                fase_config = workflow.get('fase', {}).get(fase_num, {})
+                fase_nama = fase_config.get('nama', f'Fase {fase_num}')
+                docs = docs_by_fase[fase_num]
 
-            # Sort by modification time (newest first)
-            all_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+                # Fase header
+                fase_header = QLabel(f"Fase {fase_num}: {fase_nama}")
+                fase_header.setStyleSheet("""
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: #7f8c8d;
+                    padding: 5px 0 3px 0;
+                    border-bottom: 1px solid #ecf0f1;
+                    background-color: transparent;
+                """)
+                self.docs_per_fase_layout.addWidget(fase_header)
 
-            # Create clickable items for each file
-            for file_path in all_files[:10]:  # Limit to 10 files
-                file_item = self._create_doc_item(file_path)
-                self.docs_list_container.addWidget(file_item)
+                # Documents in this fase
+                for dok in docs:
+                    doc_widget = self._create_doc_status_item(dok)
+                    self.docs_per_fase_layout.addWidget(doc_widget)
 
-            # Show count if more files exist
-            if len(all_files) > 10:
-                more_label = QLabel(f"... dan {len(all_files) - 10} file lainnya")
-                more_label.setStyleSheet("font-size: 10px; color: #7f8c8d; font-style: italic; background-color: transparent;")
-                self.docs_list_container.addWidget(more_label)
+            self.docs_per_fase_layout.addStretch()
 
         except Exception as e:
             print(f"Error updating docs list: {e}")
             error_label = QLabel("Gagal memuat daftar dokumen")
             error_label.setStyleSheet("font-size: 11px; color: #e74c3c; background-color: transparent;")
-            self.docs_list_container.addWidget(error_label)
+            self.docs_per_fase_layout.addWidget(error_label)
+
+    def _create_doc_status_item(self, dok_info: Dict[str, Any]) -> QFrame:
+        """Create a document status item with open button."""
+        item = QFrame()
+        item.setStyleSheet("""
+            QFrame {
+                background-color: #ffffff;
+                border: 1px solid #ecf0f1;
+                border-radius: 4px;
+                margin: 2px 0;
+            }
+        """)
+
+        layout = QHBoxLayout(item)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(8)
+
+        # Status icon
+        is_uploaded = dok_info.get('is_uploaded', False)
+        file_path = dok_info.get('file_path')
+
+        if is_uploaded and file_path:
+            icon_label = QLabel("✅")
+            icon_label.setStyleSheet("font-size: 14px; background-color: transparent;")
+            icon_label.setToolTip("Sudah diarsipkan")
+        else:
+            icon_label = QLabel("⬜")
+            icon_label.setStyleSheet("font-size: 14px; color: #bdc3c7; background-color: transparent;")
+            icon_label.setToolTip("Belum dibuat")
+        layout.addWidget(icon_label)
+
+        # Document info
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(2)
+
+        nama_label = QLabel(dok_info.get('nama', 'Dokumen'))
+        nama_label.setStyleSheet("font-size: 11px; font-weight: 500; color: #2c3e50; background-color: transparent;")
+        info_layout.addWidget(nama_label)
+
+        if is_uploaded and file_path:
+            import os
+            from datetime import datetime
+            file_name = os.path.basename(file_path)
+            # Try to get file modification time
+            try:
+                mtime = os.path.getmtime(file_path)
+                time_str = datetime.fromtimestamp(mtime).strftime("%d %b %Y, %H:%M")
+                detail_text = f"{file_name} • {time_str}"
+            except:
+                detail_text = file_name
+
+            detail_label = QLabel(detail_text)
+            detail_label.setStyleSheet("font-size: 10px; color: #27ae60; background-color: transparent;")
+            info_layout.addWidget(detail_label)
+        else:
+            kategori = dok_info.get('kategori', 'wajib')
+            if kategori == 'wajib':
+                status_text = "Belum dibuat (Wajib)"
+                status_color = "#e74c3c"
+            else:
+                status_text = "Belum dibuat (Opsional)"
+                status_color = "#95a5a6"
+
+            status_label = QLabel(status_text)
+            status_label.setStyleSheet(f"font-size: 10px; color: {status_color}; background-color: transparent;")
+            info_layout.addWidget(status_label)
+
+        layout.addLayout(info_layout, 1)
+
+        # Action buttons (if file exists)
+        if is_uploaded and file_path:
+            btn_buka = QPushButton("Buka")
+            btn_buka.setFixedHeight(24)
+            btn_buka.setCursor(Qt.PointingHandCursor)
+            btn_buka.setStyleSheet("""
+                QPushButton {
+                    background-color: #3498db;
+                    color: white;
+                    border: none;
+                    padding: 3px 10px;
+                    border-radius: 3px;
+                    font-size: 10px;
+                }
+                QPushButton:hover {
+                    background-color: #2980b9;
+                }
+            """)
+            btn_buka.clicked.connect(lambda checked, fp=file_path: self._open_file(fp))
+            layout.addWidget(btn_buka)
+
+        return item
 
     def _create_doc_item(self, file_path) -> QFrame:
         """Create a clickable document item widget."""

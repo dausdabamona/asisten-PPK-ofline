@@ -64,7 +64,7 @@ UP_WORKFLOW = {
             "icon": "file-text",
             "color": "#3498db",
 
-            # Dokumen WAJIB untuk SEMUA jenis kegiatan KECUALI Perjalanan Dinas
+            # Dokumen WAJIB untuk SEMUA jenis kegiatan
             "dokumen": [
                 {
                     "kode": "LBR_REQ",
@@ -73,6 +73,13 @@ UP_WORKFLOW = {
                     "template": "lembar_permintaan.docx",
                     "deskripsi": "Lembar permintaan pencairan dana",
                     "exclude_jenis_kegiatan": ["PERJALANAN_DINAS"]
+                },
+                {
+                    "kode": "CHECKLIST_PD",
+                    "nama": "Checklist Kelengkapan Dokumen",
+                    "kategori": "wajib",
+                    "template": "checklist_perjalanan_dinas.docx",
+                    "deskripsi": "Daftar checklist kelengkapan dokumen"
                 },
             ],
 

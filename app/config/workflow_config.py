@@ -1040,6 +1040,9 @@ ALL_WORKFLOWS = {
     "LS": LS_WORKFLOW,
 }
 
+# Alias for backwards compatibility
+WORKFLOW_CONFIGS = ALL_WORKFLOWS
+
 def get_workflow(mekanisme: str) -> Optional[Dict[str, Any]]:
     """
     Get konfigurasi workflow berdasarkan mekanisme.

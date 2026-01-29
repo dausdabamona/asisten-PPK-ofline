@@ -394,6 +394,75 @@ class DokumenGenerator:
             if paragraph.runs:
                 paragraph.runs[0].text = new_text
 
+    def _remove_rincian_tables(self, doc):
+        """Remove tables containing RINCIAN from document (for summary-only documents)."""
+        tables_to_remove = []
+
+        for table in doc.tables:
+            # Check if any cell contains RINCIAN
+            for row in table.rows:
+                for cell in row.cells:
+                    cell_text = cell.text.upper()
+                    if 'RINCIAN' in cell_text:
+                        tables_to_remove.append(table)
+                        break
+                else:
+                    continue
+                break
+
+        # Also remove paragraphs containing RINCIAN header
+        paragraphs_to_clear = []
+        for para in doc.paragraphs:
+            if 'RINCIAN' in para.text.upper():
+                paragraphs_to_clear.append(para)
+
+        # Remove marked tables
+        for table in tables_to_remove:
+            tbl_element = table._tbl
+            tbl_element.getparent().remove(tbl_element)
+
+        # Clear rincian header paragraphs
+        for para in paragraphs_to_clear:
+            para.clear()
+
+    def _normalize_paragraph_spacing(self, doc):
+        """
+        Normalize paragraph spacing to single line spacing (1.0) without
+        extra space before/after paragraphs.
+        """
+        from docx.shared import Pt, Twips
+        from docx.enum.text import WD_LINE_SPACING
+
+        def normalize_para(para):
+            """Apply single line spacing to a paragraph."""
+            para_format = para.paragraph_format
+            # Set single line spacing (1.0)
+            para_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+            para_format.line_spacing = 1.0
+            # Remove spacing before and after
+            para_format.space_before = Pt(0)
+            para_format.space_after = Pt(0)
+
+        # Process all paragraphs in document body
+        for para in doc.paragraphs:
+            normalize_para(para)
+
+        # Process paragraphs in tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        normalize_para(para)
+
+        # Process headers and footers
+        for section in doc.sections:
+            if section.header:
+                for para in section.header.paragraphs:
+                    normalize_para(para)
+            if section.footer:
+                for para in section.footer.paragraphs:
+                    normalize_para(para)
+
     def _process_table(self, table, data: Dict[str, Any]):
         """Process a table to replace placeholders, including rincian rows."""
         from copy import deepcopy
@@ -483,10 +552,14 @@ class DokumenGenerator:
                         self._process_paragraph(paragraph, data)
 
     def merge_word_document(self, template_path: Path, data: Dict[str, Any],
-                           output_path: Path) -> bool:
+                           output_path: Path, remove_rincian_table: bool = False) -> bool:
         """Merge data into Word document template."""
         try:
             doc = Document(str(template_path))
+
+            # Remove rincian tables if requested (for KUIT_RAMP summary-only)
+            if remove_rincian_table:
+                self._remove_rincian_tables(doc)
 
             # Process all paragraphs
             for paragraph in doc.paragraphs:
@@ -504,6 +577,9 @@ class DokumenGenerator:
                 if section.footer:
                     for paragraph in section.footer.paragraphs:
                         self._process_paragraph(paragraph, data)
+
+            # Normalize paragraph spacing to single line (1.0) without extra spacing
+            self._normalize_paragraph_spacing(doc)
 
             # Save
             doc.save(str(output_path))
@@ -582,8 +658,11 @@ class DokumenGenerator:
         output_path = output_folder / output_filename
 
         # Merge document
+        # For KUIT_RAMP, remove rincian tables (summary only)
+        remove_rincian = kode_dokumen == 'KUIT_RAMP'
+
         if ext.lower() == '.docx':
-            success = self.merge_word_document(template_path, data, output_path)
+            success = self.merge_word_document(template_path, data, output_path, remove_rincian_table=remove_rincian)
         elif ext.lower() == '.xlsx':
             success = self.merge_excel_document(template_path, data, output_path)
         else:

@@ -106,8 +106,8 @@ class DokumenGeneratorDialog(QDialog):
         data_layout.addWidget(self.kode_akun_edit, row, 1)
         row += 1
 
-        # Nilai/Estimasi - Hide for REKAP_BKT and KUIT_RAMP (calculated from rincian items)
-        if self.kode_dokumen not in ['REKAP_BKT', 'KUIT_RAMP']:
+        # Nilai/Estimasi - Hide for REKAP_BKT, KUIT_RAMP, and LPJ (calculated from rincian items)
+        if self.kode_dokumen not in ['REKAP_BKT', 'KUIT_RAMP', 'LPJ']:
             data_layout.addWidget(QLabel("Estimasi Biaya:"), row, 0)
             self.estimasi_spin = QDoubleSpinBox()
             self.estimasi_spin.setRange(0, 999999999999)

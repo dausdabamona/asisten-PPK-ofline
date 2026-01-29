@@ -129,8 +129,8 @@ class KalkulasiWidget(QFrame):
         """)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(10)
 
         # ========== SECTION 1: Input Uang Muka & Realisasi ==========
         calc_section = QFrame()
@@ -139,47 +139,45 @@ class KalkulasiWidget(QFrame):
             #calcSection {
                 background-color: #f8f9fa;
                 border-radius: 8px;
-                padding: 10px;
+                border: 1px solid #e0e0e0;
             }
         """)
         calc_layout = QVBoxLayout(calc_section)
-        calc_layout.setSpacing(10)
+        calc_layout.setContentsMargins(12, 12, 12, 12)
+        calc_layout.setSpacing(8)
 
         # Header
         header = QLabel("💰 Perhitungan Tambah/Kurang")
         header.setStyleSheet("""
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             color: #2c3e50;
             background-color: transparent;
-            padding: 5px 0;
+            padding: 3px 0;
         """)
         calc_layout.addWidget(header)
 
-        # Input Grid
-        input_frame = QFrame()
-        input_layout = QGridLayout(input_frame)
-        input_layout.setSpacing(8)
-        input_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Uang Muka Row
-        um_label = QLabel("Uang Muka Diterima:")
+        # Uang Muka Row - using horizontal layout for better control
+        um_row = QHBoxLayout()
+        um_row.setSpacing(8)
+        um_label = QLabel("Uang Muka:")
+        um_label.setMinimumWidth(100)
         um_label.setStyleSheet("font-size: 12px; color: #2c3e50; font-weight: 500; background-color: transparent;")
-        input_layout.addWidget(um_label, 0, 0)
+        um_row.addWidget(um_label)
 
         self.um_input = QDoubleSpinBox()
         self.um_input.setRange(0, 999999999999)
         self.um_input.setDecimals(0)
         self.um_input.setPrefix("Rp ")
         self.um_input.setGroupSeparatorShown(True)
-        self.um_input.setMinimumHeight(36)
+        self.um_input.setMinimumHeight(32)
         self.um_input.setStyleSheet("""
             QDoubleSpinBox {
                 background-color: #ffffff;
                 border: 2px solid #3498db;
-                border-radius: 6px;
-                padding: 6px 10px;
-                font-size: 14px;
+                border-radius: 5px;
+                padding: 4px 8px;
+                font-size: 13px;
                 font-weight: bold;
                 color: #2c3e50;
             }
@@ -188,26 +186,30 @@ class KalkulasiWidget(QFrame):
             }
         """)
         self.um_input.valueChanged.connect(self._on_value_changed)
-        input_layout.addWidget(self.um_input, 0, 1)
+        um_row.addWidget(self.um_input, 1)
+        calc_layout.addLayout(um_row)
 
         # Realisasi Row
-        real_label = QLabel("Total Realisasi:")
+        real_row = QHBoxLayout()
+        real_row.setSpacing(8)
+        real_label = QLabel("Realisasi:")
+        real_label.setMinimumWidth(100)
         real_label.setStyleSheet("font-size: 12px; color: #2c3e50; font-weight: 500; background-color: transparent;")
-        input_layout.addWidget(real_label, 1, 0)
+        real_row.addWidget(real_label)
 
         self.real_input = QDoubleSpinBox()
         self.real_input.setRange(0, 999999999999)
         self.real_input.setDecimals(0)
         self.real_input.setPrefix("Rp ")
         self.real_input.setGroupSeparatorShown(True)
-        self.real_input.setMinimumHeight(36)
+        self.real_input.setMinimumHeight(32)
         self.real_input.setStyleSheet("""
             QDoubleSpinBox {
                 background-color: #ffffff;
                 border: 2px solid #9b59b6;
-                border-radius: 6px;
-                padding: 6px 10px;
-                font-size: 14px;
+                border-radius: 5px;
+                padding: 4px 8px;
+                font-size: 13px;
                 font-weight: bold;
                 color: #2c3e50;
             }
@@ -216,56 +218,61 @@ class KalkulasiWidget(QFrame):
             }
         """)
         self.real_input.valueChanged.connect(self._on_value_changed)
-        input_layout.addWidget(self.real_input, 1, 1)
+        real_row.addWidget(self.real_input, 1)
+        calc_layout.addLayout(real_row)
 
         # Separator
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setStyleSheet("background-color: #bdc3c7;")
         separator.setFixedHeight(1)
-        input_layout.addWidget(separator, 2, 0, 1, 2)
+        calc_layout.addWidget(separator)
 
         # Selisih Row
+        selisih_row = QHBoxLayout()
+        selisih_row.setSpacing(8)
         selisih_label = QLabel("SELISIH:")
-        selisih_label.setStyleSheet("font-size: 13px; color: #2c3e50; font-weight: bold; background-color: transparent;")
-        input_layout.addWidget(selisih_label, 3, 0)
+        selisih_label.setMinimumWidth(100)
+        selisih_label.setStyleSheet("font-size: 12px; color: #2c3e50; font-weight: bold; background-color: transparent;")
+        selisih_row.addWidget(selisih_label)
 
         self.selisih_display = QLabel("Rp 0")
-        self.selisih_display.setMinimumHeight(36)
+        self.selisih_display.setMinimumHeight(32)
         self.selisih_display.setAlignment(Qt.AlignCenter)
         self.selisih_display.setStyleSheet("""
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             color: #27ae60;
-            padding: 6px 10px;
+            padding: 4px 8px;
             background-color: #e8f8f0;
-            border-radius: 6px;
+            border-radius: 5px;
             border: 2px solid #27ae60;
         """)
-        input_layout.addWidget(self.selisih_display, 3, 1)
+        selisih_row.addWidget(self.selisih_display, 1)
+        calc_layout.addLayout(selisih_row)
 
-        calc_layout.addWidget(input_frame)
         main_layout.addWidget(calc_section)
 
         # ========== SECTION 2: Result Box ==========
         self.result_frame = QFrame()
-        self.result_frame.setMinimumHeight(80)
+        self.result_frame.setMinimumHeight(60)
+        self.result_frame.setMaximumHeight(70)
         self.result_frame.setStyleSheet("""
             QFrame {
                 background-color: #27ae60;
-                border-radius: 10px;
+                border-radius: 8px;
             }
         """)
 
         result_layout = QVBoxLayout(self.result_frame)
-        result_layout.setContentsMargins(15, 12, 15, 12)
-        result_layout.setSpacing(5)
+        result_layout.setContentsMargins(12, 8, 12, 8)
+        result_layout.setSpacing(3)
 
         # Result label (status)
         self.result_label = QLabel("✓ PAS / NIHIL")
         self.result_label.setAlignment(Qt.AlignCenter)
         self.result_label.setStyleSheet("""
-            font-size: 18px;
+            font-size: 15px;
             font-weight: bold;
             color: #ffffff;
             background-color: transparent;
@@ -276,7 +283,7 @@ class KalkulasiWidget(QFrame):
         self.action_label = QLabel("Lanjut ke pembuatan SPBY")
         self.action_label.setAlignment(Qt.AlignCenter)
         self.action_label.setStyleSheet("""
-            font-size: 12px;
+            font-size: 11px;
             color: rgba(255, 255, 255, 0.9);
             background-color: transparent;
         """)
@@ -289,9 +296,9 @@ class KalkulasiWidget(QFrame):
         self.summary_label.setWordWrap(True)
         self.summary_label.setAlignment(Qt.AlignCenter)
         self.summary_label.setStyleSheet("""
-            font-size: 11px;
+            font-size: 10px;
             color: #7f8c8d;
-            padding: 5px;
+            padding: 3px;
             font-style: italic;
         """)
         main_layout.addWidget(self.summary_label)
@@ -310,16 +317,17 @@ class KalkulasiWidget(QFrame):
             #rincianSection {
                 background-color: #f8f9fa;
                 border-radius: 8px;
-                padding: 10px;
+                border: 1px solid #e0e0e0;
             }
         """)
         rincian_layout = QVBoxLayout(rincian_frame)
+        rincian_layout.setContentsMargins(12, 12, 12, 12)
         rincian_layout.setSpacing(8)
 
         # Header
         header_layout = QHBoxLayout()
         header = QLabel("📋 Rincian Barang/Jasa")
-        header.setStyleSheet("font-size: 13px; font-weight: bold; color: #2c3e50; background-color: transparent;")
+        header.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; background-color: transparent;")
         header_layout.addWidget(header)
 
         header_layout.addStretch()
@@ -331,7 +339,7 @@ class KalkulasiWidget(QFrame):
                 background-color: #3498db;
                 color: white;
                 border: none;
-                padding: 5px 12px;
+                padding: 4px 10px;
                 border-radius: 4px;
                 font-size: 11px;
             }
@@ -347,32 +355,37 @@ class KalkulasiWidget(QFrame):
         self.input_form.setVisible(False)
         form_layout = QHBoxLayout(self.input_form)
         form_layout.setContentsMargins(0, 5, 0, 5)
-        form_layout.setSpacing(5)
+        form_layout.setSpacing(4)
 
         self.uraian_edit = QLineEdit()
         self.uraian_edit.setPlaceholderText("Uraian")
-        self.uraian_edit.setStyleSheet("padding: 5px; border: 1px solid #ddd; border-radius: 3px;")
+        self.uraian_edit.setStyleSheet("padding: 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 11px;")
         form_layout.addWidget(self.uraian_edit, 3)
 
         self.volume_spin = QSpinBox()
         self.volume_spin.setRange(1, 9999)
-        self.volume_spin.setStyleSheet("padding: 5px;")
+        self.volume_spin.setStyleSheet("padding: 4px; font-size: 11px;")
+        self.volume_spin.setMaximumWidth(60)
         form_layout.addWidget(self.volume_spin)
 
         self.satuan_combo = QComboBox()
         self.satuan_combo.setEditable(True)
         self.satuan_combo.addItems(["pkt", "unit", "bh", "org", "set"])
+        self.satuan_combo.setMaximumWidth(60)
+        self.satuan_combo.setStyleSheet("font-size: 11px;")
         form_layout.addWidget(self.satuan_combo)
 
         self.harga_spin = QDoubleSpinBox()
         self.harga_spin.setRange(0, 999999999)
         self.harga_spin.setDecimals(0)
         self.harga_spin.setPrefix("Rp ")
+        self.harga_spin.setStyleSheet("font-size: 11px;")
+        self.harga_spin.setMaximumWidth(120)
         form_layout.addWidget(self.harga_spin)
 
         add_item_btn = QPushButton("OK")
         add_item_btn.setStyleSheet("""
-            QPushButton { background-color: #27ae60; color: white; padding: 5px 10px; border-radius: 3px; }
+            QPushButton { background-color: #27ae60; color: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; }
             QPushButton:hover { background-color: #1e8449; }
         """)
         add_item_btn.clicked.connect(self._add_rincian_item)
@@ -380,33 +393,64 @@ class KalkulasiWidget(QFrame):
 
         rincian_layout.addWidget(self.input_form)
 
-        # Table
+        # Table with better styling
         self.rincian_table = QTableWidget()
         self.rincian_table.setColumnCount(5)
         self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Vol", "Sat", "Harga", "Jumlah"])
         self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.rincian_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.rincian_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self.rincian_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        self.rincian_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
+        self.rincian_table.setColumnWidth(1, 40)  # Vol
+        self.rincian_table.setColumnWidth(2, 40)  # Sat
+        self.rincian_table.setColumnWidth(3, 80)  # Harga
+        self.rincian_table.setColumnWidth(4, 80)  # Jumlah
         self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.rincian_table.setMaximumHeight(120)
+        self.rincian_table.setMinimumHeight(80)
+        self.rincian_table.setMaximumHeight(150)
         self.rincian_table.setStyleSheet("""
-            QTableWidget { border: 1px solid #ddd; font-size: 11px; }
-            QHeaderView::section { background-color: #ecf0f1; padding: 4px; font-weight: bold; }
+            QTableWidget {
+                border: 1px solid #ddd;
+                font-size: 11px;
+                background-color: white;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 3px;
+            }
+            QHeaderView::section {
+                background-color: #34495e;
+                color: white;
+                padding: 5px;
+                font-weight: bold;
+                font-size: 11px;
+                border: none;
+                border-right: 1px solid #2c3e50;
+            }
         """)
         rincian_layout.addWidget(self.rincian_table)
 
-        # Total
+        # Total row
         total_layout = QHBoxLayout()
-        total_layout.addStretch()
+        total_layout.setSpacing(8)
 
         del_btn = QPushButton("Hapus")
         del_btn.setStyleSheet("""
-            QPushButton { background-color: #e74c3c; color: white; padding: 4px 10px; border-radius: 3px; font-size: 10px; }
+            QPushButton { background-color: #e74c3c; color: white; padding: 3px 8px; border-radius: 3px; font-size: 10px; }
+            QPushButton:hover { background-color: #c0392b; }
         """)
         del_btn.clicked.connect(self._delete_rincian_item)
         total_layout.addWidget(del_btn)
 
-        total_layout.addWidget(QLabel("TOTAL:"))
+        total_layout.addStretch()
+
+        total_label = QLabel("TOTAL:")
+        total_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50;")
+        total_layout.addWidget(total_label)
+
         self.rincian_total_label = QLabel("Rp 0")
-        self.rincian_total_label.setStyleSheet("font-weight: bold; color: #27ae60;")
+        self.rincian_total_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #27ae60;")
         total_layout.addWidget(self.rincian_total_label)
 
         rincian_layout.addLayout(total_layout)
@@ -502,34 +546,34 @@ class KalkulasiWidget(QFrame):
         self.selisih_display.setText(selisih_text)
         if result_type == "KURANG_BAYAR":
             self.selisih_display.setStyleSheet("""
-                font-size: 16px; font-weight: bold; color: #e74c3c;
-                padding: 6px 10px; background-color: #fdeaea;
-                border-radius: 6px; border: 2px solid #e74c3c;
+                font-size: 14px; font-weight: bold; color: #e74c3c;
+                padding: 4px 8px; background-color: #fdeaea;
+                border-radius: 5px; border: 2px solid #e74c3c;
             """)
         elif result_type == "LEBIH_BAYAR":
             self.selisih_display.setStyleSheet("""
-                font-size: 16px; font-weight: bold; color: #f39c12;
-                padding: 6px 10px; background-color: #fef5e7;
-                border-radius: 6px; border: 2px solid #f39c12;
+                font-size: 14px; font-weight: bold; color: #f39c12;
+                padding: 4px 8px; background-color: #fef5e7;
+                border-radius: 5px; border: 2px solid #f39c12;
             """)
         else:
             self.selisih_display.setStyleSheet("""
-                font-size: 16px; font-weight: bold; color: #27ae60;
-                padding: 6px 10px; background-color: #e8f8f0;
-                border-radius: 6px; border: 2px solid #27ae60;
+                font-size: 14px; font-weight: bold; color: #27ae60;
+                padding: 4px 8px; background-color: #e8f8f0;
+                border-radius: 5px; border: 2px solid #27ae60;
             """)
 
         # Update result frame - solid color background with white text
         self.result_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {style['text_bg']};
-                border-radius: 10px;
+                border-radius: 8px;
             }}
         """)
 
         self.result_label.setText(f"{style['icon']} {style['label']}")
         self.result_label.setStyleSheet("""
-            font-size: 18px;
+            font-size: 15px;
             font-weight: bold;
             color: #ffffff;
             background-color: transparent;
@@ -537,7 +581,7 @@ class KalkulasiWidget(QFrame):
 
         self.action_label.setText(style['action'])
         self.action_label.setStyleSheet("""
-            font-size: 12px;
+            font-size: 11px;
             color: rgba(255, 255, 255, 0.9);
             background-color: transparent;
         """)

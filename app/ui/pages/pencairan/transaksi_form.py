@@ -153,13 +153,13 @@ class TransaksiFormPage(QWidget):
 
         # Title
         title_text = "Edit Transaksi" if self._is_edit else f"Buat {self.mekanisme} Baru"
-        title = QLabel(title_text)
-        title.setStyleSheet("""
+        self.title_label = QLabel(title_text)
+        self.title_label.setStyleSheet("""
             font-size: 20px;
             font-weight: bold;
             color: #2c3e50;
         """)
-        layout.addWidget(title)
+        layout.addWidget(self.title_label)
 
         layout.addStretch()
 
@@ -752,8 +752,8 @@ class TransaksiFormPage(QWidget):
         self._is_edit = True
         self._transaksi_id = data.get('id')
 
-        # Update header
-        # ... would need to update title label
+        # Update header title
+        self.title_label.setText("Edit Transaksi")
 
         # Fill form fields
         self.nama_input.setText(data.get('nama_kegiatan', ''))

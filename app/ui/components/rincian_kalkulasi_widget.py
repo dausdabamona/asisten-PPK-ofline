@@ -3,10 +3,13 @@ PPK DOCUMENT FACTORY - Rincian Kalkulasi Widget Component
 ==========================================================
 Widget untuk menginput rincian barang/jasa dengan kalkulasi otomatis.
 
+Format sesuai Lembar Permintaan:
+- No, Nama Barang, Spesifikasi, Volume, Satuan, Harga Satuan, Total, Keterangan
+
 Features:
 - Tabel input rincian barang/jasa
 - Auto-calculate total per item dan grand total
-- Bisa generate data untuk Kuitansi Uang Muka dan Kuitansi Rampung
+- Bisa generate data untuk Lembar Permintaan, Kuitansi Uang Muka, dan Kuitansi Rampung
 - Hasil bisa ditampilkan dalam terbilang
 """
 
@@ -15,7 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QFrame, QLineEdit, QDoubleSpinBox,
     QSpinBox, QTableWidget, QTableWidgetItem, QHeaderView,
     QGraphicsDropShadowEffect, QSizePolicy, QMessageBox,
-    QComboBox, QAbstractItemView
+    QComboBox, QAbstractItemView, QTextEdit
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
@@ -68,6 +71,11 @@ class RincianKalkulasiWidget(QFrame):
     """
     Widget untuk input rincian barang/jasa dan kalkulasi otomatis.
 
+    Modes:
+        - editable (default): Full edit, add, delete - untuk Lembar Permintaan
+        - inline_edit: Edit volume/harga di tabel - untuk Kuitansi Rampung
+        - readonly: Hanya tampil, tidak bisa edit - untuk Kuitansi Uang Muka
+
     Signals:
         total_changed(float): Emitted when total changes
         items_changed(): Emitted when items are modified
@@ -76,14 +84,31 @@ class RincianKalkulasiWidget(QFrame):
     total_changed = Signal(float)
     items_changed = Signal()
 
-    def __init__(self, title: str = "Rincian Barang/Jasa", parent=None):
+    # Column indices
+    COL_NO = 0
+    COL_NAMA = 1
+    COL_SPEK = 2
+    COL_VOL = 3
+    COL_SAT = 4
+    COL_HARGA = 5
+    COL_TOTAL = 6
+    COL_KET = 7
+
+    def __init__(self, title: str = "Rincian Barang/Jasa", editable: bool = True,
+                 inline_edit: bool = False, parent=None):
         super().__init__(parent)
         self._title = title
         self._items: List[Dict[str, Any]] = []
         self._total = 0.0
+        self._editable = editable
+        self._inline_edit = inline_edit
 
         self._setup_ui()
         self._add_shadow()
+
+        # Apply mode
+        if not editable:
+            self.set_readonly(True)
 
     def _setup_ui(self):
         """Setup widget UI."""
@@ -114,9 +139,9 @@ class RincianKalkulasiWidget(QFrame):
         header_layout.addStretch()
 
         # Add item button
-        add_btn = QPushButton("+ Tambah Item")
-        add_btn.setCursor(Qt.PointingHandCursor)
-        add_btn.setStyleSheet("""
+        self.add_btn = QPushButton("+ Tambah Item")
+        self.add_btn.setCursor(Qt.PointingHandCursor)
+        self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27ae60;
                 color: white;
@@ -130,8 +155,8 @@ class RincianKalkulasiWidget(QFrame):
                 background-color: #1e8449;
             }
         """)
-        add_btn.clicked.connect(self._add_item)
-        header_layout.addWidget(add_btn)
+        self.add_btn.clicked.connect(self._add_item)
+        header_layout.addWidget(self.add_btn)
 
         main_layout.addLayout(header_layout)
 
@@ -146,40 +171,53 @@ class RincianKalkulasiWidget(QFrame):
         """)
 
         input_layout = QGridLayout(self.input_frame)
-        input_layout.setSpacing(10)
+        input_layout.setSpacing(8)
 
-        # Uraian
-        input_layout.addWidget(QLabel("Uraian:"), 0, 0)
-        self.uraian_input = QLineEdit()
-        self.uraian_input.setPlaceholderText("Nama barang/jasa")
-        self.uraian_input.setStyleSheet(self._get_input_style())
-        input_layout.addWidget(self.uraian_input, 0, 1, 1, 3)
+        # Row 0: Nama Barang
+        input_layout.addWidget(QLabel("Nama Barang:"), 0, 0)
+        self.nama_input = QLineEdit()
+        self.nama_input.setPlaceholderText("Nama barang/jasa")
+        self.nama_input.setStyleSheet(self._get_input_style())
+        input_layout.addWidget(self.nama_input, 0, 1, 1, 3)
 
-        # Volume
-        input_layout.addWidget(QLabel("Volume:"), 1, 0)
+        # Row 1: Spesifikasi
+        input_layout.addWidget(QLabel("Spesifikasi:"), 1, 0)
+        self.spek_input = QLineEdit()
+        self.spek_input.setPlaceholderText("Ukuran, merk, tipe, dll (opsional)")
+        self.spek_input.setStyleSheet(self._get_input_style())
+        input_layout.addWidget(self.spek_input, 1, 1, 1, 3)
+
+        # Row 2: Volume + Satuan
+        input_layout.addWidget(QLabel("Volume:"), 2, 0)
         self.volume_input = QSpinBox()
         self.volume_input.setRange(1, 9999)
         self.volume_input.setValue(1)
         self.volume_input.setStyleSheet(self._get_input_style())
-        input_layout.addWidget(self.volume_input, 1, 1)
+        input_layout.addWidget(self.volume_input, 2, 1)
 
-        # Satuan
-        input_layout.addWidget(QLabel("Satuan:"), 1, 2)
+        input_layout.addWidget(QLabel("Satuan:"), 2, 2)
         self.satuan_input = QComboBox()
         self.satuan_input.setEditable(True)
-        self.satuan_input.addItems(["paket", "unit", "buah", "lembar", "orang", "set", "kg", "liter"])
+        self.satuan_input.addItems(["Unit", "Buah", "Paket", "Set", "Lembar", "Orang", "Kg", "Liter", "Meter"])
         self.satuan_input.setStyleSheet(self._get_input_style())
-        input_layout.addWidget(self.satuan_input, 1, 3)
+        input_layout.addWidget(self.satuan_input, 2, 3)
 
-        # Harga Satuan
-        input_layout.addWidget(QLabel("Harga Satuan:"), 2, 0)
+        # Row 3: Harga Satuan
+        input_layout.addWidget(QLabel("Harga Satuan:"), 3, 0)
         self.harga_input = QDoubleSpinBox()
         self.harga_input.setRange(0, 999999999999)
         self.harga_input.setDecimals(0)
         self.harga_input.setPrefix("Rp ")
         self.harga_input.setGroupSeparatorShown(True)
         self.harga_input.setStyleSheet(self._get_input_style())
-        input_layout.addWidget(self.harga_input, 2, 1, 1, 2)
+        input_layout.addWidget(self.harga_input, 3, 1, 1, 2)
+
+        # Row 4: Keterangan
+        input_layout.addWidget(QLabel("Keterangan:"), 4, 0)
+        self.ket_input = QLineEdit()
+        self.ket_input.setPlaceholderText("Catatan tambahan (opsional)")
+        self.ket_input.setStyleSheet(self._get_input_style())
+        input_layout.addWidget(self.ket_input, 4, 1, 1, 2)
 
         # Add to table button
         add_to_table_btn = QPushButton("Tambahkan")
@@ -198,24 +236,37 @@ class RincianKalkulasiWidget(QFrame):
             }
         """)
         add_to_table_btn.clicked.connect(self._add_item_to_table)
-        input_layout.addWidget(add_to_table_btn, 2, 3)
+        input_layout.addWidget(add_to_table_btn, 4, 3)
 
         main_layout.addWidget(self.input_frame)
         self.input_frame.hide()  # Initially hidden
 
-        # Table
+        # Table with 8 columns
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["No", "Uraian", "Volume", "Satuan", "Harga Satuan", "Jumlah"])
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
-        self.table.setColumnWidth(0, 40)
-        self.table.setColumnWidth(2, 60)
-        self.table.setColumnWidth(3, 70)
-        self.table.setColumnWidth(4, 120)
-        self.table.setColumnWidth(5, 120)
+        self.table.setColumnCount(8)
+        self.table.setHorizontalHeaderLabels([
+            "No", "Nama Barang", "Spesifikasi", "Volume", "Satuan", "Harga Satuan", "Total", "Keterangan"
+        ])
+
+        # Column sizing
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(self.COL_NO, QHeaderView.Fixed)
+        header.setSectionResizeMode(self.COL_NAMA, QHeaderView.Stretch)
+        header.setSectionResizeMode(self.COL_SPEK, QHeaderView.Interactive)
+        header.setSectionResizeMode(self.COL_VOL, QHeaderView.Fixed)
+        header.setSectionResizeMode(self.COL_SAT, QHeaderView.Fixed)
+        header.setSectionResizeMode(self.COL_HARGA, QHeaderView.Fixed)
+        header.setSectionResizeMode(self.COL_TOTAL, QHeaderView.Fixed)
+        header.setSectionResizeMode(self.COL_KET, QHeaderView.Interactive)
+
+        self.table.setColumnWidth(self.COL_NO, 35)
+        self.table.setColumnWidth(self.COL_SPEK, 120)
+        self.table.setColumnWidth(self.COL_VOL, 55)
+        self.table.setColumnWidth(self.COL_SAT, 60)
+        self.table.setColumnWidth(self.COL_HARGA, 100)
+        self.table.setColumnWidth(self.COL_TOTAL, 100)
+        self.table.setColumnWidth(self.COL_KET, 100)
+
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
@@ -224,33 +275,35 @@ class RincianKalkulasiWidget(QFrame):
                 border: 1px solid #ecf0f1;
                 border-radius: 4px;
                 gridline-color: #ecf0f1;
+                font-size: 11px;
             }
             QTableWidget::item {
-                padding: 8px;
+                padding: 5px;
             }
             QHeaderView::section {
                 background-color: #f8f9fa;
-                padding: 8px;
+                padding: 6px;
                 border: none;
                 border-bottom: 1px solid #ecf0f1;
                 font-weight: bold;
                 color: #2c3e50;
+                font-size: 11px;
             }
             QTableWidget::item:selected {
                 background-color: #ebf5fb;
                 color: #2c3e50;
             }
         """)
-        self.table.setMinimumHeight(150)
+        self.table.setMinimumHeight(180)
         main_layout.addWidget(self.table)
 
         # Delete selected button
         delete_layout = QHBoxLayout()
         delete_layout.addStretch()
 
-        delete_btn = QPushButton("Hapus Item Terpilih")
-        delete_btn.setCursor(Qt.PointingHandCursor)
-        delete_btn.setStyleSheet("""
+        self.delete_btn = QPushButton("Hapus Item Terpilih")
+        self.delete_btn.setCursor(Qt.PointingHandCursor)
+        self.delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
                 color: white;
@@ -263,8 +316,8 @@ class RincianKalkulasiWidget(QFrame):
                 background-color: #c0392b;
             }
         """)
-        delete_btn.clicked.connect(self._delete_selected)
-        delete_layout.addWidget(delete_btn)
+        self.delete_btn.clicked.connect(self._delete_selected)
+        delete_layout.addWidget(self.delete_btn)
 
         main_layout.addLayout(delete_layout)
 
@@ -346,55 +399,70 @@ class RincianKalkulasiWidget(QFrame):
             self.input_frame.hide()
         else:
             self.input_frame.show()
-            self.uraian_input.setFocus()
+            self.nama_input.setFocus()
 
     def _add_item_to_table(self):
         """Add item from input form to table."""
-        uraian = self.uraian_input.text().strip()
-        if not uraian:
-            QMessageBox.warning(self, "Validasi", "Uraian barang/jasa wajib diisi")
+        nama = self.nama_input.text().strip()
+        if not nama:
+            QMessageBox.warning(self, "Validasi", "Nama barang/jasa wajib diisi")
             return
 
+        spek = self.spek_input.text().strip()
         volume = self.volume_input.value()
         satuan = self.satuan_input.currentText()
         harga = self.harga_input.value()
+        ket = self.ket_input.text().strip()
         jumlah = volume * harga
 
         # Add to internal list
         item = {
-            'uraian': uraian,
+            'nama': nama,
+            'spesifikasi': spek,
             'volume': volume,
             'satuan': satuan,
             'harga_satuan': harga,
             'jumlah': jumlah,
+            'keterangan': ket,
         }
         self._items.append(item)
 
         # Add to table
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-
-        self.table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
-        self.table.setItem(row, 1, QTableWidgetItem(uraian))
-        self.table.setItem(row, 2, QTableWidgetItem(str(volume)))
-        self.table.setItem(row, 3, QTableWidgetItem(satuan))
-        self.table.setItem(row, 4, QTableWidgetItem(format_rupiah(harga)))
-        self.table.setItem(row, 5, QTableWidgetItem(format_rupiah(jumlah)))
-
-        # Center align numeric columns
-        for col in [0, 2, 3, 4, 5]:
-            self.table.item(row, col).setTextAlignment(Qt.AlignCenter)
+        self._add_row_to_table(item)
 
         # Clear input
-        self.uraian_input.clear()
+        self.nama_input.clear()
+        self.spek_input.clear()
         self.volume_input.setValue(1)
         self.harga_input.setValue(0)
+        self.ket_input.clear()
 
         # Update total
         self._update_total()
 
         # Emit signal
         self.items_changed.emit()
+
+    def _add_row_to_table(self, item: Dict[str, Any]):
+        """Add a single row to table."""
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+
+        self.table.setItem(row, self.COL_NO, QTableWidgetItem(str(row + 1)))
+        self.table.setItem(row, self.COL_NAMA, QTableWidgetItem(item.get('nama', '')))
+        self.table.setItem(row, self.COL_SPEK, QTableWidgetItem(item.get('spesifikasi', '')))
+        self.table.setItem(row, self.COL_VOL, QTableWidgetItem(str(item.get('volume', 0))))
+        self.table.setItem(row, self.COL_SAT, QTableWidgetItem(item.get('satuan', '')))
+        self.table.setItem(row, self.COL_HARGA, QTableWidgetItem(format_rupiah(item.get('harga_satuan', 0))))
+        self.table.setItem(row, self.COL_TOTAL, QTableWidgetItem(format_rupiah(item.get('jumlah', 0))))
+        self.table.setItem(row, self.COL_KET, QTableWidgetItem(item.get('keterangan', '')))
+
+        # Center align some columns
+        for col in [self.COL_NO, self.COL_VOL, self.COL_SAT]:
+            self.table.item(row, col).setTextAlignment(Qt.AlignCenter)
+        # Right align numbers
+        for col in [self.COL_HARGA, self.COL_TOTAL]:
+            self.table.item(row, col).setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
     def _delete_selected(self):
         """Delete selected rows."""
@@ -414,8 +482,8 @@ class RincianKalkulasiWidget(QFrame):
 
         # Renumber rows
         for i in range(self.table.rowCount()):
-            self.table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-            self.table.item(i, 0).setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(i, self.COL_NO, QTableWidgetItem(str(i + 1)))
+            self.table.item(i, self.COL_NO).setTextAlignment(Qt.AlignCenter)
 
         # Update total
         self._update_total()
@@ -460,21 +528,18 @@ class RincianKalkulasiWidget(QFrame):
 
         # Add items
         for item in items:
-            self._items.append(item)
-
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-
-            self.table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
-            self.table.setItem(row, 1, QTableWidgetItem(item.get('uraian', '')))
-            self.table.setItem(row, 2, QTableWidgetItem(str(item.get('volume', 0))))
-            self.table.setItem(row, 3, QTableWidgetItem(item.get('satuan', '')))
-            self.table.setItem(row, 4, QTableWidgetItem(format_rupiah(item.get('harga_satuan', 0))))
-            self.table.setItem(row, 5, QTableWidgetItem(format_rupiah(item.get('jumlah', 0))))
-
-            # Center align numeric columns
-            for col in [0, 2, 3, 4, 5]:
-                self.table.item(row, col).setTextAlignment(Qt.AlignCenter)
+            # Normalize item keys (support both 'nama' and 'uraian')
+            normalized = {
+                'nama': item.get('nama', item.get('uraian', '')),
+                'spesifikasi': item.get('spesifikasi', ''),
+                'volume': item.get('volume', 1),
+                'satuan': item.get('satuan', 'unit'),
+                'harga_satuan': item.get('harga_satuan', 0),
+                'jumlah': item.get('jumlah', 0),
+                'keterangan': item.get('keterangan', ''),
+            }
+            self._items.append(normalized)
+            self._add_row_to_table(normalized)
 
         # Update total
         self._update_total()
@@ -494,3 +559,151 @@ class RincianKalkulasiWidget(QFrame):
             'total_terbilang': self.get_terbilang(),
             'jumlah_item': len(self._items),
         }
+
+    def set_readonly(self, readonly: bool = True):
+        """Set widget to readonly mode (for Kuitansi Uang Muka)."""
+        self._editable = not readonly
+
+        # Hide add button and input form
+        if hasattr(self, 'input_frame'):
+            self.input_frame.hide()
+
+        # Find and hide add/delete buttons
+        if hasattr(self, 'add_btn'):
+            self.add_btn.setVisible(not readonly)
+        if hasattr(self, 'delete_btn'):
+            self.delete_btn.setVisible(not readonly)
+
+        # Disable table editing
+        if readonly:
+            self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        else:
+            self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
+
+    def set_inline_edit(self, enabled: bool = True):
+        """
+        Enable inline editing mode (for Kuitansi Rampung).
+        Allows editing volume and harga_satuan directly in table.
+        """
+        self._inline_edit = enabled
+
+        if enabled:
+            # Hide add button and form
+            if hasattr(self, 'input_frame'):
+                self.input_frame.hide()
+            if hasattr(self, 'add_btn'):
+                self.add_btn.hide()
+
+            # Enable cell editing
+            self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
+            self.table.cellChanged.connect(self._on_cell_changed)
+        else:
+            try:
+                self.table.cellChanged.disconnect(self._on_cell_changed)
+            except RuntimeError:
+                pass
+
+    def _on_cell_changed(self, row: int, col: int):
+        """Handle cell value changed for inline editing."""
+        if not self._inline_edit or row >= len(self._items):
+            return
+
+        try:
+            # Only allow editing volume (col 3) and harga_satuan (col 5)
+            if col == self.COL_VOL:  # Volume
+                new_volume = int(self.table.item(row, col).text())
+                self._items[row]['volume'] = new_volume
+            elif col == self.COL_HARGA:  # Harga satuan
+                # Parse rupiah format
+                text = self.table.item(row, col).text()
+                text = text.replace("Rp", "").replace(".", "").replace(",", "").strip()
+                new_harga = float(text) if text else 0
+                self._items[row]['harga_satuan'] = new_harga
+
+            # Recalculate jumlah
+            volume = self._items[row]['volume']
+            harga = self._items[row]['harga_satuan']
+            jumlah = volume * harga
+            self._items[row]['jumlah'] = jumlah
+
+            # Update total column
+            self.table.blockSignals(True)
+            self.table.setItem(row, self.COL_TOTAL, QTableWidgetItem(format_rupiah(jumlah)))
+            self.table.item(row, self.COL_TOTAL).setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.table.blockSignals(False)
+
+            # Update total
+            self._update_total()
+            self.items_changed.emit()
+
+        except (ValueError, AttributeError):
+            pass
+
+    def load_from_db(self, db_manager, transaksi_id: int):
+        """
+        Load rincian items from database.
+
+        Args:
+            db_manager: PencairanManager instance
+            transaksi_id: ID transaksi
+        """
+        try:
+            items = db_manager.get_rincian_transaksi(transaksi_id)
+            # Convert db format to widget format
+            widget_items = []
+            for item in items:
+                widget_items.append({
+                    'nama': item.get('nama_item', ''),
+                    'spesifikasi': item.get('spesifikasi', ''),
+                    'volume': item.get('volume', 1),
+                    'satuan': item.get('satuan', 'unit'),
+                    'harga_satuan': item.get('harga_satuan', 0),
+                    'jumlah': item.get('jumlah', 0),
+                    'keterangan': item.get('keterangan', ''),
+                    'db_id': item.get('id'),  # Keep track of DB id
+                })
+            self.set_items(widget_items)
+        except Exception as e:
+            print(f"Error loading rincian from db: {e}")
+
+    def save_to_db(self, db_manager, transaksi_id: int) -> bool:
+        """
+        Save rincian items to database.
+
+        Args:
+            db_manager: PencairanManager instance
+            transaksi_id: ID transaksi
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Convert widget format to db format
+            db_items = []
+            for item in self._items:
+                db_items.append({
+                    'nama_item': item.get('nama', ''),
+                    'spesifikasi': item.get('spesifikasi', ''),
+                    'satuan': item.get('satuan', 'unit'),
+                    'volume': item.get('volume', 1),
+                    'harga_satuan': item.get('harga_satuan', 0),
+                    'keterangan': item.get('keterangan', ''),
+                })
+            return db_manager.save_rincian_batch(transaksi_id, db_items)
+        except Exception as e:
+            print(f"Error saving rincian to db: {e}")
+            return False
+
+    def get_items_for_db(self) -> List[Dict[str, Any]]:
+        """Get items formatted for database save."""
+        return [
+            {
+                'nama_item': item.get('nama', ''),
+                'spesifikasi': item.get('spesifikasi', ''),
+                'satuan': item.get('satuan', 'unit'),
+                'volume': item.get('volume', 1),
+                'harga_satuan': item.get('harga_satuan', 0),
+                'keterangan': item.get('keterangan', ''),
+            }
+            for item in self._items
+        ]

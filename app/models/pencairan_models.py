@@ -40,6 +40,16 @@ JENIS_BELANJA = [
     {"kode": "lainnya", "nama": "Belanja Lainnya", "icon": "box", "akun_default": "5.2.2.99"},
 ]
 
+# Jenis Kegiatan untuk UP workflow (menentukan dokumen kondisional)
+JENIS_KEGIATAN_UP = [
+    {"kode": "OPERASIONAL", "nama": "Belanja Operasional Kantor (< Rp 1 juta)"},
+    {"kode": "KEPANITIAAN", "nama": "Kegiatan Kepanitiaan"},
+    {"kode": "JAMUAN_TAMU", "nama": "Jamuan Tamu"},
+    {"kode": "RAPAT", "nama": "Rapat/Pertemuan/Workshop"},
+    {"kode": "PERJALANAN_LOKAL", "nama": "Perjalanan Lokal"},
+    {"kode": "LAINNYA", "nama": "Kegiatan Lainnya"},
+]
+
 # ============================================================================
 # ENUM CLASSES
 # ============================================================================
@@ -99,13 +109,17 @@ CREATE TABLE IF NOT EXISTS transaksi_pencairan (
     tanggal_dasar DATE,
     perihal_dasar TEXT,
 
-    -- Penerima (untuk UP/TUP)
+    -- Penerima (untuk UP/TUP) - normalized with FK
+    penerima_id INTEGER,
     penerima_nama TEXT,
     penerima_nip TEXT,
     penerima_jabatan TEXT,
     penerima_npwp TEXT,
     penerima_rekening TEXT,
     penerima_bank TEXT,
+
+    -- Jenis Kegiatan (untuk UP workflow)
+    jenis_kegiatan TEXT,
 
     -- Penyedia (untuk LS)
     penyedia_id INTEGER,
@@ -138,6 +152,7 @@ CREATE TABLE IF NOT EXISTS transaksi_pencairan (
     created_by TEXT,
     updated_by TEXT,
 
+    FOREIGN KEY (penerima_id) REFERENCES pegawai(id),
     FOREIGN KEY (penyedia_id) REFERENCES penyedia(id)
 );
 
@@ -146,6 +161,8 @@ CREATE INDEX IF NOT EXISTS idx_transaksi_mekanisme ON transaksi_pencairan(mekani
 CREATE INDEX IF NOT EXISTS idx_transaksi_status ON transaksi_pencairan(status);
 CREATE INDEX IF NOT EXISTS idx_transaksi_tahun ON transaksi_pencairan(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_transaksi_jenis ON transaksi_pencairan(jenis_belanja);
+CREATE INDEX IF NOT EXISTS idx_transaksi_penerima ON transaksi_pencairan(penerima_id);
+CREATE INDEX IF NOT EXISTS idx_transaksi_jenis_kegiatan ON transaksi_pencairan(jenis_kegiatan);
 """
 
 SCHEMA_DOKUMEN_TRANSAKSI = """
@@ -216,6 +233,146 @@ CREATE TABLE IF NOT EXISTS counter_transaksi (
 );
 """
 
+SCHEMA_RINCIAN_TRANSAKSI = """
+CREATE TABLE IF NOT EXISTS rincian_transaksi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_id INTEGER NOT NULL,
+    nama_item TEXT NOT NULL,
+    spesifikasi TEXT,
+    satuan TEXT DEFAULT 'unit',
+    volume REAL DEFAULT 1,
+    harga_satuan REAL DEFAULT 0,
+    jumlah REAL DEFAULT 0,
+    keterangan TEXT,
+    urutan INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (transaksi_id) REFERENCES transaksi_pencairan(id) ON DELETE CASCADE
+);
+
+-- Index untuk lookup
+CREATE INDEX IF NOT EXISTS idx_rincian_transaksi ON rincian_transaksi(transaksi_id);
+"""
+
+# ============================================================================
+# MASTER DATA SCHEMAS
+# ============================================================================
+
+SCHEMA_MASTER_JENIS_BELANJA = """
+CREATE TABLE IF NOT EXISTS master_jenis_belanja (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kode TEXT UNIQUE NOT NULL,
+    nama TEXT NOT NULL,
+    icon TEXT DEFAULT 'box',
+    akun_default TEXT,
+    urutan INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+SCHEMA_MASTER_JENIS_KEGIATAN = """
+CREATE TABLE IF NOT EXISTS master_jenis_kegiatan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kode TEXT UNIQUE NOT NULL,
+    nama TEXT NOT NULL,
+    mekanisme TEXT DEFAULT 'UP',
+    urutan INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+SCHEMA_MASTER_CHECKLIST_ITEM = """
+CREATE TABLE IF NOT EXISTS master_checklist_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kode TEXT NOT NULL,
+    nama TEXT NOT NULL,
+    mekanisme TEXT NOT NULL,
+    jenis_kegiatan TEXT,
+    fase INTEGER DEFAULT 1,
+    urutan INTEGER DEFAULT 0,
+    is_required INTEGER DEFAULT 1,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_mekanisme ON master_checklist_item(mekanisme);
+CREATE INDEX IF NOT EXISTS idx_checklist_fase ON master_checklist_item(mekanisme, fase);
+"""
+
+# ============================================================================
+# SEED DATA
+# ============================================================================
+
+SEED_JENIS_BELANJA = """
+INSERT OR IGNORE INTO master_jenis_belanja (kode, nama, icon, akun_default, urutan) VALUES
+('honorarium', 'Honorarium', 'wallet', '5.2.1.01', 1),
+('jamuan', 'Jamuan Tamu / Konsumsi Rapat', 'utensils', '5.2.2.03', 2),
+('perdin', 'Perjalanan Dinas', 'plane', '5.2.4.01', 3),
+('pjlp', 'PJLP (Tenaga Kontrak)', 'users', '5.2.1.02', 4),
+('atk', 'Belanja ATK / Perlengkapan', 'shopping-cart', '5.2.2.01', 5),
+('lainnya', 'Belanja Lainnya', 'box', '5.2.2.99', 99);
+"""
+
+SEED_JENIS_KEGIATAN = """
+INSERT OR IGNORE INTO master_jenis_kegiatan (kode, nama, mekanisme, urutan) VALUES
+('OPERASIONAL', 'Belanja Operasional Kantor (< Rp 1 juta)', 'UP', 1),
+('KEPANITIAAN', 'Kegiatan Kepanitiaan', 'UP', 2),
+('JAMUAN_TAMU', 'Jamuan Tamu', 'UP', 3),
+('RAPAT', 'Rapat/Pertemuan/Workshop', 'UP', 4),
+('PERJALANAN_LOKAL', 'Perjalanan Lokal', 'UP', 5),
+('LAINNYA', 'Kegiatan Lainnya', 'UP', 99);
+"""
+
+SEED_CHECKLIST_ITEMS = """
+-- Checklist UP Fase 1 - Semua Jenis Kegiatan
+INSERT OR IGNORE INTO master_checklist_item (kode, nama, mekanisme, jenis_kegiatan, fase, urutan, is_required) VALUES
+('CHK_FORM_PERMINTAAN', 'Form permintaan sudah diisi lengkap', 'UP', NULL, 1, 1, 1),
+('CHK_ESTIMASI_BIAYA', 'Estimasi biaya sudah dihitung', 'UP', NULL, 1, 2, 1),
+('CHK_PAGU_TERSEDIA', 'Pagu anggaran tersedia', 'UP', NULL, 1, 3, 1),
+('CHK_KODE_AKUN', 'Kode akun belanja sesuai', 'UP', NULL, 1, 4, 1),
+
+-- Checklist UP Fase 1 - Khusus Non-Perjalanan Dinas
+('CHK_LBR_PERMINTAAN', 'Lembar permintaan sudah ditandatangani', 'UP', 'NON_PERDIN', 1, 10, 1),
+
+-- Checklist UP Fase 1 - Khusus Perjalanan Dinas
+('CHK_SURAT_TUGAS', 'Surat tugas sudah diterbitkan', 'UP', 'PERJALANAN_LOKAL', 1, 10, 1),
+('CHK_TUJUAN_JELAS', 'Tujuan perjalanan sudah jelas', 'UP', 'PERJALANAN_LOKAL', 1, 11, 1),
+('CHK_JADWAL_JELAS', 'Jadwal perjalanan sudah ditentukan', 'UP', 'PERJALANAN_LOKAL', 1, 12, 1),
+
+-- Checklist UP Fase 1 - Khusus Kepanitiaan
+('CHK_SK_PANITIA', 'SK Panitia sudah diterbitkan', 'UP', 'KEPANITIAAN', 1, 10, 1),
+('CHK_TOR_LENGKAP', 'TOR/KAK sudah lengkap', 'UP', 'KEPANITIAAN', 1, 11, 1),
+('CHK_RAB_DETAIL', 'RAB sudah detail dan sesuai SBM', 'UP', 'KEPANITIAAN', 1, 12, 1),
+
+-- Checklist UP Fase 3 - Pelaksanaan
+('CHK_FOTO_KEGIATAN', 'Dokumentasi foto kegiatan ada', 'UP', NULL, 3, 1, 1),
+('CHK_NOTA_FAKTUR', 'Nota/faktur pembelian lengkap', 'UP', NULL, 3, 2, 1),
+('CHK_KWITANSI', 'Kwitansi pembayaran ada', 'UP', NULL, 3, 3, 1),
+
+-- Checklist UP Fase 4 - Pertanggungjawaban
+('CHK_KUIT_RAMPUNG', 'Kuitansi rampung sudah dibuat', 'UP', NULL, 4, 1, 1),
+('CHK_HITUNG_SELISIH', 'Perhitungan selisih sudah benar', 'UP', NULL, 4, 2, 1),
+('CHK_BUKTI_LENGKAP', 'Bukti pengeluaran sudah lengkap', 'UP', NULL, 4, 3, 1),
+
+-- Checklist UP Fase 5 - Rekap & Arsip
+('CHK_REKAP_FINAL', 'Rekap final sudah dibuat', 'UP', NULL, 5, 1, 1),
+('CHK_SPBY_SAKTI', 'SPBY sudah diinput di SAKTI', 'UP', NULL, 5, 2, 1),
+('CHK_ARSIP_LENGKAP', 'Dokumen sudah diarsipkan', 'UP', NULL, 5, 3, 1),
+
+-- Checklist LS Fase 1 - Kontrak
+('CHK_SPK_LENGKAP', 'SPK/Kontrak sudah lengkap', 'LS', 'KONTRAK', 1, 1, 1),
+('CHK_JAMINAN_ADA', 'Jaminan pelaksanaan ada (jika diperlukan)', 'LS', 'KONTRAK', 1, 2, 0),
+('CHK_SPMK_TERBIT', 'SPMK sudah diterbitkan', 'LS', 'KONTRAK', 1, 3, 1),
+
+-- Checklist LS Fase 1 - Perjalanan Dinas
+('CHK_ST_LS', 'Surat Tugas sudah diterbitkan', 'LS', 'SURAT_TUGAS', 1, 1, 1),
+('CHK_SPD_LENGKAP', 'SPD sudah lengkap', 'LS', 'SURAT_TUGAS', 1, 2, 1),
+('CHK_RAB_SPPD', 'RAB perjalanan sudah sesuai SBM', 'LS', 'SURAT_TUGAS', 1, 3, 1);
+"""
+
 # ============================================================================
 # DATABASE MANAGER CLASS
 # ============================================================================
@@ -258,8 +415,336 @@ class PencairanManager:
             cursor.executescript(SCHEMA_FASE_LOG)
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
+            cursor.executescript(SCHEMA_RINCIAN_TRANSAKSI)
+
+            # Create master data tables
+            cursor.executescript(SCHEMA_MASTER_JENIS_BELANJA)
+            cursor.executescript(SCHEMA_MASTER_JENIS_KEGIATAN)
+            cursor.executescript(SCHEMA_MASTER_CHECKLIST_ITEM)
+
+            # Run migrations for existing databases
+            self._run_migrations(conn)
+
+            # Seed master data (INSERT OR IGNORE - won't duplicate)
+            cursor.executescript(SEED_JENIS_BELANJA)
+            cursor.executescript(SEED_JENIS_KEGIATAN)
+            cursor.executescript(SEED_CHECKLIST_ITEMS)
 
             conn.commit()
+
+    def _run_migrations(self, conn):
+        """Run database migrations for existing databases."""
+        cursor = conn.cursor()
+
+        # Check existing columns in transaksi_pencairan
+        cursor.execute("PRAGMA table_info(transaksi_pencairan)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        # Migration: Add penerima_id column if not exists
+        if 'penerima_id' not in columns:
+            try:
+                cursor.execute(
+                    "ALTER TABLE transaksi_pencairan ADD COLUMN penerima_id INTEGER REFERENCES pegawai(id)"
+                )
+            except Exception:
+                pass
+
+        # Migration: Add jenis_kegiatan column if not exists
+        if 'jenis_kegiatan' not in columns:
+            try:
+                cursor.execute(
+                    "ALTER TABLE transaksi_pencairan ADD COLUMN jenis_kegiatan TEXT"
+                )
+            except Exception:
+                pass
+
+    # ========================================================================
+    # MASTER DATA QUERIES
+    # ========================================================================
+
+    def get_jenis_belanja_list(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get list jenis belanja dari database."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            sql = "SELECT * FROM master_jenis_belanja"
+            if active_only:
+                sql += " WHERE is_active = 1"
+            sql += " ORDER BY urutan"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            if rows:
+                return [dict(row) for row in rows]
+            # Fallback ke konstanta jika tabel kosong
+            return JENIS_BELANJA
+
+    def get_jenis_kegiatan_list(self, mekanisme: str = "UP", active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get list jenis kegiatan dari database."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            sql = "SELECT * FROM master_jenis_kegiatan WHERE mekanisme = ?"
+            params = [mekanisme]
+            if active_only:
+                sql += " AND is_active = 1"
+            sql += " ORDER BY urutan"
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            if rows:
+                return [dict(row) for row in rows]
+            # Fallback ke konstanta jika tabel kosong
+            return JENIS_KEGIATAN_UP
+
+    def get_checklist_items(self, mekanisme: str, fase: int, jenis_kegiatan: str = None) -> List[Dict[str, Any]]:
+        """
+        Get checklist items untuk mekanisme, fase, dan jenis kegiatan tertentu.
+
+        Args:
+            mekanisme: UP, TUP, atau LS
+            fase: Nomor fase (1-5)
+            jenis_kegiatan: Kode jenis kegiatan (opsional)
+
+        Returns:
+            List checklist items yang sesuai
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get items yang berlaku untuk semua (jenis_kegiatan IS NULL)
+            # dan items khusus untuk jenis_kegiatan tertentu
+            sql = """
+                SELECT * FROM master_checklist_item
+                WHERE mekanisme = ? AND fase = ? AND is_active = 1
+                AND (jenis_kegiatan IS NULL OR jenis_kegiatan = ?)
+                ORDER BY urutan
+            """
+            cursor.execute(sql, (mekanisme, fase, jenis_kegiatan or ''))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def add_jenis_belanja(self, kode: str, nama: str, icon: str = 'box',
+                          akun_default: str = None, urutan: int = 0) -> int:
+        """Tambah jenis belanja baru."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO master_jenis_belanja (kode, nama, icon, akun_default, urutan)
+                VALUES (?, ?, ?, ?, ?)
+            """, (kode, nama, icon, akun_default, urutan))
+            conn.commit()
+            return cursor.lastrowid
+
+    def add_jenis_kegiatan(self, kode: str, nama: str, mekanisme: str = 'UP',
+                           urutan: int = 0) -> int:
+        """Tambah jenis kegiatan baru."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO master_jenis_kegiatan (kode, nama, mekanisme, urutan)
+                VALUES (?, ?, ?, ?)
+            """, (kode, nama, mekanisme, urutan))
+            conn.commit()
+            return cursor.lastrowid
+
+    def add_checklist_item(self, kode: str, nama: str, mekanisme: str,
+                           fase: int = 1, jenis_kegiatan: str = None,
+                           urutan: int = 0, is_required: bool = True) -> int:
+        """Tambah checklist item baru."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO master_checklist_item
+                (kode, nama, mekanisme, jenis_kegiatan, fase, urutan, is_required)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (kode, nama, mekanisme, jenis_kegiatan, fase, urutan, 1 if is_required else 0))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_master_item(self, table: str, item_id: int, **kwargs) -> bool:
+        """Update item di tabel master."""
+        allowed_tables = ['master_jenis_belanja', 'master_jenis_kegiatan', 'master_checklist_item']
+        if table not in allowed_tables:
+            return False
+
+        updates = []
+        values = []
+        for key, value in kwargs.items():
+            updates.append(f"{key} = ?")
+            values.append(value)
+
+        if not updates:
+            return False
+
+        values.append(item_id)
+        sql = f"UPDATE {table} SET {', '.join(updates)} WHERE id = ?"
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, values)
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_master_item(self, table: str, item_id: int, soft_delete: bool = True) -> bool:
+        """Delete item di tabel master (soft delete by default)."""
+        allowed_tables = ['master_jenis_belanja', 'master_jenis_kegiatan', 'master_checklist_item']
+        if table not in allowed_tables:
+            return False
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if soft_delete:
+                cursor.execute(f"UPDATE {table} SET is_active = 0 WHERE id = ?", (item_id,))
+            else:
+                cursor.execute(f"DELETE FROM {table} WHERE id = ?", (item_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # ========================================================================
+    # RINCIAN TRANSAKSI CRUD
+    # ========================================================================
+
+    def get_rincian_transaksi(self, transaksi_id: int) -> List[Dict[str, Any]]:
+        """
+        Get semua rincian barang/jasa untuk transaksi.
+
+        Args:
+            transaksi_id: ID transaksi
+
+        Returns:
+            List rincian items
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM rincian_transaksi
+                WHERE transaksi_id = ?
+                ORDER BY urutan, id
+            """, (transaksi_id,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def add_rincian_item(self, transaksi_id: int, nama_item: str, spesifikasi: str = None,
+                         satuan: str = 'unit', volume: float = 1, harga_satuan: float = 0,
+                         keterangan: str = None, urutan: int = 0) -> int:
+        """
+        Tambah item rincian barang/jasa.
+
+        Returns:
+            ID item yang baru ditambahkan
+        """
+        jumlah = volume * harga_satuan
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO rincian_transaksi
+                (transaksi_id, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (transaksi_id, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan, urutan))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_rincian_item(self, item_id: int, **kwargs) -> bool:
+        """
+        Update item rincian.
+
+        Args:
+            item_id: ID item
+            **kwargs: Fields to update (nama_item, spesifikasi, satuan, volume, harga_satuan, keterangan, urutan)
+
+        Returns:
+            True jika berhasil
+        """
+        allowed_fields = ['nama_item', 'spesifikasi', 'satuan', 'volume', 'harga_satuan', 'keterangan', 'urutan']
+        updates = []
+        values = []
+
+        for key, value in kwargs.items():
+            if key in allowed_fields:
+                updates.append(f"{key} = ?")
+                values.append(value)
+
+        if not updates:
+            return False
+
+        # Recalculate jumlah if volume or harga_satuan changed
+        if 'volume' in kwargs or 'harga_satuan' in kwargs:
+            updates.append("jumlah = volume * harga_satuan")
+
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(item_id)
+
+        sql = f"UPDATE rincian_transaksi SET {', '.join(updates)} WHERE id = ?"
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, values)
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_rincian_item(self, item_id: int) -> bool:
+        """Delete item rincian."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM rincian_transaksi WHERE id = ?", (item_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_total_rincian(self, transaksi_id: int) -> float:
+        """
+        Get total jumlah dari semua rincian transaksi.
+
+        Args:
+            transaksi_id: ID transaksi
+
+        Returns:
+            Total jumlah
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COALESCE(SUM(jumlah), 0) as total
+                FROM rincian_transaksi
+                WHERE transaksi_id = ?
+            """, (transaksi_id,))
+            row = cursor.fetchone()
+            return row['total'] if row else 0
+
+    def save_rincian_batch(self, transaksi_id: int, items: List[Dict]) -> bool:
+        """
+        Simpan batch rincian (hapus semua lalu insert baru).
+
+        Args:
+            transaksi_id: ID transaksi
+            items: List of dicts dengan keys: nama_item, spesifikasi, satuan, volume, harga_satuan, keterangan
+
+        Returns:
+            True jika berhasil
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Delete existing items
+            cursor.execute("DELETE FROM rincian_transaksi WHERE transaksi_id = ?", (transaksi_id,))
+
+            # Insert new items
+            for idx, item in enumerate(items):
+                jumlah = item.get('volume', 1) * item.get('harga_satuan', 0)
+                cursor.execute("""
+                    INSERT INTO rincian_transaksi
+                    (transaksi_id, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan, urutan)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    transaksi_id,
+                    item.get('nama_item', ''),
+                    item.get('spesifikasi', ''),
+                    item.get('satuan', 'unit'),
+                    item.get('volume', 1),
+                    item.get('harga_satuan', 0),
+                    jumlah,
+                    item.get('keterangan'),
+                    idx
+                ))
+
+            conn.commit()
+            return True
 
     # ========================================================================
     # TRANSAKSI PENCAIRAN CRUD
@@ -335,8 +820,9 @@ class PencairanManager:
                     estimasi_biaya, uang_muka, realisasi,
                     fase_aktif, status,
                     jenis_dasar, nomor_dasar, tanggal_dasar, perihal_dasar,
-                    penerima_nama, penerima_nip, penerima_jabatan,
+                    penerima_id, penerima_nama, penerima_nip, penerima_jabatan,
                     penerima_npwp, penerima_rekening, penerima_bank,
+                    jenis_kegiatan,
                     penyedia_id, nilai_kontrak, nomor_kontrak, tanggal_kontrak,
                     kode_akun, nama_akun, nomor_mak,
                     tahun_anggaran,
@@ -347,8 +833,9 @@ class PencairanManager:
                     ?, ?, ?,
                     ?, ?,
                     ?, ?, ?, ?,
+                    ?, ?, ?, ?,
                     ?, ?, ?,
-                    ?, ?, ?,
+                    ?,
                     ?, ?, ?, ?,
                     ?, ?, ?,
                     ?,
@@ -369,12 +856,14 @@ class PencairanManager:
                 data.get('nomor_dasar'),
                 data.get('tanggal_dasar'),
                 data.get('perihal_dasar'),
+                data.get('penerima_id'),
                 data.get('penerima_nama'),
                 data.get('penerima_nip'),
                 data.get('penerima_jabatan'),
                 data.get('penerima_npwp'),
                 data.get('penerima_rekening'),
                 data.get('penerima_bank'),
+                data.get('jenis_kegiatan'),
                 data.get('penyedia_id'),
                 data.get('nilai_kontrak'),
                 data.get('nomor_kontrak'),
@@ -413,11 +902,20 @@ class PencairanManager:
             cursor.execute("""
                 SELECT
                     t.*,
+                    -- Penerima: prioritaskan dari pegawai jika ada penerima_id
+                    COALESCE(peg.nama, t.penerima_nama) as penerima_nama,
+                    COALESCE(peg.nip, t.penerima_nip) as penerima_nip,
+                    COALESCE(peg.jabatan, t.penerima_jabatan) as penerima_jabatan,
+                    COALESCE(peg.npwp, t.penerima_npwp) as penerima_npwp,
+                    COALESCE(peg.no_rekening, t.penerima_rekening) as penerima_rekening,
+                    COALESCE(peg.nama_bank, t.penerima_bank) as penerima_bank,
+                    -- Penyedia
                     p.nama as penyedia_nama,
                     p.alamat as penyedia_alamat,
                     p.npwp as penyedia_npwp,
                     (t.realisasi - t.uang_muka) as selisih
                 FROM transaksi_pencairan t
+                LEFT JOIN pegawai peg ON t.penerima_id = peg.id
                 LEFT JOIN penyedia p ON t.penyedia_id = p.id
                 WHERE t.id = ?
             """, (transaksi_id,))
@@ -434,9 +932,15 @@ class PencairanManager:
             cursor.execute("""
                 SELECT
                     t.*,
+                    -- Penerima: prioritaskan dari pegawai jika ada penerima_id
+                    COALESCE(peg.nama, t.penerima_nama) as penerima_nama,
+                    COALESCE(peg.nip, t.penerima_nip) as penerima_nip,
+                    COALESCE(peg.jabatan, t.penerima_jabatan) as penerima_jabatan,
+                    -- Penyedia
                     p.nama as penyedia_nama,
                     (t.realisasi - t.uang_muka) as selisih
                 FROM transaksi_pencairan t
+                LEFT JOIN pegawai peg ON t.penerima_id = peg.id
                 LEFT JOIN penyedia p ON t.penyedia_id = p.id
                 WHERE t.kode_transaksi = ?
             """, (kode,))
@@ -462,8 +966,9 @@ class PencairanManager:
             'jenis_belanja', 'nama_kegiatan',
             'estimasi_biaya', 'uang_muka', 'realisasi',
             'jenis_dasar', 'nomor_dasar', 'tanggal_dasar', 'perihal_dasar',
-            'penerima_nama', 'penerima_nip', 'penerima_jabatan',
+            'penerima_id', 'penerima_nama', 'penerima_nip', 'penerima_jabatan',
             'penerima_npwp', 'penerima_rekening', 'penerima_bank',
+            'jenis_kegiatan',
             'penyedia_id', 'nilai_kontrak', 'nomor_kontrak', 'tanggal_kontrak',
             'kode_akun', 'nama_akun', 'nomor_mak',
             'tanggal_kegiatan_mulai', 'tanggal_kegiatan_selesai',
@@ -618,9 +1123,14 @@ class PencairanManager:
             cursor.execute(f"""
                 SELECT
                     t.*,
+                    -- Penerima: prioritaskan dari pegawai jika ada penerima_id
+                    COALESCE(peg.nama, t.penerima_nama) as penerima_nama,
+                    COALESCE(peg.nip, t.penerima_nip) as penerima_nip,
+                    -- Penyedia
                     p.nama as penyedia_nama,
                     (t.realisasi - t.uang_muka) as selisih
                 FROM transaksi_pencairan t
+                LEFT JOIN pegawai peg ON t.penerima_id = peg.id
                 LEFT JOIN penyedia p ON t.penyedia_id = p.id
                 WHERE {where_clause}
                 ORDER BY t.created_at DESC

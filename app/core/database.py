@@ -2055,12 +2055,12 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE satker SET
-                    nama = ?, nama_pendek = ?, alamat = ?, kota = ?, kode_pos = ?,
+                    kode = ?, nama = ?, nama_pendek = ?, alamat = ?, kota = ?, kode_pos = ?,
                     provinsi = ?, telepon = ?, fax = ?, email = ?, website = ?,
                     kementerian = ?, eselon1 = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = 1
             """, (
-                data.get('nama'), data.get('nama_pendek'), data.get('alamat'),
+                data.get('kode'), data.get('nama'), data.get('nama_pendek'), data.get('alamat'),
                 data.get('kota'), data.get('kode_pos'), data.get('provinsi'),
                 data.get('telepon'), data.get('fax'), data.get('email'),
                 data.get('website'), data.get('kementerian'), data.get('eselon1'),

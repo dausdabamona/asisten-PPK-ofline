@@ -442,6 +442,9 @@ class BaseDetailPage(QWidget):
         jenis_kegiatan = self._transaksi_data.get('jenis_kegiatan')
         jenis_dasar = self._transaksi_data.get('jenis_dasar')
 
+        # Debug: print jenis_belanja value
+        print(f"DEBUG: _update_checklist_for_fase - fase={fase}, jenis_belanja='{jenis_belanja}', jenis_kegiatan='{jenis_kegiatan}'")
+
         dokumen_list = get_dokumen_list(
             self.MEKANISME,
             fase,
@@ -449,6 +452,10 @@ class BaseDetailPage(QWidget):
             jenis_dasar=jenis_dasar,
             jenis_belanja=jenis_belanja
         )
+
+        # Debug: print dokumen list
+        print(f"DEBUG: dokumen_list has {len(dokumen_list)} items: {[d.get('kode') for d in dokumen_list]}")
+
         nama_fase = get_nama_fase(self.MEKANISME, fase)
 
         # Convert to format expected by checklist

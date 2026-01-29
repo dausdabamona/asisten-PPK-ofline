@@ -210,37 +210,46 @@ class DokumenGeneratorDialog(QDialog):
 
             # Set column widths
             self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # Uraian stretches
-            self.rincian_table.setColumnWidth(1, 80)   # Volume
+            self.rincian_table.setColumnWidth(1, 70)   # Volume
             self.rincian_table.setColumnWidth(2, 80)   # Satuan
-            self.rincian_table.setColumnWidth(3, 130)  # Harga Satuan
-            self.rincian_table.setColumnWidth(4, 130)  # Jumlah
+            self.rincian_table.setColumnWidth(3, 140)  # Harga Satuan
+            self.rincian_table.setColumnWidth(4, 140)  # Jumlah
 
             self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-            self.rincian_table.setMinimumHeight(180)
+            self.rincian_table.setMinimumHeight(200)
 
-            # Set row height and font
-            self.rincian_table.verticalHeader().setDefaultSectionSize(32)
+            # Set row height for better readability
+            self.rincian_table.verticalHeader().setDefaultSectionSize(38)
             self.rincian_table.verticalHeader().setVisible(False)
 
-            # Table styling
+            # Table styling - larger font for better editing
             self.rincian_table.setStyleSheet("""
                 QTableWidget {
-                    font-size: 12px;
+                    font-size: 13px;
+                    font-family: 'Segoe UI', Arial, sans-serif;
                     gridline-color: #d0d0d0;
-                    border: 1px solid #c0c0c0;
+                    border: 1px solid #b0b0b0;
+                    background-color: white;
                 }
                 QTableWidget::item {
-                    padding: 5px;
+                    padding: 8px 6px;
+                    border-bottom: 1px solid #e0e0e0;
                 }
                 QTableWidget::item:selected {
                     background-color: #3498db;
                     color: white;
                 }
+                QTableWidget::item:focus {
+                    background-color: #fff9c4;
+                    color: #333;
+                }
                 QHeaderView::section {
-                    background-color: #f0f0f0;
-                    padding: 6px;
+                    background-color: #e8e8e8;
+                    padding: 8px 6px;
+                    font-size: 12px;
                     font-weight: bold;
                     border: 1px solid #c0c0c0;
+                    color: #333;
                 }
             """)
 
@@ -926,8 +935,18 @@ class DokumenGeneratorDialog(QDialog):
         row = item.row()
         col = item.column()
 
-        # Only recalculate if volume (col 1) or harga (col 3) was changed
-        if col in [1, 3] and row < len(self.rincian_items):
+        # Ensure rincian_items has enough elements
+        while len(self.rincian_items) <= row:
+            self.rincian_items.append({
+                'uraian': '',
+                'volume': 1,
+                'satuan': 'paket',
+                'harga_satuan': 0,
+                'jumlah': 0,
+            })
+
+        # Recalculate jumlah when volume (col 1) or harga (col 3) is changed
+        if col in [1, 3]:
             try:
                 # Block signals to prevent recursion
                 self.rincian_table.blockSignals(True)
@@ -937,14 +956,19 @@ class DokumenGeneratorDialog(QDialog):
                 harga_item = self.rincian_table.item(row, 3)
 
                 if volume_item and harga_item:
-                    # Parse volume (integer)
+                    # Parse volume (integer) - remove any formatting
+                    volume_text = volume_item.text().strip()
                     try:
-                        volume = int(volume_item.text().replace(".", "").replace(",", ""))
+                        # Remove dots used as thousand separator
+                        volume = int(volume_text.replace(".", "").replace(",", ""))
                     except:
                         volume = 1
 
-                    # Parse harga (remove Rp and formatting)
-                    harga_text = harga_item.text().replace("Rp", "").replace(".", "").replace(",", "").strip()
+                    # Parse harga - remove Rp, dots (thousand sep), and spaces
+                    harga_text = harga_item.text()
+                    harga_text = harga_text.replace("Rp", "").replace(" ", "").strip()
+                    # Indonesian format uses dots for thousands, so remove them
+                    harga_text = harga_text.replace(".", "")
                     try:
                         harga = float(harga_text)
                     except:
@@ -953,22 +977,37 @@ class DokumenGeneratorDialog(QDialog):
                     # Calculate jumlah
                     jumlah = volume * harga
 
-                    # Update jumlah cell
+                    # Update jumlah cell (create new item if needed)
                     jumlah_item = self.rincian_table.item(row, 4)
                     if jumlah_item:
                         jumlah_item.setText(f"Rp {jumlah:,.0f}".replace(",", "."))
+                    else:
+                        # Create new jumlah item
+                        new_jumlah_item = QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", "."))
+                        new_jumlah_item.setFlags(new_jumlah_item.flags() & ~Qt.ItemIsEditable)
+                        new_jumlah_item.setBackground(Qt.lightGray)
+                        self.rincian_table.setItem(row, 4, new_jumlah_item)
 
                     # Update rincian_items
-                    if row < len(self.rincian_items):
-                        self.rincian_items[row]['volume'] = volume
-                        self.rincian_items[row]['harga_satuan'] = harga
-                        self.rincian_items[row]['jumlah'] = jumlah
+                    self.rincian_items[row]['volume'] = volume
+                    self.rincian_items[row]['harga_satuan'] = harga
+                    self.rincian_items[row]['jumlah'] = jumlah
 
                     # Update total
                     self._update_total()
 
             finally:
                 self.rincian_table.blockSignals(False)
+
+        # Also update uraian (col 0) and satuan (col 2) in rincian_items
+        elif col == 0:  # Uraian
+            uraian_item = self.rincian_table.item(row, 0)
+            if uraian_item:
+                self.rincian_items[row]['uraian'] = uraian_item.text()
+        elif col == 2:  # Satuan
+            satuan_item = self.rincian_table.item(row, 2)
+            if satuan_item:
+                self.rincian_items[row]['satuan'] = satuan_item.text()
 
     def _add_rincian_item(self):
         """Add rincian item to table."""

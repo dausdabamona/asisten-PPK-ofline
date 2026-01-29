@@ -48,6 +48,7 @@ from .pages.pencairan import (
 
 # Import models
 from ..models.pencairan_models import PencairanManager, BATAS_UP_MAKSIMAL
+from ..core.database_v4 import DatabaseManagerV4
 
 # Import config
 from ..core.config import ROOT_DIR
@@ -74,8 +75,9 @@ class MainWindowV2(QMainWindow):
         self.setWindowTitle("Asisten PPK Offline - Workflow Edition v4.0")
         self.setMinimumSize(1200, 800)
 
-        # Initialize database manager
+        # Initialize database managers
         self.db = PencairanManager()
+        self.db_v4 = DatabaseManagerV4()  # For master data (pegawai, penyedia)
 
         # Page stack for navigation history
         self._page_stack = []
@@ -708,12 +710,29 @@ class MainWindowV2(QMainWindow):
                 'ls': ls_count,
             })
 
+            # Load master data untuk form pages
+            self._load_master_data_for_forms()
+
             self.conn_label.setText("Database: OK")
             self.conn_label.setStyleSheet("color: #27ae60;")
 
         except Exception as e:
             self.conn_label.setText(f"Database: Error - {str(e)}")
             self.conn_label.setStyleSheet("color: #e74c3c;")
+
+    def _load_master_data_for_forms(self):
+        """Load pegawai and penyedia data for form dropdowns."""
+        try:
+            # Load pegawai for UP/TUP forms
+            pegawai_list = self.db_v4.get_all_pegawai(active_only=True)
+            self.up_form_page.set_pegawai_list(pegawai_list)
+            self.tup_form_page.set_pegawai_list(pegawai_list)
+
+            # Load penyedia for LS form
+            penyedia_list = self.db_v4.get_all_penyedia(active_only=True)
+            self.ls_form_page.set_penyedia_list(penyedia_list)
+        except Exception as e:
+            print(f"Error loading master data: {e}")
 
     def _refresh_list(self, mekanisme: str = None):
         """Refresh list data for specific mekanisme."""

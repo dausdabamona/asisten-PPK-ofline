@@ -59,12 +59,29 @@ UP_WORKFLOW = {
                     "template": "checklist_up.docx",
                     "deskripsi": "Checklist kelengkapan dokumen pencairan UP"
                 },
+            ],
+
+            # Dokumen untuk SELAIN perjalanan dinas (OPERASIONAL, KEPANITIAAN, JAMUAN_TAMU, RAPAT, LAINNYA)
+            "dokumen_non_perdin": [
                 {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
-                    "deskripsi": "Lembar permintaan pencairan dana"
+                    "deskripsi": "Lembar permintaan pencairan dana",
+                    "jenis_kegiatan": ["OPERASIONAL", "KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "LAINNYA"]
+                },
+            ],
+
+            # Dokumen khusus PERJALANAN DINAS
+            "dokumen_perjalanan_dinas": [
+                {
+                    "kode": "SURAT_TUGAS",
+                    "nama": "Upload Surat Tugas",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Upload scan Surat Tugas perjalanan dinas",
+                    "jenis_kegiatan": ["PERJALANAN_LOKAL"]
                 },
             ],
 
@@ -76,7 +93,7 @@ UP_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "sk_kpa.docx",
                     "deskripsi": "Surat Keputusan atau Surat Tugas dari KPA",
-                    "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "PERJALANAN_LOKAL", "LAINNYA"]
+                    "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "LAINNYA"]
                 },
             ],
 

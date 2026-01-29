@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, Signal, QDate
 
 from typing import Dict, Any, Optional
 
-from ....models.pencairan_models import JENIS_BELANJA, BATAS_UP_MAKSIMAL
+from ....models.pencairan_models import JENIS_BELANJA, JENIS_KEGIATAN_UP, BATAS_UP_MAKSIMAL
 
 
 def format_rupiah(value: float) -> str:
@@ -470,27 +470,63 @@ class TransaksiFormPage(QWidget):
         form_layout.setSpacing(10)
         form_layout.setLabelAlignment(Qt.AlignRight)
 
-        # Nama
-        self.penerima_nama_input = QLineEdit()
-        self.penerima_nama_input.setPlaceholderText("Nama lengkap dengan gelar")
-        self.penerima_nama_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Nama *", self.penerima_nama_input)
+        # Nama - Dropdown dari data pegawai
+        self.penerima_combo = QComboBox()
+        self.penerima_combo.setEditable(True)  # Allow search/filter
+        self.penerima_combo.setPlaceholderText("-- Pilih Pegawai --")
+        self.penerima_combo.setStyleSheet(self._get_input_style())
+        self.penerima_combo.setMinimumWidth(300)
+        self.penerima_combo.currentIndexChanged.connect(self._on_pegawai_changed)
+        form_layout.addRow("Nama *", self.penerima_combo)
 
-        # NIP
+        # Store pegawai data for lookup
+        self._pegawai_data = {}
+
+        # NIP (readonly - auto-filled)
         self.penerima_nip_input = QLineEdit()
-        self.penerima_nip_input.setPlaceholderText("NIP 18 digit")
-        self.penerima_nip_input.setStyleSheet(self._get_input_style())
+        self.penerima_nip_input.setPlaceholderText("Otomatis terisi dari data pegawai")
+        self.penerima_nip_input.setReadOnly(True)
+        self.penerima_nip_input.setStyleSheet(self._get_input_style() + "background-color: #f5f5f5;")
         form_layout.addRow("NIP", self.penerima_nip_input)
 
-        # Jabatan
+        # Jabatan (readonly - auto-filled)
         self.penerima_jabatan_input = QLineEdit()
-        self.penerima_jabatan_input.setPlaceholderText("Jabatan penerima")
-        self.penerima_jabatan_input.setStyleSheet(self._get_input_style())
+        self.penerima_jabatan_input.setPlaceholderText("Otomatis terisi dari data pegawai")
+        self.penerima_jabatan_input.setReadOnly(True)
+        self.penerima_jabatan_input.setStyleSheet(self._get_input_style() + "background-color: #f5f5f5;")
         form_layout.addRow("Jabatan", self.penerima_jabatan_input)
 
         layout.addLayout(form_layout)
 
         return section
+
+    def _on_pegawai_changed(self, index: int):
+        """Handle pegawai selection change - auto-fill NIP and jabatan."""
+        pegawai_id = self.penerima_combo.currentData()
+
+        if pegawai_id and pegawai_id in self._pegawai_data:
+            pegawai = self._pegawai_data[pegawai_id]
+            self.penerima_nip_input.setText(pegawai.get('nip', '') or '')
+            self.penerima_jabatan_input.setText(pegawai.get('jabatan', '') or '')
+        else:
+            self.penerima_nip_input.clear()
+            self.penerima_jabatan_input.clear()
+
+    def set_pegawai_list(self, pegawai_list: list):
+        """Set pegawai dropdown options."""
+        self.penerima_combo.clear()
+        self.penerima_combo.addItem("-- Pilih Pegawai --", None)
+        self._pegawai_data = {}
+
+        for p in pegawai_list:
+            pegawai_id = p.get('id')
+            # Format: "Nama - NIP" atau "Nama" jika tidak ada NIP
+            nama = p.get('nama', '')
+            nip = p.get('nip', '')
+            display = f"{nama} - {nip}" if nip else nama
+
+            self.penerima_combo.addItem(display, pegawai_id)
+            self._pegawai_data[pegawai_id] = p
 
     def _create_penyedia_section(self) -> QWidget:
         """Create penyedia (vendor) section for LS."""
@@ -669,8 +705,10 @@ class TransaksiFormPage(QWidget):
         if not self.nama_input.text().strip():
             errors.append("Nama kegiatan wajib diisi")
 
-        if self.mekanisme == "UP":
-            if self.estimasi_input.value() > BATAS_UP_MAKSIMAL:
+        if self.mekanisme in ["UP", "TUP"]:
+            if not self.penerima_combo.currentData():
+                errors.append("Penerima / Pelaksana wajib dipilih")
+            if self.mekanisme == "UP" and self.estimasi_input.value() > BATAS_UP_MAKSIMAL:
                 errors.append(f"Estimasi biaya UP maksimal {format_rupiah(BATAS_UP_MAKSIMAL)}")
 
         if self.mekanisme == "LS":
@@ -719,9 +757,18 @@ class TransaksiFormPage(QWidget):
             data['estimasi_biaya'] = self.estimasi_input.value()
             data['tanggal_kegiatan_mulai'] = self.tgl_mulai_input.date().toString('yyyy-MM-dd')
             data['tanggal_kegiatan_selesai'] = self.tgl_selesai_input.date().toString('yyyy-MM-dd')
-            data['penerima_nama'] = self.penerima_nama_input.text().strip()
-            data['penerima_nip'] = self.penerima_nip_input.text().strip()
-            data['penerima_jabatan'] = self.penerima_jabatan_input.text().strip()
+            # Penerima dari dropdown pegawai
+            penerima_id = self.penerima_combo.currentData()
+            data['penerima_id'] = penerima_id
+            if penerima_id and penerima_id in self._pegawai_data:
+                pegawai = self._pegawai_data[penerima_id]
+                data['penerima_nama'] = pegawai.get('nama', '')
+                data['penerima_nip'] = pegawai.get('nip', '')
+                data['penerima_jabatan'] = pegawai.get('jabatan', '')
+            else:
+                data['penerima_nama'] = self.penerima_combo.currentText()
+                data['penerima_nip'] = self.penerima_nip_input.text().strip()
+                data['penerima_jabatan'] = self.penerima_jabatan_input.text().strip()
         else:
             # LS mode - check which mode (KONTRAK or SURAT_TUGAS)
             data['jenis_dasar_ls'] = self._jenis_dasar_ls
@@ -769,7 +816,16 @@ class TransaksiFormPage(QWidget):
 
         if self.mekanisme in ["UP", "TUP"]:
             self.estimasi_input.setValue(data.get('estimasi_biaya', 0) or 0)
-            self.penerima_nama_input.setText(data.get('penerima_nama', ''))
+            # Select pegawai in dropdown
+            penerima_id = data.get('penerima_id')
+            if penerima_id:
+                for i in range(self.penerima_combo.count()):
+                    if self.penerima_combo.itemData(i) == penerima_id:
+                        self.penerima_combo.setCurrentIndex(i)
+                        break
+            else:
+                # Fallback: set text if no penerima_id (legacy data)
+                self.penerima_combo.setCurrentText(data.get('penerima_nama', ''))
             self.penerima_nip_input.setText(data.get('penerima_nip', ''))
             self.penerima_jabatan_input.setText(data.get('penerima_jabatan', ''))
 
@@ -797,8 +853,8 @@ class TransaksiFormPage(QWidget):
         if hasattr(self, 'estimasi_input'):
             self.estimasi_input.setValue(0)
 
-        if hasattr(self, 'penerima_nama_input'):
-            self.penerima_nama_input.clear()
+        if hasattr(self, 'penerima_combo'):
+            self.penerima_combo.setCurrentIndex(0)
             self.penerima_nip_input.clear()
             self.penerima_jabatan_input.clear()
 

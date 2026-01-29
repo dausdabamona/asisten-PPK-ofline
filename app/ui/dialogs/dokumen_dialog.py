@@ -87,95 +87,175 @@ class DokumenGeneratorDialog(QDialog):
         # Basic data
         data_group = QGroupBox("Data Dokumen")
         data_layout = QGridLayout(data_group)
-        data_layout.setSpacing(10)
+        data_layout.setSpacing(5)  # Reduced spacing for compact layout
+        data_layout.setContentsMargins(10, 10, 10, 10)
+
+        row = 0
 
         # Nama Kegiatan
-        data_layout.addWidget(QLabel("Nama Kegiatan:"), 0, 0)
+        data_layout.addWidget(QLabel("Nama Kegiatan:"), row, 0)
         self.nama_kegiatan_edit = QLineEdit()
         self.nama_kegiatan_edit.setText(self.transaksi.get('nama_kegiatan', ''))
-        data_layout.addWidget(self.nama_kegiatan_edit, 0, 1)
+        data_layout.addWidget(self.nama_kegiatan_edit, row, 1)
+        row += 1
 
-        # Kode Akun/MAK
-        data_layout.addWidget(QLabel("Kode Akun/MAK:"), 1, 0)
+        # Kode Akun
+        data_layout.addWidget(QLabel("Kode Akun:"), row, 0)
         self.kode_akun_edit = QLineEdit()
         self.kode_akun_edit.setText(self.transaksi.get('kode_akun', ''))
-        data_layout.addWidget(self.kode_akun_edit, 1, 1)
-
-        # Nilai/Estimasi
-        data_layout.addWidget(QLabel("Estimasi Biaya:"), 2, 0)
-        self.estimasi_spin = QDoubleSpinBox()
-        self.estimasi_spin.setRange(0, 999999999999)
-        self.estimasi_spin.setDecimals(0)
-        self.estimasi_spin.setPrefix("Rp ")
-        self.estimasi_spin.setGroupSeparatorShown(True)
-        self.estimasi_spin.setValue(self.transaksi.get('estimasi_biaya', 0))
-        data_layout.addWidget(self.estimasi_spin, 2, 1)
+        data_layout.addWidget(self.kode_akun_edit, row, 1)
+        row += 1
 
         # Tanggal
-        data_layout.addWidget(QLabel("Tanggal:"), 3, 0)
+        data_layout.addWidget(QLabel("Tanggal:"), row, 0)
         self.tanggal_edit = QDateEdit()
         self.tanggal_edit.setDate(QDate.currentDate())
         self.tanggal_edit.setCalendarPopup(True)
-        data_layout.addWidget(self.tanggal_edit, 3, 1)
+        data_layout.addWidget(self.tanggal_edit, row, 1)
+        row += 1
 
-        # Penerima
-        data_layout.addWidget(QLabel("Nama Penerima:"), 4, 0)
-        self.penerima_nama_edit = QLineEdit()
-        self.penerima_nama_edit.setText(self.transaksi.get('penerima_nama', ''))
-        data_layout.addWidget(self.penerima_nama_edit, 4, 1)
+        # Penerima - dropdown with search (disable scroll wheel)
+        data_layout.addWidget(QLabel("Nama Penerima:"), row, 0)
+        self.penerima_nama_combo = QComboBox()
+        self.penerima_nama_combo.setEditable(True)
+        self.penerima_nama_combo.setInsertPolicy(QComboBox.NoInsert)
+        # Disable scroll wheel on combobox
+        self.penerima_nama_combo.wheelEvent = lambda e: e.ignore()
+        self.penerima_nama_combo.currentIndexChanged.connect(self._on_penerima_changed)
+        self._load_pegawai_dropdown()
+        data_layout.addWidget(self.penerima_nama_combo, row, 1)
+        row += 1
 
-        data_layout.addWidget(QLabel("NIP Penerima:"), 5, 0)
+        data_layout.addWidget(QLabel("NIP Penerima:"), row, 0)
         self.penerima_nip_edit = QLineEdit()
         self.penerima_nip_edit.setText(self.transaksi.get('penerima_nip', ''))
-        data_layout.addWidget(self.penerima_nip_edit, 5, 1)
+        data_layout.addWidget(self.penerima_nip_edit, row, 1)
+        row += 1
 
-        data_layout.addWidget(QLabel("Jabatan:"), 6, 0)
+        data_layout.addWidget(QLabel("Jabatan:"), row, 0)
         self.penerima_jabatan_edit = QLineEdit()
         self.penerima_jabatan_edit.setText(self.transaksi.get('penerima_jabatan', ''))
-        data_layout.addWidget(self.penerima_jabatan_edit, 6, 1)
+        data_layout.addWidget(self.penerima_jabatan_edit, row, 1)
 
         scroll_layout.addWidget(data_group)
 
-        # Rincian group (for Kuitansi)
-        if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'LBR_REQ']:
-            rincian_group = QGroupBox("Rincian Barang/Jasa (Opsional)")
-            rincian_layout = QVBoxLayout(rincian_group)
+        # KUIT_RAMP = Kuitansi Rampung (final settlement) - Summary only, no rincian input
+        if self.kode_dokumen == 'KUIT_RAMP':
+            self._setup_kuitansi_rampung_ui(scroll_layout)
 
-            # Add item form
-            add_layout = QHBoxLayout()
+        # Rincian group (for documents with item details)
+        # LBR_REQ = Lembar Permintaan (estimasi)
+        # REKAP_BKT = Rekap Bukti Pengeluaran (realisasi aktual)
+        # KUIT_UM = Kuitansi Uang Muka
+        elif self.kode_dokumen in ['KUIT_UM', 'LBR_REQ', 'REKAP_BKT']:
+            # Set label based on document type
+            if self.kode_dokumen == 'REKAP_BKT':
+                rincian_label = "Rincian Bukti Pengeluaran (Realisasi)"
+            else:
+                rincian_label = "Rincian Barang/Jasa"
+            rincian_group = QGroupBox(rincian_label)
+            rincian_layout = QVBoxLayout(rincian_group)
+            rincian_layout.setSpacing(5)  # Compact spacing
+
+            # Add item form - row 1: uraian
+            add_layout1 = QHBoxLayout()
+            add_layout1.addWidget(QLabel("Uraian:"))
             self.uraian_edit = QLineEdit()
             self.uraian_edit.setPlaceholderText("Uraian barang/jasa")
-            add_layout.addWidget(self.uraian_edit, 3)
+            add_layout1.addWidget(self.uraian_edit)
+            rincian_layout.addLayout(add_layout1)
 
+            # Add item form - row 2: volume, satuan, harga, jumlah preview
+            add_layout2 = QHBoxLayout()
+
+            add_layout2.addWidget(QLabel("Vol:"))
             self.volume_spin = QSpinBox()
             self.volume_spin.setRange(1, 9999)
             self.volume_spin.setValue(1)
-            add_layout.addWidget(self.volume_spin)
+            self.volume_spin.valueChanged.connect(self._update_jumlah_preview)
+            add_layout2.addWidget(self.volume_spin)
 
+            add_layout2.addWidget(QLabel("Sat:"))
             self.satuan_combo = QComboBox()
             self.satuan_combo.setEditable(True)
             self.satuan_combo.addItems(["paket", "unit", "buah", "lembar", "orang", "set"])
-            add_layout.addWidget(self.satuan_combo)
+            # Disable scroll wheel on combobox
+            self.satuan_combo.wheelEvent = lambda e: e.ignore()
+            add_layout2.addWidget(self.satuan_combo)
 
+            add_layout2.addWidget(QLabel("Harga:"))
             self.harga_spin = QDoubleSpinBox()
             self.harga_spin.setRange(0, 999999999)
             self.harga_spin.setDecimals(0)
             self.harga_spin.setPrefix("Rp ")
-            add_layout.addWidget(self.harga_spin)
+            self.harga_spin.valueChanged.connect(self._update_jumlah_preview)
+            add_layout2.addWidget(self.harga_spin)
+
+            # Jumlah preview (auto-calculated)
+            add_layout2.addWidget(QLabel("="))
+            self.jumlah_preview = QLabel("Rp 0")
+            self.jumlah_preview.setStyleSheet("font-weight: bold; color: #27ae60; min-width: 100px;")
+            add_layout2.addWidget(self.jumlah_preview)
 
             add_btn = QPushButton("+ Tambah")
             add_btn.clicked.connect(self._add_rincian_item)
-            add_layout.addWidget(add_btn)
+            add_layout2.addWidget(add_btn)
 
-            rincian_layout.addLayout(add_layout)
+            rincian_layout.addLayout(add_layout2)
 
             # Table
             self.rincian_table = QTableWidget()
             self.rincian_table.setColumnCount(5)
-            self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga", "Jumlah"])
-            self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga Satuan", "Jumlah (Auto)"])
+
+            # Set column widths
+            self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # Uraian stretches
+            self.rincian_table.setColumnWidth(1, 70)   # Volume
+            self.rincian_table.setColumnWidth(2, 80)   # Satuan
+            self.rincian_table.setColumnWidth(3, 140)  # Harga Satuan
+            self.rincian_table.setColumnWidth(4, 140)  # Jumlah
+
             self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-            self.rincian_table.setMinimumHeight(150)
+            self.rincian_table.setMinimumHeight(200)
+
+            # Set row height for better readability
+            self.rincian_table.verticalHeader().setDefaultSectionSize(38)
+            self.rincian_table.verticalHeader().setVisible(False)
+
+            # Table styling - simple and readable
+            self.rincian_table.setStyleSheet("""
+                QTableWidget {
+                    font-size: 13px;
+                    background-color: white;
+                    color: #000000;
+                    gridline-color: #c0c0c0;
+                }
+                QTableWidget::item {
+                    color: #000000;
+                    padding: 5px;
+                }
+                QTableWidget::item:selected {
+                    background-color: #cce5ff;
+                    color: #000000;
+                }
+                QTableWidget QLineEdit {
+                    background-color: white;
+                    color: #000000;
+                    font-size: 13px;
+                    padding: 2px;
+                    border: 1px solid #3498db;
+                }
+                QHeaderView::section {
+                    background-color: #3498db;
+                    color: white;
+                    padding: 6px;
+                    font-weight: bold;
+                    border: 1px solid #2980b9;
+                }
+            """)
+
+            # Connect to recalculate jumlah when volume or harga is edited
+            self.rincian_table.itemChanged.connect(self._on_table_item_changed)
             rincian_layout.addWidget(self.rincian_table)
 
             # Delete button
@@ -183,14 +263,151 @@ class DokumenGeneratorDialog(QDialog):
             del_btn.clicked.connect(self._delete_rincian_item)
             rincian_layout.addWidget(del_btn)
 
-            # Total
-            total_layout = QHBoxLayout()
-            total_layout.addStretch()
-            total_layout.addWidget(QLabel("TOTAL:"))
+            # Compact Summary Panel - Total, Pajak, Grand Total in grid
+            from PySide6.QtWidgets import QCheckBox
+            summary_frame = QFrame()
+            summary_frame.setStyleSheet("QFrame { background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; padding: 5px; }")
+            summary_grid = QGridLayout(summary_frame)
+            summary_grid.setSpacing(8)
+            summary_grid.setContentsMargins(10, 8, 10, 8)
+
+            # Row 0: Subtotal | PPN checkbox + value
+            summary_grid.addWidget(QLabel("Subtotal:"), 0, 0)
             self.total_label = QLabel("Rp 0")
-            self.total_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            total_layout.addWidget(self.total_label)
-            rincian_layout.addLayout(total_layout)
+            self.total_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+            summary_grid.addWidget(self.total_label, 0, 1)
+
+            self.ppn_checkbox = QCheckBox("PPN 11%")
+            self.ppn_checkbox.stateChanged.connect(self._update_total)
+            summary_grid.addWidget(self.ppn_checkbox, 0, 2)
+            self.ppn_label = QLabel("Rp 0")
+            self.ppn_label.setStyleSheet("color: #e74c3c; font-size: 12px;")
+            summary_grid.addWidget(self.ppn_label, 0, 3)
+
+            # Row 1: Grand Total | PPh checkbox + dropdown + value
+            summary_grid.addWidget(QLabel("GRAND TOTAL:"), 1, 0)
+            self.grand_total_label = QLabel("Rp 0")
+            self.grand_total_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+            summary_grid.addWidget(self.grand_total_label, 1, 1)
+
+            # PPh in same row
+            pph_container = QHBoxLayout()
+            pph_container.setSpacing(5)
+            self.pph_checkbox = QCheckBox("PPh")
+            self.pph_checkbox.stateChanged.connect(self._update_total)
+            pph_container.addWidget(self.pph_checkbox)
+
+            self.pph_rate_combo = QComboBox()
+            self.pph_rate_combo.addItems(["1.5%", "2%", "4%", "15%"])
+            self.pph_rate_combo.setFixedWidth(60)
+            self.pph_rate_combo.wheelEvent = lambda e: e.ignore()
+            self.pph_rate_combo.currentIndexChanged.connect(self._update_total)
+            self.pph_rate_combo.setEnabled(False)
+            pph_container.addWidget(self.pph_rate_combo)
+            summary_grid.addLayout(pph_container, 1, 2)
+
+            self.pph_label = QLabel("Rp 0")
+            self.pph_label.setStyleSheet("color: #e74c3c; font-size: 12px;")
+            summary_grid.addWidget(self.pph_label, 1, 3)
+
+            # Set column stretches
+            summary_grid.setColumnStretch(1, 1)
+            summary_grid.setColumnStretch(3, 1)
+
+            rincian_layout.addWidget(summary_frame)
+
+            # Perhitungan Tambah/Kurang Panel (for REKAP_BKT) - Compact Grid Format
+            if self.kode_dokumen == 'REKAP_BKT':
+                calc_frame = QFrame()
+                calc_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #e8f4fc;
+                        border: 2px solid #3498db;
+                        border-radius: 6px;
+                        margin-top: 5px;
+                    }
+                """)
+                calc_grid = QGridLayout(calc_frame)
+                calc_grid.setSpacing(5)
+                calc_grid.setContentsMargins(10, 8, 10, 8)
+
+                # Header
+                header_lbl = QLabel("Perhitungan Tambah/Kurang")
+                header_lbl.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50;")
+                calc_grid.addWidget(header_lbl, 0, 0, 1, 4)
+
+                # Row 1: Uang Muka | Realisasi
+                calc_grid.addWidget(QLabel("Uang Muka:"), 1, 0)
+                self.uang_muka_item = QLabel("Rp 0")
+                self.uang_muka_item.setStyleSheet("font-weight: bold; color: #3498db;")
+                calc_grid.addWidget(self.uang_muka_item, 1, 1)
+
+                calc_grid.addWidget(QLabel("Realisasi:"), 1, 2)
+                self.realisasi_item = QLabel("Rp 0")
+                self.realisasi_item.setStyleSheet("font-weight: bold;")
+                calc_grid.addWidget(self.realisasi_item, 1, 3)
+
+                # Row 2: Selisih | Status
+                calc_grid.addWidget(QLabel("SELISIH:"), 2, 0)
+                self.selisih_item = QLabel("Rp 0")
+                self.selisih_item.setStyleSheet("font-weight: bold; font-size: 14px;")
+                calc_grid.addWidget(self.selisih_item, 2, 1)
+
+                self.status_calc_label = QLabel("")
+                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 12px; padding: 5px 10px; border-radius: 4px;")
+                self.status_calc_label.setAlignment(Qt.AlignCenter)
+                calc_grid.addWidget(self.status_calc_label, 2, 2, 1, 2)
+
+                # Column stretch
+                calc_grid.setColumnStretch(1, 1)
+                calc_grid.setColumnStretch(3, 1)
+
+                rincian_layout.addWidget(calc_frame)
+
+                # Load uang muka from database
+                self._load_uang_muka_for_calc()
+
+            # Uang Muka Options (for KUIT_UM) - Compact single row
+            if self.kode_dokumen == 'KUIT_UM':
+                from PySide6.QtWidgets import QRadioButton, QButtonGroup
+
+                um_frame = QFrame()
+                um_frame.setStyleSheet("QFrame { background-color: #e8f8e8; border: 1px solid #27ae60; border-radius: 5px; }")
+                um_grid = QGridLayout(um_frame)
+                um_grid.setSpacing(8)
+                um_grid.setContentsMargins(10, 8, 10, 8)
+
+                # Row 0: Nomor Tanda Terima | Persentase options
+                um_grid.addWidget(QLabel("No. Tanda Terima:"), 0, 0)
+                self._generate_nomor_tanda_terima()
+                self.nomor_tt_label = QLabel(self._nomor_tanda_terima)
+                self.nomor_tt_label.setStyleSheet("font-weight: bold; color: #27ae60;")
+                um_grid.addWidget(self.nomor_tt_label, 0, 1)
+
+                um_grid.addWidget(QLabel("Persentase:"), 0, 2)
+                persen_container = QHBoxLayout()
+                persen_container.setSpacing(5)
+                self.um_btn_group = QButtonGroup(self)
+                self.um_100 = QRadioButton("100%")
+                self.um_100.setChecked(True)
+                self.um_90 = QRadioButton("90%")
+                self.um_80 = QRadioButton("80%")
+                self.um_btn_group.addButton(self.um_100, 100)
+                self.um_btn_group.addButton(self.um_90, 90)
+                self.um_btn_group.addButton(self.um_80, 80)
+                persen_container.addWidget(self.um_100)
+                persen_container.addWidget(self.um_90)
+                persen_container.addWidget(self.um_80)
+                um_grid.addLayout(persen_container, 0, 3)
+
+                # Row 1: Nilai Diterima
+                um_grid.addWidget(QLabel("Nilai Diterima:"), 1, 0)
+                self.um_nilai_label = QLabel("Rp 0")
+                self.um_nilai_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+                um_grid.addWidget(self.um_nilai_label, 1, 1, 1, 3)
+
+                self.um_btn_group.buttonClicked.connect(self._update_total)
+                rincian_layout.addWidget(um_frame)
 
             scroll_layout.addWidget(rincian_group)
 
@@ -245,23 +462,543 @@ class DokumenGeneratorDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def _load_pegawai_dropdown(self):
+        """Load pegawai data into dropdown."""
+        try:
+            from app.core.database_v4 import get_db_manager_v4
+            db = get_db_manager_v4()
+            pegawai_list = db.get_all_pegawai(active_only=True)
+
+            self.penerima_nama_combo.clear()
+            self.penerima_nama_combo.addItem("-- Pilih Pegawai --", None)
+
+            # Store pegawai data for lookup
+            self._pegawai_data = {}
+
+            for p in pegawai_list:
+                # Format display name with gelar
+                nama_display = p.get('nama', '')
+                gelar_depan = p.get('gelar_depan', '')
+                gelar_belakang = p.get('gelar_belakang', '')
+
+                if gelar_depan:
+                    nama_display = f"{gelar_depan} {nama_display}"
+                if gelar_belakang:
+                    nama_display = f"{nama_display}, {gelar_belakang}"
+
+                nip = p.get('nip', '')
+                display_text = f"{nama_display}" + (f" ({nip})" if nip else "")
+
+                self.penerima_nama_combo.addItem(display_text, p.get('id'))
+                self._pegawai_data[p.get('id')] = p
+
+            # Set initial value from transaksi if exists
+            penerima_nama = self.transaksi.get('penerima_nama', '')
+            penerima_nip = self.transaksi.get('penerima_nip', '')
+            found = False
+
+            for i in range(self.penerima_nama_combo.count()):
+                item_text = self.penerima_nama_combo.itemText(i)
+                # Check if NIP matches
+                if penerima_nip and f"({penerima_nip})" in item_text:
+                    self.penerima_nama_combo.setCurrentIndex(i)
+                    found = True
+                    break
+
+            if not found and penerima_nama:
+                # Set as custom text if not found in dropdown
+                self.penerima_nama_combo.setEditText(penerima_nama)
+
+        except Exception as e:
+            print(f"Error loading pegawai: {e}")
+            # Fallback - allow manual entry
+            self.penerima_nama_combo.addItem("-- Data pegawai tidak tersedia --", None)
+            penerima_nama = self.transaksi.get('penerima_nama', '')
+            if penerima_nama:
+                self.penerima_nama_combo.setEditText(penerima_nama)
+
+    def _on_penerima_changed(self, index: int):
+        """Handle pegawai selection change - auto-fill NIP and jabatan."""
+        pegawai_id = self.penerima_nama_combo.currentData()
+
+        if pegawai_id and hasattr(self, '_pegawai_data') and pegawai_id in self._pegawai_data:
+            p = self._pegawai_data[pegawai_id]
+            self.penerima_nip_edit.setText(p.get('nip', ''))
+            self.penerima_jabatan_edit.setText(p.get('jabatan', ''))
+        # Don't clear if user is typing custom name
+
+    def _setup_kuitansi_rampung_ui(self, parent_layout):
+        """Setup UI for Kuitansi Rampung - summary only without rincian input."""
+        from PySide6.QtWidgets import QTextEdit
+
+        # Load data from database first
+        self._load_kuitansi_rampung_data()
+
+        # Summary Panel
+        summary_group = QGroupBox("Ringkasan Pertanggungjawaban")
+        summary_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #2c3e50;
+                border-radius: 8px;
+                margin-top: 15px;
+                padding: 20px;
+                background-color: #f8f9fa;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px;
+                color: #2c3e50;
+                background-color: #f8f9fa;
+            }
+        """)
+        summary_layout = QGridLayout(summary_group)
+        summary_layout.setSpacing(12)
+        summary_layout.setContentsMargins(20, 25, 20, 20)
+
+        # Style for labels
+        label_style = "font-size: 14px; color: #2c3e50; padding: 8px 5px;"
+        value_style = "font-weight: bold; font-size: 15px; padding: 8px 5px;"
+
+        # Uang Muka Diterima
+        lbl_um = QLabel("Uang Muka Diterima:")
+        lbl_um.setStyleSheet(label_style)
+        summary_layout.addWidget(lbl_um, 0, 0)
+        self.kr_uang_muka_label = QLabel(f"Rp {self._kr_uang_muka:,.0f}".replace(",", "."))
+        self.kr_uang_muka_label.setStyleSheet(value_style + "color: #3498db;")
+        summary_layout.addWidget(self.kr_uang_muka_label, 0, 1)
+
+        # Total Realisasi
+        lbl_real = QLabel("Total Realisasi Belanja:")
+        lbl_real.setStyleSheet(label_style)
+        summary_layout.addWidget(lbl_real, 1, 0)
+        self.kr_realisasi_label = QLabel(f"Rp {self._kr_realisasi:,.0f}".replace(",", "."))
+        self.kr_realisasi_label.setStyleSheet(value_style + "color: #2c3e50;")
+        summary_layout.addWidget(self.kr_realisasi_label, 1, 1)
+
+        # Separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setStyleSheet("background-color: #bdc3c7; margin: 8px 0;")
+        summary_layout.addWidget(separator, 2, 0, 1, 2)
+
+        # Selisih
+        lbl_selisih = QLabel("Selisih:")
+        lbl_selisih.setStyleSheet(label_style + "font-weight: bold;")
+        summary_layout.addWidget(lbl_selisih, 3, 0)
+        self.kr_selisih_label = QLabel(f"Rp {abs(self._kr_selisih):,.0f}".replace(",", "."))
+        self.kr_selisih_label.setStyleSheet("font-weight: bold; font-size: 18px; padding: 8px 5px;")
+        summary_layout.addWidget(self.kr_selisih_label, 3, 1)
+
+        # Status Badge
+        self.kr_status_label = QLabel("")
+        self.kr_status_label.setAlignment(Qt.AlignCenter)
+        summary_layout.addWidget(self.kr_status_label, 4, 0, 1, 2)
+
+        # Update status display
+        self._update_kuitansi_rampung_status()
+
+        parent_layout.addWidget(summary_group)
+
+        # Klausul/Keterangan Panel
+        klausul_group = QGroupBox("Keterangan Pertanggungjawaban")
+        klausul_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #27ae60;
+                border-radius: 8px;
+                margin-top: 15px;
+                padding: 15px;
+                background-color: #f8f9fa;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px;
+                color: #27ae60;
+                background-color: #f8f9fa;
+            }
+        """)
+        klausul_layout = QVBoxLayout(klausul_group)
+        klausul_layout.setContentsMargins(15, 20, 15, 15)
+
+        self.kr_klausul_text = QTextEdit()
+        self.kr_klausul_text.setMaximumHeight(120)
+        self.kr_klausul_text.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #bdc3c7;
+                border-radius: 5px;
+                padding: 12px;
+                font-size: 13px;
+                line-height: 1.5;
+                background-color: white;
+            }
+        """)
+
+        # Generate klausul text based on status
+        self._generate_klausul_text()
+
+        klausul_layout.addWidget(self.kr_klausul_text)
+        parent_layout.addWidget(klausul_group)
+
+    def _load_kuitansi_rampung_data(self):
+        """Load data for Kuitansi Rampung from database."""
+        self._kr_uang_muka = 0
+        self._kr_realisasi = 0
+        self._kr_selisih = 0
+        self._kr_status = 'NIHIL'
+
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+
+            # Get uang_muka from transaksi or LBR_REQ
+            self._kr_uang_muka = self.transaksi.get('uang_muka', 0) or 0
+            if not self._kr_uang_muka:
+                summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
+                if summary:
+                    self._kr_uang_muka = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
+
+            # Get realisasi from transaksi or REKAP_BKT
+            self._kr_realisasi = self.transaksi.get('realisasi', 0) or 0
+            if not self._kr_realisasi:
+                summary = manager.get_rincian_summary(transaksi_id, 'REKAP_BKT')
+                if summary:
+                    self._kr_realisasi = summary.get('total_dengan_ppn', 0) or summary.get('subtotal', 0)
+
+            # Calculate selisih
+            self._kr_selisih = self._kr_realisasi - self._kr_uang_muka
+
+            # Determine status
+            if self._kr_selisih > 0:
+                self._kr_status = 'KURANG_BAYAR'
+            elif self._kr_selisih < 0:
+                self._kr_status = 'LEBIH_BAYAR'
+            else:
+                self._kr_status = 'NIHIL'
+
+            print(f"Kuitansi Rampung Data: UM={self._kr_uang_muka}, Real={self._kr_realisasi}, Selisih={self._kr_selisih}, Status={self._kr_status}")
+
+        except Exception as e:
+            print(f"Error loading Kuitansi Rampung data: {e}")
+
+    def _update_kuitansi_rampung_status(self):
+        """Update status label styling for Kuitansi Rampung."""
+        base_status_style = "font-weight: bold; font-size: 16px; padding: 12px 25px; margin-top: 10px; border-radius: 8px;"
+        base_selisih_style = "font-weight: bold; font-size: 18px; padding: 8px 5px;"
+
+        if self._kr_status == 'KURANG_BAYAR':
+            self.kr_status_label.setText("⚠ KURANG BAYAR")
+            self.kr_status_label.setStyleSheet(base_status_style + "background-color: #e74c3c; color: white;")
+            self.kr_selisih_label.setStyleSheet(base_selisih_style + "color: #e74c3c;")
+        elif self._kr_status == 'LEBIH_BAYAR':
+            self.kr_status_label.setText("✓ LEBIH BAYAR (Dikembalikan ke Kas)")
+            self.kr_status_label.setStyleSheet(base_status_style + "background-color: #27ae60; color: white;")
+            self.kr_selisih_label.setStyleSheet(base_selisih_style + "color: #27ae60;")
+        else:
+            self.kr_status_label.setText("✓ NIHIL (Pas)")
+            self.kr_status_label.setStyleSheet(base_status_style + "background-color: #3498db; color: white;")
+            self.kr_selisih_label.setStyleSheet(base_selisih_style + "color: #3498db;")
+
+    def _generate_klausul_text(self):
+        """Generate klausul text based on calculation status."""
+        penerima = self.transaksi.get('penerima_nama', '[Nama Penerima]')
+        selisih_str = f"Rp {abs(self._kr_selisih):,.0f}".replace(",", ".")
+
+        if self._kr_status == 'KURANG_BAYAR':
+            klausul = (
+                f"Berdasarkan perhitungan di atas, terdapat kekurangan pembayaran "
+                f"sebesar {selisih_str} yang harus dibayarkan oleh Bendahara Pengeluaran "
+                f"kepada {penerima} untuk menyelesaikan pertanggungjawaban kegiatan ini."
+            )
+        elif self._kr_status == 'LEBIH_BAYAR':
+            klausul = (
+                f"Berdasarkan perhitungan di atas, terdapat sisa uang muka "
+                f"sebesar {selisih_str} yang harus dikembalikan oleh {penerima} "
+                f"kepada Bendahara Pengeluaran/Kas Negara untuk menyelesaikan "
+                f"pertanggungjawaban kegiatan ini."
+            )
+        else:
+            klausul = (
+                f"Berdasarkan perhitungan di atas, penggunaan uang muka telah sesuai "
+                f"dengan realisasi belanja (NIHIL). Tidak ada sisa uang yang perlu "
+                f"dikembalikan maupun kekurangan yang perlu dibayarkan."
+            )
+
+        self.kr_klausul_text.setText(klausul)
+
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
-        # Load rincian items if provided
+        # KUIT_RAMP has its own data loading in _setup_kuitansi_rampung_ui
+        if self.kode_dokumen == 'KUIT_RAMP':
+            return
+
+        # For documents in the workflow flow - try to load from database if no items provided
+        # KUIT_UM = Kuitansi Uang Muka (loads from LBR_REQ)
+        # REKAP_BKT = Rekap Bukti Pengeluaran (loads from LBR_REQ as template)
+        if self.kode_dokumen in ['KUIT_UM', 'REKAP_BKT'] and not self.rincian_items:
+            self._load_rincian_from_db()
+
+        # Load rincian items if available (either provided or loaded from DB)
         if self.rincian_items and hasattr(self, 'rincian_table'):
+            # Block signals while loading items
+            self.rincian_table.blockSignals(True)
+
             for item in self.rincian_items:
                 row = self.rincian_table.rowCount()
                 self.rincian_table.insertRow(row)
 
-                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
-                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(item.get('volume', 1))))
-                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
+                volume = item.get('volume', 1)
                 harga = item.get('harga_satuan', 0)
-                jumlah = item.get('jumlah', 0)
+                # Auto-calculate jumlah from volume × harga (not from stored value)
+                jumlah = volume * harga
+                # Update item with calculated jumlah
+                item['jumlah'] = jumlah
+
+                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
+                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
+                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
                 self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-                self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+
+                # Jumlah column - read-only (auto-calculated)
+                jumlah_item = QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", "."))
+                jumlah_item.setFlags(jumlah_item.flags() & ~Qt.ItemIsEditable)  # Make read-only
+                jumlah_item.setBackground(Qt.lightGray)  # Visual indicator
+                self.rincian_table.setItem(row, 4, jumlah_item)
+
+            self.rincian_table.blockSignals(False)
+
+            # Load PPN and uang muka settings from the saved data
+            if self.rincian_items:
+                first_item = self.rincian_items[0]
+                ppn_persen = first_item.get('ppn_persen', 0)
+                um_persen = first_item.get('uang_muka_persen', 100)
+
+                # Set PPN checkbox if applicable
+                if hasattr(self, 'ppn_checkbox') and ppn_persen > 0:
+                    self.ppn_checkbox.setChecked(True)
+
+                # Set uang muka percentage if applicable
+                if hasattr(self, 'um_btn_group'):
+                    if um_persen == 90:
+                        self.um_90.setChecked(True)
+                    elif um_persen == 80:
+                        self.um_80.setChecked(True)
+                    else:
+                        self.um_100.setChecked(True)
 
             self._update_total()
+
+    def _load_rincian_from_db(self):
+        """
+        Load rincian items from database based on document flow:
+
+        Document Flow:
+        1. LBR_REQ (Lembar Permintaan) → User enters estimasi items
+        2. REKAP_BKT (Rekap Bukti) → Load from LBR_REQ as template, user modifies with actual
+        3. KUIT_RAMP (Kuitansi Rampung) → Load from REKAP_BKT (realisasi aktual)
+        """
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+
+            # Determine source based on document type
+            if self.kode_dokumen == 'KUIT_RAMP':
+                # Kuitansi Rampung: Load from REKAP_BKT (realisasi aktual)
+                # If no REKAP_BKT data, fall back to LBR_REQ
+                items = manager.get_rincian_items(transaksi_id, 'REKAP_BKT')
+                source = 'REKAP_BKT'
+                if not items:
+                    items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                    source = 'LBR_REQ'
+
+            elif self.kode_dokumen == 'REKAP_BKT':
+                # Rekap Bukti: Check if own data exists first
+                items = manager.get_rincian_items(transaksi_id, 'REKAP_BKT')
+                source = 'REKAP_BKT'
+                if not items:
+                    # Load from LBR_REQ as template
+                    items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                    source = 'LBR_REQ (as template)'
+
+            elif self.kode_dokumen == 'KUIT_UM':
+                # Kuitansi Uang Muka: Load from LBR_REQ
+                items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                source = 'LBR_REQ'
+
+            else:
+                # Default: Load from LBR_REQ
+                items = manager.get_rincian_items(transaksi_id, 'LBR_REQ')
+                source = 'LBR_REQ'
+
+            if items:
+                # Convert to proper format (remove database IDs)
+                self.rincian_items = []
+                for item in items:
+                    self.rincian_items.append({
+                        'uraian': item.get('uraian', ''),
+                        'volume': item.get('volume', 1),
+                        'satuan': item.get('satuan', 'paket'),
+                        'harga_satuan': item.get('harga_satuan', 0),
+                        'jumlah': item.get('jumlah', 0),
+                        'ppn_persen': item.get('ppn_persen', 0),
+                        'uang_muka_persen': item.get('uang_muka_persen', 100),
+                    })
+                print(f"Loaded {len(items)} rincian items from {source} for transaksi {transaksi_id}")
+
+        except Exception as e:
+            print(f"Error loading rincian from database: {e}")
+
+    def _generate_nomor_tanda_terima(self):
+        """Generate nomor tanda terima uang muka."""
+        try:
+            from app.services.dokumen_generator import get_dokumen_generator
+            generator = get_dokumen_generator()
+
+            if self.kode_dokumen == 'KUIT_UM':
+                self._nomor_tanda_terima = generator.generate_nomor_tanda_terima('UM')
+            elif self.kode_dokumen == 'KUIT_RAMP':
+                self._nomor_tanda_terima = generator.generate_nomor_tanda_terima('RAMP')
+            else:
+                self._nomor_tanda_terima = ""
+
+            print(f"Generated nomor tanda terima: {self._nomor_tanda_terima}")
+
+        except Exception as e:
+            print(f"Error generating nomor tanda terima: {e}")
+            from datetime import datetime
+            now = datetime.now()
+            self._nomor_tanda_terima = f"001/TT-UM/{now.year}"
+
+    def _load_uang_muka_for_calc(self):
+        """Load uang muka value for REKAP_BKT calculation panel."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            # First try to get from transaksi
+            self._uang_muka_nilai = self.transaksi.get('uang_muka', 0) or 0
+
+            # If not set, calculate from LBR_REQ
+            if not self._uang_muka_nilai:
+                from app.models.pencairan_models import PencairanManager
+                manager = PencairanManager()
+                summary = manager.get_rincian_summary(transaksi_id, 'LBR_REQ')
+                if summary:
+                    self._uang_muka_nilai = summary.get('uang_muka_nilai', 0) or summary.get('total_dengan_ppn', 0)
+
+            # Update table item if using table format, otherwise update label
+            if hasattr(self, 'uang_muka_item'):
+                self.uang_muka_item.setText(f"Rp {self._uang_muka_nilai:,.0f}".replace(",", "."))
+            elif hasattr(self, 'uang_muka_label'):
+                self.uang_muka_label.setText(f"Rp {self._uang_muka_nilai:,.0f}".replace(",", "."))
+            print(f"Loaded uang_muka for calculation: {self._uang_muka_nilai}")
+
+        except Exception as e:
+            self._uang_muka_nilai = 0
+            print(f"Error loading uang_muka for calculation: {e}")
+
+    def _update_jumlah_preview(self, *args):
+        """Auto-calculate and display jumlah preview when volume or harga changes."""
+        if hasattr(self, 'volume_spin') and hasattr(self, 'harga_spin') and hasattr(self, 'jumlah_preview'):
+            volume = self.volume_spin.value()
+            harga = self.harga_spin.value()
+            jumlah = volume * harga
+            self.jumlah_preview.setText(f"Rp {jumlah:,.0f}".replace(",", "."))
+
+    def _on_table_item_changed(self, item):
+        """Handle table item changes - recalculate jumlah when volume or harga is edited."""
+        if not hasattr(self, 'rincian_table') or not hasattr(self, 'rincian_items'):
+            return
+
+        row = item.row()
+        col = item.column()
+
+        # Ensure rincian_items has enough elements
+        while len(self.rincian_items) <= row:
+            self.rincian_items.append({
+                'uraian': '',
+                'volume': 1,
+                'satuan': 'paket',
+                'harga_satuan': 0,
+                'jumlah': 0,
+            })
+
+        # Recalculate jumlah when volume (col 1) or harga (col 3) is changed
+        if col in [1, 3]:
+            try:
+                # Block signals to prevent recursion
+                self.rincian_table.blockSignals(True)
+
+                # Get current values
+                volume_item = self.rincian_table.item(row, 1)
+                harga_item = self.rincian_table.item(row, 3)
+
+                if volume_item and harga_item:
+                    # Parse volume (integer) - remove any formatting
+                    volume_text = volume_item.text().strip()
+                    try:
+                        # Remove dots used as thousand separator
+                        volume = int(volume_text.replace(".", "").replace(",", ""))
+                    except:
+                        volume = 1
+
+                    # Parse harga - remove Rp, dots (thousand sep), and spaces
+                    harga_text = harga_item.text()
+                    harga_text = harga_text.replace("Rp", "").replace(" ", "").strip()
+                    # Indonesian format uses dots for thousands, so remove them
+                    harga_text = harga_text.replace(".", "")
+                    try:
+                        harga = float(harga_text)
+                    except:
+                        harga = 0
+
+                    # Calculate jumlah
+                    jumlah = volume * harga
+
+                    # Update jumlah cell (create new item if needed)
+                    jumlah_item = self.rincian_table.item(row, 4)
+                    if jumlah_item:
+                        jumlah_item.setText(f"Rp {jumlah:,.0f}".replace(",", "."))
+                    else:
+                        # Create new jumlah item
+                        new_jumlah_item = QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", "."))
+                        new_jumlah_item.setFlags(new_jumlah_item.flags() & ~Qt.ItemIsEditable)
+                        new_jumlah_item.setBackground(Qt.lightGray)
+                        self.rincian_table.setItem(row, 4, new_jumlah_item)
+
+                    # Update rincian_items
+                    self.rincian_items[row]['volume'] = volume
+                    self.rincian_items[row]['harga_satuan'] = harga
+                    self.rincian_items[row]['jumlah'] = jumlah
+
+                    # Update total
+                    self._update_total()
+
+            finally:
+                self.rincian_table.blockSignals(False)
+
+        # Also update uraian (col 0) and satuan (col 2) in rincian_items
+        elif col == 0:  # Uraian
+            uraian_item = self.rincian_table.item(row, 0)
+            if uraian_item:
+                self.rincian_items[row]['uraian'] = uraian_item.text()
+        elif col == 2:  # Satuan
+            satuan_item = self.rincian_table.item(row, 2)
+            if satuan_item:
+                self.rincian_items[row]['satuan'] = satuan_item.text()
 
     def _add_rincian_item(self):
         """Add rincian item to table."""
@@ -274,6 +1011,9 @@ class DokumenGeneratorDialog(QDialog):
         harga = self.harga_spin.value()
         jumlah = volume * harga
 
+        # Block signals while adding
+        self.rincian_table.blockSignals(True)
+
         # Add to table
         row = self.rincian_table.rowCount()
         self.rincian_table.insertRow(row)
@@ -282,7 +1022,14 @@ class DokumenGeneratorDialog(QDialog):
         self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
         self.rincian_table.setItem(row, 2, QTableWidgetItem(satuan))
         self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-        self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+
+        # Jumlah column - read-only (auto-calculated)
+        jumlah_item = QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", "."))
+        jumlah_item.setFlags(jumlah_item.flags() & ~Qt.ItemIsEditable)  # Make read-only
+        jumlah_item.setBackground(Qt.lightGray)  # Visual indicator
+        self.rincian_table.setItem(row, 4, jumlah_item)
+
+        self.rincian_table.blockSignals(False)
 
         # Add to list
         self.rincian_items.append({
@@ -293,10 +1040,12 @@ class DokumenGeneratorDialog(QDialog):
             'jumlah': jumlah,
         })
 
-        # Clear inputs
+        # Clear inputs and reset preview
         self.uraian_edit.clear()
         self.volume_spin.setValue(1)
         self.harga_spin.setValue(0)
+        if hasattr(self, 'jumlah_preview'):
+            self.jumlah_preview.setText("Rp 0")
 
         # Update total
         self._update_total()
@@ -314,22 +1063,146 @@ class DokumenGeneratorDialog(QDialog):
 
         self._update_total()
 
-    def _update_total(self):
-        """Update total label."""
+    def _update_total(self, *args):
+        """Update total label with PPN, PPh, and calculation panel."""
         total = sum(item['jumlah'] for item in self.rincian_items)
         self.total_label.setText(f"Rp {total:,.0f}".replace(",", "."))
 
+        # Calculate PPN if checkbox exists and is checked
+        ppn_nilai = 0
+        if hasattr(self, 'ppn_checkbox') and self.ppn_checkbox.isChecked():
+            ppn_nilai = total * 0.11  # 11%
+            self.ppn_label.setText(f"Rp {ppn_nilai:,.0f}".replace(",", "."))
+        elif hasattr(self, 'ppn_label'):
+            self.ppn_label.setText("Rp 0")
+
+        # Calculate PPh if checkbox exists and is checked
+        pph_nilai = 0
+        if hasattr(self, 'pph_checkbox'):
+            self.pph_rate_combo.setEnabled(self.pph_checkbox.isChecked())
+            if self.pph_checkbox.isChecked():
+                # Parse rate from combo text
+                rate_text = self.pph_rate_combo.currentText()
+                if "1.5%" in rate_text:
+                    pph_rate = 0.015
+                elif "2%" in rate_text:
+                    pph_rate = 0.02
+                elif "4%" in rate_text:
+                    pph_rate = 0.04
+                elif "15%" in rate_text:
+                    pph_rate = 0.15
+                else:
+                    pph_rate = 0.02  # default
+                pph_nilai = total * pph_rate
+                self.pph_label.setText(f"Rp {pph_nilai:,.0f}".replace(",", "."))
+            else:
+                self.pph_label.setText("Rp 0")
+
+        # Grand total = total + PPN - PPh (PPh is a deduction)
+        grand_total = total + ppn_nilai - pph_nilai
+
+        if hasattr(self, 'grand_total_label'):
+            self.grand_total_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
+
+        # Calculate uang muka percentage (for KUIT_UM)
+        if hasattr(self, 'um_btn_group'):
+            persen = self.um_btn_group.checkedId()
+            if persen > 0:
+                nilai_diterima = grand_total * persen / 100
+                self.um_nilai_label.setText(f"Nilai Diterima: Rp {nilai_diterima:,.0f}".replace(",", "."))
+
+        # Update calculation panel (for REKAP_BKT) - compact grid format
+        # Calculate selisih
+        uang_muka = getattr(self, '_uang_muka_nilai', 0) or 0
+        selisih = grand_total - uang_muka
+
+        # Update labels if calculation panel exists
+        if hasattr(self, 'realisasi_item') and hasattr(self, 'selisih_item'):
+            self.realisasi_item.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
+            self.selisih_item.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
+
+            # Color coding for selisih - using stylesheet for QLabel
+            base_style = "font-weight: bold; font-size: 14px;"
+            if selisih > 0:
+                self.selisih_item.setStyleSheet(base_style + " color: #e74c3c;")
+            elif selisih < 0:
+                self.selisih_item.setStyleSheet(base_style + " color: #27ae60;")
+            else:
+                self.selisih_item.setStyleSheet(base_style + " color: #3498db;")
+
+        # Update status label
+        if hasattr(self, 'status_calc_label'):
+            base_status_style = "font-weight: bold; font-size: 12px; padding: 5px 10px; border-radius: 4px;"
+
+            if selisih > 0:
+                self.status_calc_label.setText("KURANG BAYAR")
+                self.status_calc_label.setStyleSheet(base_status_style + "background-color: #e74c3c; color: white;")
+            elif selisih < 0:
+                self.status_calc_label.setText("LEBIH BAYAR")
+                self.status_calc_label.setStyleSheet(base_status_style + "background-color: #27ae60; color: white;")
+            else:
+                self.status_calc_label.setText("NIHIL")
+                self.status_calc_label.setStyleSheet(base_status_style + "background-color: #3498db; color: white;")
+
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
+        # Get nama from combo - extract name without NIP
+        selected_text = self.penerima_nama_combo.currentText().strip()
+        # If format is "Nama (NIP)", extract just the name
+        if ' (' in selected_text and selected_text.endswith(')'):
+            penerima_nama = selected_text.rsplit(' (', 1)[0].strip()
+        else:
+            penerima_nama = selected_text
+
         data = {
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
-            'estimasi_biaya': self.estimasi_spin.value(),
             'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
-            'penerima_nama': self.penerima_nama_edit.text(),
+            'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
         }
+
+        # Add PPh data if exists
+        if hasattr(self, 'pph_checkbox') and self.pph_checkbox.isChecked():
+            rate_text = self.pph_rate_combo.currentText()
+            if "1.5%" in rate_text:
+                data['pph_persen'] = 1.5
+            elif "2%" in rate_text:
+                data['pph_persen'] = 2
+            elif "4%" in rate_text:
+                data['pph_persen'] = 4
+            elif "15%" in rate_text:
+                data['pph_persen'] = 15
+            else:
+                data['pph_persen'] = 0
+        else:
+            data['pph_persen'] = 0
+
+        # Add PPN percentage if checkbox exists and is checked
+        if hasattr(self, 'ppn_checkbox') and self.ppn_checkbox.isChecked():
+            data['ppn_persen'] = 11
+        else:
+            data['ppn_persen'] = 0
+
+        # Add uang muka percentage if option exists
+        if hasattr(self, 'um_btn_group'):
+            data['uang_muka_persen'] = self.um_btn_group.checkedId()
+        else:
+            data['uang_muka_persen'] = 100
+
+        # Add nomor tanda terima if generated (for KUIT_UM)
+        if hasattr(self, '_nomor_tanda_terima') and self._nomor_tanda_terima:
+            data['nomor_tanda_terima'] = self._nomor_tanda_terima
+
+        # Add Kuitansi Rampung specific data
+        if self.kode_dokumen == 'KUIT_RAMP':
+            data['uang_muka'] = getattr(self, '_kr_uang_muka', 0)
+            data['realisasi'] = getattr(self, '_kr_realisasi', 0)
+            data['selisih'] = getattr(self, '_kr_selisih', 0)
+            data['status_selisih'] = getattr(self, '_kr_status', 'NIHIL')
+            if hasattr(self, 'kr_klausul_text'):
+                data['klausul'] = self.kr_klausul_text.toPlainText()
 
         # Merge with transaksi data
         for key, value in self.transaksi.items():
@@ -358,6 +1231,30 @@ class DokumenGeneratorDialog(QDialog):
 
             # Update transaksi with form data
             merged_transaksi = {**self.transaksi, **form_data}
+
+            self.progress_bar.setValue(50)
+            self.status_label.setText("Menyimpan data rincian...")
+
+            # Save rincian items to database for documents with rincian
+            # LBR_REQ = Lembar Permintaan (estimasi)
+            # REKAP_BKT = Rekap Bukti Pengeluaran (realisasi aktual)
+            if self.kode_dokumen in ['LBR_REQ', 'REKAP_BKT'] and self.rincian_items:
+                self._save_rincian_to_db(form_data)
+
+                # For REKAP_BKT, also update realisasi in transaksi
+                if self.kode_dokumen == 'REKAP_BKT':
+                    total_realisasi = sum(item.get('jumlah', 0) for item in self.rincian_items)
+                    self._update_transaksi_realisasi(total_realisasi)
+
+            # For KUIT_UM, update uang_muka in transaksi based on percentage selected
+            if self.kode_dokumen == 'KUIT_UM' and self.rincian_items:
+                total = sum(item.get('jumlah', 0) for item in self.rincian_items)
+                ppn_persen = form_data.get('ppn_persen', 0)
+                ppn_nilai = total * ppn_persen / 100 if ppn_persen > 0 else 0
+                grand_total = total + ppn_nilai
+                uang_muka_persen = form_data.get('uang_muka_persen', 100)
+                uang_muka_nilai = grand_total * uang_muka_persen / 100
+                self._update_transaksi_uang_muka(uang_muka_nilai)
 
             self.progress_bar.setValue(60)
             self.status_label.setText("Generating dokumen...")
@@ -404,6 +1301,62 @@ class DokumenGeneratorDialog(QDialog):
 
         finally:
             self.progress_bar.setVisible(False)
+
+    def _save_rincian_to_db(self, form_data: Dict[str, Any]):
+        """Save rincian items to database."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                print("Warning: No transaksi_id, cannot save rincian")
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+
+            ppn_persen = form_data.get('ppn_persen', 0)
+            uang_muka_persen = form_data.get('uang_muka_persen', 100)
+
+            manager.save_rincian_items(
+                transaksi_id=transaksi_id,
+                items=self.rincian_items,
+                kode_dokumen=self.kode_dokumen,
+                ppn_persen=ppn_persen,
+                uang_muka_persen=uang_muka_persen
+            )
+            print(f"Saved {len(self.rincian_items)} rincian items for transaksi {transaksi_id}")
+
+        except Exception as e:
+            print(f"Error saving rincian to database: {e}")
+
+    def _update_transaksi_realisasi(self, total_realisasi: float):
+        """Update realisasi value in transaksi after saving REKAP_BKT."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+            manager.update_transaksi(transaksi_id, {'realisasi': total_realisasi})
+            print(f"Updated transaksi {transaksi_id} realisasi to {total_realisasi}")
+
+        except Exception as e:
+            print(f"Error updating transaksi realisasi: {e}")
+
+    def _update_transaksi_uang_muka(self, uang_muka_nilai: float):
+        """Update uang_muka value in transaksi after generating KUIT_UM."""
+        try:
+            transaksi_id = self.transaksi.get('id')
+            if not transaksi_id:
+                return
+
+            from app.models.pencairan_models import PencairanManager
+            manager = PencairanManager()
+            manager.update_transaksi(transaksi_id, {'uang_muka': uang_muka_nilai})
+            print(f"Updated transaksi {transaksi_id} uang_muka to {uang_muka_nilai}")
+
+        except Exception as e:
+            print(f"Error updating transaksi uang_muka: {e}")
 
     def _open_document(self):
         """Open generated document."""
@@ -479,9 +1432,70 @@ class UploadDokumenDialog(QDialog):
 
         layout.addStretch()
 
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #7f8c8d;")
+        layout.addWidget(self.status_label)
+
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
+
+        # View file button (hidden initially) - renamed to "Buka"
+        self.view_file_btn = QPushButton("Buka")
+        self.view_file_btn.setVisible(False)
+        self.view_file_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.view_file_btn.clicked.connect(self._view_file)
+        btn_layout.addWidget(self.view_file_btn)
+
+        # Download button (hidden initially)
+        self.download_btn = QPushButton("Download")
+        self.download_btn.setVisible(False)
+        self.download_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+        """)
+        self.download_btn.clicked.connect(self._download_file)
+        btn_layout.addWidget(self.download_btn)
+
+        # Open folder button (hidden initially)
+        self.open_folder_btn = QPushButton("Buka Folder")
+        self.open_folder_btn.setVisible(False)
+        self.open_folder_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+            }
+        """)
+        self.open_folder_btn.clicked.connect(self._open_folder)
+        btn_layout.addWidget(self.open_folder_btn)
 
         self.upload_btn = QPushButton("Upload")
         self.upload_btn.setEnabled(False)
@@ -504,11 +1518,14 @@ class UploadDokumenDialog(QDialog):
         self.upload_btn.clicked.connect(self._upload)
         btn_layout.addWidget(self.upload_btn)
 
-        cancel_btn = QPushButton("Batal")
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(cancel_btn)
+        self.close_btn = QPushButton("Tutup")
+        self.close_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(self.close_btn)
 
         layout.addLayout(btn_layout)
+
+        # Store uploaded file path
+        self.uploaded_path = None
 
     def _browse_file(self):
         """Browse for file."""
@@ -549,14 +1566,93 @@ class UploadDokumenDialog(QDialog):
 
             shutil.copy2(src, dest)
 
-            QMessageBox.information(
-                self,
-                "Sukses",
-                f"File berhasil diupload:\n{dest}"
-            )
+            # Store uploaded path
+            self.uploaded_path = str(dest)
 
+            # Update UI
+            self.status_label.setText(f"✓ File berhasil diupload:\n{dest}")
+            self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+
+            # Show view buttons
+            self.view_file_btn.setVisible(True)
+            self.download_btn.setVisible(True)
+            self.open_folder_btn.setVisible(True)
+
+            # Change upload button to "Upload Lagi"
+            self.upload_btn.setText("Upload Lagi")
+
+            # Emit signal
             self.dokumen_uploaded.emit(str(dest))
-            self.accept()
 
         except Exception as e:
+            self.status_label.setText(f"✗ Gagal upload: {str(e)}")
+            self.status_label.setStyleSheet("color: #e74c3c;")
             QMessageBox.critical(self, "Error", f"Gagal upload file:\n{str(e)}")
+
+    def _view_file(self):
+        """Open uploaded file with default application."""
+        if self.uploaded_path:
+            import subprocess
+            import platform
+            import os
+
+            try:
+                if platform.system() == 'Windows':
+                    os.startfile(self.uploaded_path)
+                elif platform.system() == 'Darwin':  # macOS
+                    subprocess.run(['open', self.uploaded_path])
+                else:  # Linux
+                    subprocess.run(['xdg-open', self.uploaded_path])
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal membuka file:\n{str(e)}")
+
+    def _open_folder(self):
+        """Open folder containing uploaded file."""
+        if self.uploaded_path:
+            import subprocess
+            import platform
+            import os
+            from pathlib import Path
+
+            folder = str(Path(self.uploaded_path).parent)
+
+            try:
+                if platform.system() == 'Windows':
+                    os.startfile(folder)
+                elif platform.system() == 'Darwin':  # macOS
+                    subprocess.run(['open', folder])
+                else:  # Linux
+                    subprocess.run(['xdg-open', folder])
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal membuka folder:\n{str(e)}")
+
+    def _download_file(self):
+        """Download/save file to user-selected location."""
+        if not self.uploaded_path:
+            return
+
+        import os
+        import shutil
+        from pathlib import Path
+
+        if not os.path.exists(self.uploaded_path):
+            QMessageBox.warning(self, "Peringatan", "File tidak ditemukan!")
+            return
+
+        # Get original filename
+        original_name = Path(self.uploaded_path).name
+
+        # Ask user where to save
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Simpan File",
+            original_name,
+            "All Files (*)"
+        )
+
+        if save_path:
+            try:
+                shutil.copy2(self.uploaded_path, save_path)
+                QMessageBox.information(self, "Sukses", f"File berhasil disimpan:\n{save_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal menyimpan file:\n{str(e)}")

@@ -505,7 +505,7 @@ class FotoDokumentasiManager(QWidget):
 
         layout.addWidget(edit_group)
 
-        # Action buttons
+        # Action buttons - Row 1
         btn_layout = QHBoxLayout()
 
         self.btn_save = QPushButton("💾 Simpan")
@@ -513,10 +513,16 @@ class FotoDokumentasiManager(QWidget):
         self.btn_save.setEnabled(False)
         btn_layout.addWidget(self.btn_save)
 
-        self.btn_view_full = QPushButton("🔍 Lihat Full")
+        self.btn_view_full = QPushButton("🔍 Buka")
         self.btn_view_full.clicked.connect(self.view_full_photo)
         self.btn_view_full.setEnabled(False)
         btn_layout.addWidget(self.btn_view_full)
+
+        self.btn_download = QPushButton("📥 Download")
+        self.btn_download.clicked.connect(self.download_photo)
+        self.btn_download.setEnabled(False)
+        self.btn_download.setStyleSheet("background-color: #17a2b8;")
+        btn_layout.addWidget(self.btn_download)
 
         self.btn_delete = QPushButton("🗑 Hapus")
         self.btn_delete.setObjectName("btnDanger")
@@ -811,6 +817,7 @@ class FotoDokumentasiManager(QWidget):
         # Enable buttons
         self.btn_save.setEnabled(True)
         self.btn_view_full.setEnabled(True)
+        self.btn_download.setEnabled(True)
         self.btn_delete.setEnabled(True)
 
     def save_photo_details(self):
@@ -867,6 +874,38 @@ class FotoDokumentasiManager(QWidget):
                 subprocess.run(['open', filepath])
             else:
                 subprocess.run(['xdg-open', filepath])
+
+    def download_photo(self):
+        """Download/save photo to user-selected location"""
+        if not self.current_foto_id:
+            return
+
+        foto = next((f for f in self.foto_list if f.get('id') == self.current_foto_id), None)
+        if not foto:
+            return
+
+        filepath = foto.get('filepath', '')
+        if not filepath or not os.path.exists(filepath):
+            QMessageBox.warning(self, "Peringatan", "File foto tidak ditemukan!")
+            return
+
+        # Get original filename
+        original_name = foto.get('filename', os.path.basename(filepath))
+
+        # Ask user where to save
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Simpan Foto",
+            original_name,
+            "Images (*.jpg *.jpeg *.png *.bmp);;All Files (*)"
+        )
+
+        if save_path:
+            try:
+                shutil.copy2(filepath, save_path)
+                QMessageBox.information(self, "Sukses", f"Foto berhasil disimpan:\n{save_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal menyimpan foto:\n{str(e)}")
 
     def delete_photo(self):
         """Delete current photo"""

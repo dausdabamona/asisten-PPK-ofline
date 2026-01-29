@@ -116,7 +116,6 @@ CREATE TABLE IF NOT EXISTS transaksi_pencairan (
     -- Kode Akun
     kode_akun TEXT,
     nama_akun TEXT,
-    nomor_mak TEXT,
 
     -- Tahun Anggaran
     tahun_anggaran INTEGER,
@@ -216,6 +215,40 @@ CREATE TABLE IF NOT EXISTS counter_transaksi (
 );
 """
 
+SCHEMA_RINCIAN_TRANSAKSI = """
+CREATE TABLE IF NOT EXISTS rincian_transaksi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_id INTEGER NOT NULL,
+    nomor_urut INTEGER DEFAULT 1,
+    uraian TEXT NOT NULL,
+    volume REAL DEFAULT 1,
+    satuan TEXT DEFAULT 'paket',
+    harga_satuan REAL DEFAULT 0,
+    jumlah REAL DEFAULT 0,
+
+    -- For tax calculations
+    ppn_persen REAL DEFAULT 0,
+    ppn_nilai REAL DEFAULT 0,
+
+    -- For uang muka calculations
+    uang_muka_persen REAL DEFAULT 100,
+    uang_muka_nilai REAL DEFAULT 0,
+
+    -- Document reference - which document generated this
+    kode_dokumen TEXT,
+
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (transaksi_id) REFERENCES transaksi_pencairan(id) ON DELETE CASCADE
+);
+
+-- Index for fast lookup
+CREATE INDEX IF NOT EXISTS idx_rincian_transaksi ON rincian_transaksi(transaksi_id);
+CREATE INDEX IF NOT EXISTS idx_rincian_dokumen ON rincian_transaksi(transaksi_id, kode_dokumen);
+"""
+
 # ============================================================================
 # DATABASE MANAGER CLASS
 # ============================================================================
@@ -258,8 +291,17 @@ class PencairanManager:
             cursor.executescript(SCHEMA_FASE_LOG)
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
+            cursor.executescript(SCHEMA_RINCIAN_TRANSAKSI)
+
+            # Run migrations for existing databases
+            self._run_migrations(cursor)
 
             conn.commit()
+
+    def _run_migrations(self, cursor):
+        """Run database migrations for existing databases."""
+        # Placeholder for future migrations
+        pass
 
     # ========================================================================
     # TRANSAKSI PENCAIRAN CRUD
@@ -338,7 +380,7 @@ class PencairanManager:
                     penerima_nama, penerima_nip, penerima_jabatan,
                     penerima_npwp, penerima_rekening, penerima_bank,
                     penyedia_id, nilai_kontrak, nomor_kontrak, tanggal_kontrak,
-                    kode_akun, nama_akun, nomor_mak,
+                    kode_akun, nama_akun,
                     tahun_anggaran,
                     tanggal_kegiatan_mulai, tanggal_kegiatan_selesai,
                     catatan, created_by
@@ -350,7 +392,7 @@ class PencairanManager:
                     ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?,
+                    ?, ?,
                     ?,
                     ?, ?,
                     ?, ?
@@ -381,7 +423,6 @@ class PencairanManager:
                 data.get('tanggal_kontrak'),
                 data.get('kode_akun'),
                 data.get('nama_akun'),
-                data.get('nomor_mak'),
                 tahun,
                 data.get('tanggal_kegiatan_mulai'),
                 data.get('tanggal_kegiatan_selesai'),
@@ -465,7 +506,7 @@ class PencairanManager:
             'penerima_nama', 'penerima_nip', 'penerima_jabatan',
             'penerima_npwp', 'penerima_rekening', 'penerima_bank',
             'penyedia_id', 'nilai_kontrak', 'nomor_kontrak', 'tanggal_kontrak',
-            'kode_akun', 'nama_akun', 'nomor_mak',
+            'kode_akun', 'nama_akun',
             'tanggal_kegiatan_mulai', 'tanggal_kegiatan_selesai',
             'tanggal_sp2d_tup', 'batas_pertanggungjawaban_tup',
             'catatan', 'updated_by'
@@ -1035,6 +1076,199 @@ class PencairanManager:
             'sisa_hari': sisa_hari,
             'is_overdue': sisa_hari < 0,
         }
+
+    # ========================================================================
+    # RINCIAN TRANSAKSI CRUD
+    # ========================================================================
+
+    def save_rincian_items(
+        self,
+        transaksi_id: int,
+        items: List[Dict[str, Any]],
+        kode_dokumen: str = None,
+        ppn_persen: float = 0,
+        uang_muka_persen: float = 100
+    ) -> bool:
+        """
+        Simpan rincian items untuk transaksi.
+        Items yang sudah ada untuk kode_dokumen yang sama akan dihapus dulu.
+
+        Args:
+            transaksi_id: ID transaksi
+            items: List rincian items
+            kode_dokumen: Kode dokumen yang membuat rincian (LBR_REQ, KUIT_UM, dll)
+            ppn_persen: Persentase PPN (0 atau 11)
+            uang_muka_persen: Persentase uang muka (80, 90, atau 100)
+
+        Returns:
+            True jika berhasil
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Delete existing rincian for this transaksi & kode_dokumen
+            if kode_dokumen:
+                cursor.execute("""
+                    DELETE FROM rincian_transaksi
+                    WHERE transaksi_id = ? AND kode_dokumen = ?
+                """, (transaksi_id, kode_dokumen))
+            else:
+                cursor.execute("""
+                    DELETE FROM rincian_transaksi
+                    WHERE transaksi_id = ?
+                """, (transaksi_id,))
+
+            # Insert new items
+            for i, item in enumerate(items, 1):
+                jumlah = item.get('jumlah', 0) or (item.get('volume', 1) * item.get('harga_satuan', 0))
+                ppn_nilai = jumlah * ppn_persen / 100 if ppn_persen > 0 else 0
+                total_dengan_ppn = jumlah + ppn_nilai
+                um_nilai = total_dengan_ppn * uang_muka_persen / 100
+
+                cursor.execute("""
+                    INSERT INTO rincian_transaksi (
+                        transaksi_id, nomor_urut, uraian, volume, satuan,
+                        harga_satuan, jumlah, ppn_persen, ppn_nilai,
+                        uang_muka_persen, uang_muka_nilai, kode_dokumen
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    transaksi_id,
+                    i,
+                    item.get('uraian', ''),
+                    item.get('volume', 1),
+                    item.get('satuan', 'paket'),
+                    item.get('harga_satuan', 0),
+                    jumlah,
+                    ppn_persen,
+                    ppn_nilai,
+                    uang_muka_persen,
+                    um_nilai,
+                    kode_dokumen
+                ))
+
+            conn.commit()
+            return True
+
+    def get_rincian_items(
+        self,
+        transaksi_id: int,
+        kode_dokumen: str = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get rincian items untuk transaksi.
+
+        Args:
+            transaksi_id: ID transaksi
+            kode_dokumen: Optional filter by kode dokumen
+
+        Returns:
+            List of rincian items
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if kode_dokumen:
+                cursor.execute("""
+                    SELECT * FROM rincian_transaksi
+                    WHERE transaksi_id = ? AND kode_dokumen = ?
+                    ORDER BY nomor_urut
+                """, (transaksi_id, kode_dokumen))
+            else:
+                cursor.execute("""
+                    SELECT * FROM rincian_transaksi
+                    WHERE transaksi_id = ?
+                    ORDER BY kode_dokumen, nomor_urut
+                """, (transaksi_id,))
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_rincian_summary(self, transaksi_id: int, kode_dokumen: str = None) -> Dict[str, Any]:
+        """
+        Get summary of rincian items for transaksi.
+
+        Args:
+            transaksi_id: ID transaksi
+            kode_dokumen: Optional filter by kode dokumen
+
+        Returns:
+            Dictionary with totals
+        """
+        items = self.get_rincian_items(transaksi_id, kode_dokumen)
+
+        if not items:
+            return {
+                'total_items': 0,
+                'subtotal': 0,
+                'ppn_persen': 0,
+                'ppn_nilai': 0,
+                'total_dengan_ppn': 0,
+                'uang_muka_persen': 100,
+                'uang_muka_nilai': 0,
+            }
+
+        subtotal = sum(item.get('jumlah', 0) for item in items)
+        ppn_persen = items[0].get('ppn_persen', 0) if items else 0
+        ppn_nilai = sum(item.get('ppn_nilai', 0) for item in items)
+        uang_muka_persen = items[0].get('uang_muka_persen', 100) if items else 100
+        uang_muka_nilai = sum(item.get('uang_muka_nilai', 0) for item in items)
+
+        return {
+            'total_items': len(items),
+            'subtotal': subtotal,
+            'ppn_persen': ppn_persen,
+            'ppn_nilai': ppn_nilai,
+            'total_dengan_ppn': subtotal + ppn_nilai,
+            'uang_muka_persen': uang_muka_persen,
+            'uang_muka_nilai': uang_muka_nilai,
+        }
+
+    def delete_rincian_items(self, transaksi_id: int, kode_dokumen: str = None) -> bool:
+        """Delete rincian items for transaksi."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if kode_dokumen:
+                cursor.execute("""
+                    DELETE FROM rincian_transaksi
+                    WHERE transaksi_id = ? AND kode_dokumen = ?
+                """, (transaksi_id, kode_dokumen))
+            else:
+                cursor.execute("""
+                    DELETE FROM rincian_transaksi
+                    WHERE transaksi_id = ?
+                """, (transaksi_id,))
+
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # ========================================================================
+    # SATKER DATA
+    # ========================================================================
+
+    def get_satker_aktif(self) -> Dict[str, Any]:
+        """Get active satker data with pejabat details."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.*,
+                    kpa.nama as kpa_nama, kpa.nip as kpa_nip, kpa.jabatan as kpa_jabatan,
+                    kpa.pangkat as kpa_pangkat, kpa.golongan as kpa_golongan,
+                    ppk.nama as ppk_nama, ppk.nip as ppk_nip, ppk.jabatan as ppk_jabatan,
+                    ppk.pangkat as ppk_pangkat, ppk.golongan as ppk_golongan,
+                    ppspm.nama as ppspm_nama, ppspm.nip as ppspm_nip, ppspm.jabatan as ppspm_jabatan,
+                    ppspm.pangkat as ppspm_pangkat, ppspm.golongan as ppspm_golongan,
+                    bendahara.nama as bendahara_nama, bendahara.nip as bendahara_nip,
+                    bendahara.jabatan as bendahara_jabatan, bendahara.pangkat as bendahara_pangkat,
+                    bendahara.golongan as bendahara_golongan
+                FROM satker s
+                LEFT JOIN pegawai kpa ON s.kpa_id = kpa.id
+                LEFT JOIN pegawai ppk ON s.ppk_id = ppk.id
+                LEFT JOIN pegawai ppspm ON s.ppspm_id = ppspm.id
+                LEFT JOIN pegawai bendahara ON s.bendahara_id = bendahara.id
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+            return dict(row) if row else {}
 
 
 # ============================================================================

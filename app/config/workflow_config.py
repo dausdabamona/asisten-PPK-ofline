@@ -31,6 +31,7 @@ UP_WORKFLOW = {
         "KEPANITIAAN",      # Kegiatan kepanitiaan (perlu TOR, RAB, SK)
         "JAMUAN_TAMU",      # Jamuan tamu (perlu Undangan, SK)
         "RAPAT",            # Rapat/pertemuan (perlu Undangan, SK)
+        "PERJALANAN_DINAS", # Perjalanan dinas (perlu Surat Tugas)
         "PERJALANAN_LOKAL", # Perjalanan lokal (perlu ST)
         "LAINNYA",          # Kegiatan lainnya
     ],
@@ -39,9 +40,22 @@ UP_WORKFLOW = {
         "KEPANITIAAN": "Kegiatan Kepanitiaan",
         "JAMUAN_TAMU": "Jamuan Tamu",
         "RAPAT": "Rapat/Pertemuan/Workshop",
+        "PERJALANAN_DINAS": "Perjalanan Dinas",
         "PERJALANAN_LOKAL": "Perjalanan Lokal",
         "LAINNYA": "Kegiatan Lainnya",
     },
+
+    # Jenis Pertanggungjawaban untuk checklist dokumen
+    # Lihat app/config/checklist_config.py untuk detail dokumen per jenis
+    "jenis_pertanggungjawaban_categories": [
+        "HONORARIUM",           # Berbagai jenis honorarium
+        "PERJALANAN_DINAS",     # Dalam negeri, luar negeri, transport lokal
+        "LEMBUR",               # Uang lembur
+        "SEWA_KONSUMSI",        # Sewa kendaraan, gedung, konsumsi
+        "PENGADAAN",            # Barang, konstruksi, jasa konsultan
+        "OPERASIONAL",          # Langganan, BBM, pemeliharaan
+        "BANTUAN_PEMERINTAH",   # Bantuan bentuk barang/uang
+    ],
 
     "fase": {
         1: {
@@ -57,7 +71,15 @@ UP_WORKFLOW = {
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
-                    "deskripsi": "Lembar permintaan pencairan dana"
+                    "deskripsi": "Lembar permintaan pencairan dana",
+                    "exclude_jenis_kegiatan": ["PERJALANAN_DINAS"]
+                },
+                {
+                    "kode": "CHECKLIST_PD",
+                    "nama": "Checklist Kelengkapan Dokumen",
+                    "kategori": "wajib",
+                    "template": "checklist_perjalanan_dinas.docx",
+                    "deskripsi": "Daftar checklist kelengkapan dokumen"
                 },
             ],
 
@@ -138,6 +160,26 @@ UP_WORKFLOW = {
                     "template": "rab_swakelola.xlsx",
                     "deskripsi": "Rincian estimasi biaya rapat",
                     "jenis_kegiatan": ["RAPAT"]
+                },
+            ],
+
+            # Dokumen khusus PERJALANAN_DINAS
+            "dokumen_perjalanan_dinas": [
+                {
+                    "kode": "ST",
+                    "nama": "Surat Tugas",
+                    "kategori": "wajib",
+                    "is_arsip": True,
+                    "deskripsi": "Upload Surat Tugas dari pejabat berwenang",
+                    "jenis_kegiatan": ["PERJALANAN_DINAS"]
+                },
+                {
+                    "kode": "SPPD",
+                    "nama": "SPPD (Surat Perintah Perjalanan Dinas)",
+                    "kategori": "wajib",
+                    "template": "sppd.docx",
+                    "deskripsi": "Draft SPPD untuk perjalanan dinas",
+                    "jenis_kegiatan": ["PERJALANAN_DINAS"]
                 },
             ],
 
@@ -281,25 +323,18 @@ UP_WORKFLOW = {
             "color": "#e74c3c",
             "dokumen": [
                 {
+                    "kode": "REKAP_BKT",
+                    "nama": "Rekap Bukti Pengeluaran",
+                    "kategori": "wajib",
+                    "template": "rekap_bukti_pengeluaran.docx",
+                    "deskripsi": "Rekap seluruh bukti pengeluaran"
+                },
+                {
                     "kode": "KUIT_RAMP",
                     "nama": "Kuitansi Rampung",
                     "kategori": "wajib",
                     "template": "kuitansi_rampung.docx",
                     "deskripsi": "Kuitansi penyelesaian/rampung kegiatan"
-                },
-                {
-                    "kode": "HITUNG_TK",
-                    "nama": "Perhitungan Tambah/Kurang",
-                    "kategori": "wajib",
-                    "template": "perhitungan_tambah_kurang.xlsx",
-                    "deskripsi": "Perhitungan selisih uang muka vs realisasi"
-                },
-                {
-                    "kode": "REKAP_BKT",
-                    "nama": "Rekap Bukti Pengeluaran",
-                    "kategori": "wajib",
-                    "template": "rekap_bukti_pengeluaran.xlsx",
-                    "deskripsi": "Rekap seluruh bukti pengeluaran"
                 },
                 {
                     "kode": "LPJ",
@@ -338,22 +373,29 @@ UP_WORKFLOW = {
         },
 
         5: {
-            "nama": "SPBY & Penyelesaian",
-            "deskripsi": "Pembuatan SPBY dan arsip dokumen final",
+            "nama": "Penyelesaian & Arsip",
+            "deskripsi": "Penyelesaian dan pengarsipan dokumen final",
             "icon": "check-circle",
             "color": "#27ae60",
             "dokumen": [
                 {
-                    "kode": "SPBY",
-                    "nama": "Surat Pernyataan Tanggung Jawab Belanja",
-                    "kategori": "wajib",
-                    "template": "spby.docx",
-                    "deskripsi": "SPBY untuk pertanggungjawaban belanja"
+                    "kode": "SPR",
+                    "nama": "Surat Pendebitan Rekening",
+                    "kategori": "opsional",
+                    "template": "spr.docx",
+                    "deskripsi": "Surat pendebitan rekening untuk penarikan tunai via teller bank"
+                },
+                {
+                    "kode": "SPPR",
+                    "nama": "Surat Perintah Pendebitan Rekening",
+                    "kategori": "opsional",
+                    "template": "sppr.docx",
+                    "deskripsi": "Surat perintah pendebitan rekening menggunakan Kartu Debit"
                 },
                 {
                     "kode": "REKAP_FINAL",
                     "nama": "Rekap Final Transaksi",
-                    "kategori": "wajib",
+                    "kategori": "opsional",
                     "template": "rekap_final.xlsx",
                     "deskripsi": "Rekap akhir seluruh transaksi"
                 },
@@ -363,10 +405,7 @@ UP_WORKFLOW = {
                 "Arsip ke folder tahun berjalan",
                 "Update sisa UP tersedia",
             ],
-            "validasi": [
-                {"field": "dokumen_spby", "rule": "required", "message": "SPBY wajib dibuat"},
-                {"field": "dokumen_spby", "rule": "signed", "message": "SPBY wajib sudah ditandatangani"},
-            ],
+            "validasi": [],
             "next_condition": "Transaksi selesai dan semua dokumen diarsipkan"
         }
     }
@@ -607,19 +646,16 @@ LS_WORKFLOW = {
             "icon": "file-signature",
             "color": "#3498db",
 
-            # Dokumen umum untuk semua jenis
-            "dokumen": [
+            # Dokumen khusus KONTRAK (ditampilkan jika jenis_dasar == KONTRAK)
+            "dokumen_kontrak": [
                 {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
-                    "deskripsi": "Lembar permintaan pencairan dana"
+                    "deskripsi": "Lembar permintaan pencairan dana",
+                    "jenis_dasar": "KONTRAK"
                 },
-            ],
-
-            # Dokumen khusus KONTRAK (ditampilkan jika jenis_dasar == KONTRAK)
-            "dokumen_kontrak": [
                 {
                     "kode": "SPK",
                     "nama": "Surat Perjanjian Kerja",
@@ -670,7 +706,7 @@ LS_WORKFLOW = {
                 },
             ],
 
-            # Dokumen khusus SURAT_TUGAS (ditampilkan jika jenis_dasar == SURAT_TUGAS)
+            # Dokumen khusus SURAT_TUGAS (Perjalanan Dinas)
             "dokumen_surat_tugas": [
                 {
                     "kode": "ST",
@@ -682,17 +718,17 @@ LS_WORKFLOW = {
                 },
                 {
                     "kode": "SPD",
-                    "nama": "Surat Perjalanan Dinas",
+                    "nama": "Surat Perjalanan Dinas (SPPD)",
                     "kategori": "wajib",
                     "template": "sppd.docx",
                     "deskripsi": "Surat Perjalanan Dinas",
                     "jenis_dasar": "SURAT_TUGAS"
                 },
                 {
-                    "kode": "RAB_SPPD",
-                    "nama": "Rincian Biaya Perjalanan",
+                    "kode": "RINCIAN_PD",
+                    "nama": "Rincian Biaya Perjalanan Dinas",
                     "kategori": "wajib",
-                    "template": "rab_sppd.xlsx",
+                    "template": "rincian_biaya_pd.docx",
                     "deskripsi": "Rincian anggaran biaya perjalanan dinas",
                     "jenis_dasar": "SURAT_TUGAS"
                 },
@@ -1145,7 +1181,7 @@ NAMA_FASE = {
         2: "Pencairan UM",
         3: "Pelaksanaan",
         4: "Pertanggungjawaban",
-        5: "SPBY & Selesai"
+        5: "Selesai & Arsip"
     },
     "TUP": {
         1: "Pengajuan TUP",

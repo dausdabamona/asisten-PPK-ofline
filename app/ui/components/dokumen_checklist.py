@@ -146,11 +146,15 @@ class DokumenItem(QFrame):
         else:
             if self.status == "pending":
                 self._add_action_btn(actions_layout, "create", "+ Buat", "#27ae60")
+                # Add Draft button to open existing generated file if any
+                self._add_action_btn(actions_layout, "open_draft", "Draft", "#17a2b8")
                 # Add upload archive button
                 self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
             else:
                 self._add_action_btn(actions_layout, "view", "Lihat", "#3498db")
                 self._add_action_btn(actions_layout, "edit", "Edit", "#f39c12")
+                # Add Draft button to open existing generated file
+                self._add_action_btn(actions_layout, "open_draft", "Draft", "#17a2b8")
                 # Add upload archive button for existing documents
                 self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
 
@@ -186,6 +190,7 @@ class DokumenItem(QFrame):
             "#3498db": "#2980b9",
             "#9b59b6": "#7d3c98",
             "#95a5a6": "#7f8c8d",
+            "#17a2b8": "#138496",
         }
         return darken_map.get(hex_color, hex_color)
 

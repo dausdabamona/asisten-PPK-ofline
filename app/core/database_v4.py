@@ -1015,9 +1015,6 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
     is_locked INTEGER DEFAULT 0,
     is_blokir INTEGER DEFAULT 0,
 
-    -- Nomor MAK (Mata Anggaran Kegiatan) = kode_akun.kode_detail
-    nomor_mak TEXT,
-
     -- Keterangan
     keterangan TEXT,
 
@@ -1030,7 +1027,6 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
 
 CREATE INDEX IF NOT EXISTS idx_pagu_tahun ON pagu_anggaran(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_full ON pagu_anggaran(kode_full);
-CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_akun ON pagu_anggaran(kode_akun);
 CREATE INDEX IF NOT EXISTS idx_pagu_level ON pagu_anggaran(level_kode);
 CREATE INDEX IF NOT EXISTS idx_pagu_parent ON pagu_anggaran(parent_id);
@@ -1388,20 +1384,6 @@ class DatabaseManagerV4:
                 except:
                     pass
 
-        # Migration: Add nomor_mak column to pagu_anggaran
-        cursor.execute("PRAGMA table_info(pagu_anggaran)")
-        pagu_columns = [col[1] for col in cursor.fetchall()]
-
-        pagu_migrations = [
-            ('nomor_mak', "ALTER TABLE pagu_anggaran ADD COLUMN nomor_mak TEXT"),
-        ]
-
-        for col, sql in pagu_migrations:
-            if col not in pagu_columns:
-                try:
-                    cursor.execute(sql)
-                except:
-                    pass
 
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
@@ -3833,10 +3815,8 @@ class DatabaseManagerV4:
                 sisa = jumlah - realisasi
                 persen = (realisasi / jumlah * 100) if jumlah > 0 else 0
 
-                # Generate nomor_mak dari kode_akun + kode_detail
                 kode_akun = data.get('kode_akun', '')
                 kode_detail = data.get('kode_detail', '')
-                nomor_mak = f"{kode_akun}.{kode_detail}" if kode_akun and kode_detail else ''
 
                 if upsert:
                     # Cek apakah data sudah ada
@@ -3860,7 +3840,7 @@ class DatabaseManagerV4:
                                 kode_komponen = ?, kode_sub_komponen = ?, kode_akun = ?, kode_detail = ?,
                                 level_kode = ?, uraian = ?, volume = ?, satuan = ?,
                                 harga_satuan = ?, jumlah = ?, realisasi = ?, sisa = ?, persen_realisasi = ?,
-                                sumber_dana = ?, nomor_mak = ?, updated_at = CURRENT_TIMESTAMP
+                                sumber_dana = ?, updated_at = CURRENT_TIMESTAMP
                             WHERE id = ?
                         """, (
                             data.get('kode_program'),
@@ -3881,7 +3861,6 @@ class DatabaseManagerV4:
                             sisa,
                             persen,
                             data.get('sumber_dana', 'RM'),
-                            nomor_mak,
                             existing[0]
                         ))
                         updated += 1
@@ -3894,8 +3873,8 @@ class DatabaseManagerV4:
                         kode_komponen, kode_sub_komponen, kode_akun, kode_detail, kode_full,
                         level_kode, parent_id, uraian, volume, satuan,
                         harga_satuan, jumlah, realisasi, sisa, persen_realisasi,
-                        sumber_dana, is_locked, is_blokir, nomor_mak, keterangan
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        sumber_dana, is_locked, is_blokir, keterangan
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     data.get('tahun_anggaran'),
                     data.get('kode_program'),
@@ -3920,7 +3899,6 @@ class DatabaseManagerV4:
                     data.get('sumber_dana', 'RM'),
                     data.get('is_locked', 0),
                     data.get('is_blokir', 0),
-                    nomor_mak,
                     data.get('keterangan')
                 ))
                 count += 1

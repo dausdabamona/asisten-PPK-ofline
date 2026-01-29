@@ -7,7 +7,7 @@ Base class for transaksi list pages (UP, TUP, LS).
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QLabel, QPushButton, QLineEdit, QComboBox, QFrame, QHeaderView,
-    QAbstractItemView, QMenu
+    QAbstractItemView, QMenu, QHBoxLayout as HBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
@@ -30,12 +30,14 @@ class BaseListPage(QWidget):
     Signals:
         item_selected(int): Emitted when a row is selected
         item_double_clicked(int): Emitted when a row is double-clicked
+        edit_clicked(int): Emitted when edit button is clicked
         new_clicked(): Emitted when new button is clicked
         refresh_requested(): Emitted when refresh is needed
     """
 
     item_selected = Signal(int)
     item_double_clicked = Signal(int)
+    edit_clicked = Signal(int)
     new_clicked = Signal()
     refresh_requested = Signal()
 
@@ -274,6 +276,7 @@ class BaseListPage(QWidget):
         header.setSectionResizeMode(4, QHeaderView.Fixed)  # Nilai
         header.setSectionResizeMode(5, QHeaderView.Fixed)  # Fase
         header.setSectionResizeMode(6, QHeaderView.Fixed)  # Status
+        header.setSectionResizeMode(7, QHeaderView.Fixed)  # Aksi
 
         table.setColumnWidth(0, 50)
         table.setColumnWidth(1, 120)
@@ -281,6 +284,7 @@ class BaseListPage(QWidget):
         table.setColumnWidth(4, 130)
         table.setColumnWidth(5, 80)
         table.setColumnWidth(6, 100)
+        table.setColumnWidth(7, 80)
 
         # Signals
         table.itemSelectionChanged.connect(self._on_selection_changed)
@@ -313,7 +317,7 @@ class BaseListPage(QWidget):
 
     def _get_columns(self) -> List[str]:
         """Get column headers. Override if needed."""
-        return ["No", "Kode", "Nama Kegiatan", "Jenis", "Nilai", "Fase", "Status"]
+        return ["No", "Kode", "Nama Kegiatan", "Jenis", "Nilai", "Fase", "Status", "Aksi"]
 
     def _get_icon(self) -> str:
         """Get page icon. Override in subclass."""
@@ -475,6 +479,33 @@ class BaseListPage(QWidget):
         status_item.setForeground(QColor(color))
 
         self.table.setItem(row, 6, status_item)
+
+        # Aksi (Edit button)
+        transaksi_id = item.get('id', 0)
+        action_widget = QWidget()
+        action_layout = QHBoxLayout(action_widget)
+        action_layout.setContentsMargins(5, 2, 5, 2)
+        action_layout.setSpacing(5)
+
+        edit_btn = QPushButton("Edit")
+        edit_btn.setCursor(Qt.PointingHandCursor)
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 5px 12px;
+                border-radius: 3px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        edit_btn.clicked.connect(lambda checked, tid=transaksi_id: self.edit_clicked.emit(tid))
+        action_layout.addWidget(edit_btn)
+
+        self.table.setCellWidget(row, 7, action_widget)
 
     def refresh(self):
         """Refresh data. Override to implement actual refresh."""

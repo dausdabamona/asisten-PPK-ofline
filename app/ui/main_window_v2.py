@@ -55,6 +55,9 @@ from ..core.config import ROOT_DIR
 # Import document services and dialogs
 from ..services.dokumen_generator import get_dokumen_generator
 from .dialogs.dokumen_dialog import DokumenGeneratorDialog, UploadDokumenDialog
+from .dialogs.perjalanan_dinas_dialog import PerjalananDinasDialog
+from .dialogs.swakelola_dialog import SwakelolaDialog
+from .dialogs.pertanggungjawaban_dialog import RekapBuktiPengeluaranDialog, PerhitunganTambahKurangDialog
 
 
 def format_rupiah(value: float) -> str:
@@ -232,6 +235,9 @@ class MainWindowV2(QMainWindow):
         self.up_list_page.item_double_clicked.connect(
             lambda id: self._on_transaksi_selected(id, "UP")
         )
+        self.up_list_page.edit_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "UP")
+        )
         self.up_list_page.refresh_requested.connect(lambda: self._refresh_list("UP"))
 
         # UP detail signals
@@ -251,6 +257,9 @@ class MainWindowV2(QMainWindow):
         self.tup_list_page.item_double_clicked.connect(
             lambda id: self._on_transaksi_selected(id, "TUP")
         )
+        self.tup_list_page.edit_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "TUP")
+        )
         self.tup_list_page.refresh_requested.connect(lambda: self._refresh_list("TUP"))
 
         # TUP detail signals
@@ -269,6 +278,9 @@ class MainWindowV2(QMainWindow):
         self.ls_list_page.new_clicked.connect(lambda: self._on_new_transaksi("LS"))
         self.ls_list_page.item_double_clicked.connect(
             lambda id: self._on_transaksi_selected(id, "LS")
+        )
+        self.ls_list_page.edit_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "LS")
         )
         self.ls_list_page.refresh_requested.connect(lambda: self._refresh_list("LS"))
 
@@ -326,6 +338,10 @@ class MainWindowV2(QMainWindow):
             self._show_legacy_page("satker")
         elif menu_id == "template":
             self._show_legacy_page("template")
+        elif menu_id == "dipa":
+            self._show_legacy_page("dipa")
+        elif menu_id == "backup":
+            self._show_backup_dialog()
         else:
             QMessageBox.information(
                 self,
@@ -354,6 +370,18 @@ class MainWindowV2(QMainWindow):
                 from .penyedia_manager import PenyediaManager
                 dialog = PenyediaManager(self)
                 dialog.exec()
+            elif page_type == "dipa":
+                from .fa_detail_manager import FADetailManager
+                # Show DIPA/Pagu manager as a dialog
+                from PySide6.QtWidgets import QDialog, QVBoxLayout
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Data DIPA / Pagu Anggaran")
+                dialog.setMinimumSize(1200, 700)
+                layout = QVBoxLayout(dialog)
+                layout.setContentsMargins(0, 0, 0, 0)
+                manager = FADetailManager(dialog)
+                layout.addWidget(manager)
+                dialog.exec()
             elif page_type == "paket":
                 # Paket pekerjaan - masih menggunakan fitur dari dashboard lama
                 QMessageBox.information(
@@ -379,6 +407,19 @@ class MainWindowV2(QMainWindow):
                 self,
                 "Error",
                 f"Terjadi kesalahan:\n{str(e)}"
+            )
+
+    def _show_backup_dialog(self):
+        """Show backup and restore dialog."""
+        try:
+            from .dialogs.backup_dialog import BackupRestoreDialog
+            dialog = BackupRestoreDialog(self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog backup:\n{str(e)}"
             )
 
     def _refresh_data(self):
@@ -434,6 +475,23 @@ class MainWindowV2(QMainWindow):
         form_page = self._page_map.get(form_page_id)
         if form_page:
             form_page.clear()
+
+    def _on_edit_transaksi(self, transaksi_id: int, mekanisme: str):
+        """Handle edit transaksi."""
+        # Get transaksi data
+        transaksi = self.db.get_transaksi(transaksi_id)
+        if not transaksi:
+            QMessageBox.warning(self, "Error", "Transaksi tidak ditemukan.")
+            return
+
+        # Navigate to form page
+        form_page_id = f"{mekanisme.lower()}_form"
+        self._navigate_to(form_page_id)
+
+        # Load data into form
+        form_page = self._page_map.get(form_page_id)
+        if form_page:
+            form_page.set_transaksi(transaksi)
 
     def _on_form_saved(self, data: Dict[str, Any]):
         """Handle form save."""
@@ -507,7 +565,7 @@ class MainWindowV2(QMainWindow):
                 )
 
     def _on_dokumen_action(self, kode_dokumen: str, action: str, fase: int):
-        """Handle document action (create, view, edit, upload, upload_arsip)."""
+        """Handle document action (create, view, edit, upload, upload_arsip, prepare, open_draft)."""
         # Get current transaksi data
         transaksi_data = self._get_current_transaksi_data()
 
@@ -521,6 +579,10 @@ class MainWindowV2(QMainWindow):
             self._handle_upload_dokumen(kode_dokumen, transaksi_data)
         elif action == "upload_arsip":
             self._handle_upload_arsip(kode_dokumen, transaksi_data)
+        elif action == "prepare":
+            self._handle_prepare_dokumen(kode_dokumen, transaksi_data)
+        elif action == "open_draft":
+            self._handle_open_draft(kode_dokumen, transaksi_data)
 
     def _get_current_transaksi_data(self) -> Dict[str, Any]:
         """Get current transaksi data from active detail page."""
@@ -552,21 +614,51 @@ class MainWindowV2(QMainWindow):
     def _handle_create_dokumen(self, kode_dokumen: str, fase: int, transaksi_data: Dict):
         """Handle document creation."""
         try:
+            # Handle REKAP_FINAL - generate combined PDF of all documents
+            if kode_dokumen == 'REKAP_FINAL':
+                self._generate_rekap_transaksi_pdf(transaksi_data)
+                return
+
+            # Check for special activity types that need preparation dialogs
+            jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
+
+            # For PERJALANAN_DINAS at fase 1, show special dialog
+            if jenis_kegiatan == 'PERJALANAN_DINAS' and fase == 1 and kode_dokumen == 'KUIT_UM':
+                self._show_perjalanan_dinas_dialog(transaksi_data)
+                return
+
+            # For SWAKELOLA activities at fase 1, show special dialog
+            if jenis_kegiatan in ['KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL'] and fase == 1 and kode_dokumen == 'KUIT_UM':
+                self._show_swakelola_dialog(transaksi_data)
+                return
+
             # Get template name from workflow config
-            from ..config.workflow_config import WORKFLOW_CONFIGS
+            from ..config.workflow_config import get_workflow
 
             mekanisme = transaksi_data.get('mekanisme', 'UP')
-            workflow = WORKFLOW_CONFIGS.get(mekanisme, {})
+            workflow = get_workflow(mekanisme)
             template_name = None
+            nama_dokumen = kode_dokumen
 
-            # Find template for this document
-            for fase_config in workflow.get('fases', []):
-                for dok in fase_config.get('dokumen', []):
-                    if dok.get('kode') == kode_dokumen:
-                        template_name = dok.get('template')
+            if workflow:
+                # Search in fase config
+                fase_config = workflow.get('fase', {}).get(fase, {})
+
+                # Search in all dokumen lists within this fase
+                dokumen_lists = ['dokumen', 'dokumen_dengan_sk', 'dokumen_kepanitiaan',
+                                'dokumen_rapat', 'dokumen_jamuan']
+
+                for list_name in dokumen_lists:
+                    for dok in fase_config.get(list_name, []):
+                        if dok.get('kode') == kode_dokumen:
+                            template_name = dok.get('template')
+                            nama_dokumen = dok.get('nama', kode_dokumen)
+                            break
+                    if template_name:
                         break
-                if template_name:
-                    break
+
+            # Override template based on jenis_kegiatan for kuitansi documents
+            template_name = self._get_kuitansi_template(kode_dokumen, jenis_kegiatan, template_name)
 
             if not template_name:
                 QMessageBox.warning(
@@ -578,7 +670,7 @@ class MainWindowV2(QMainWindow):
 
             # Get additional data for kuitansi documents
             additional_data = {}
-            if kode_dokumen in ['KUITANSI_UM', 'KUITANSI_RAMPUNG']:
+            if kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'KUIT_UM_TUP', 'KUIT_RAMP_TUP']:
                 kalkulasi_data = self._get_current_kalkulasi_data()
                 additional_data = {
                     'rincian_items': kalkulasi_data.get('rincian_items', []),
@@ -596,6 +688,7 @@ class MainWindowV2(QMainWindow):
                 transaksi=transaksi_data,
                 kode_dokumen=kode_dokumen,
                 template_name=template_name,
+                nama_dokumen=nama_dokumen,
                 satker=satker_data,
                 additional_data=additional_data,
                 parent=self
@@ -611,6 +704,54 @@ class MainWindowV2(QMainWindow):
                 "Error",
                 f"Gagal membuat dokumen: {str(e)}"
             )
+
+    def _get_kuitansi_template(self, kode_dokumen: str, jenis_kegiatan: str, default_template: str) -> str:
+        """Get appropriate kuitansi template based on jenis_kegiatan."""
+        # Template mapping for different activity types
+        kuitansi_templates = {
+            # Kuitansi Uang Muka
+            'KUIT_UM': {
+                'PERJALANAN_DINAS': 'kuitansi_uang_muka_pd.docx',
+                'KEPANITIAAN': 'kuitansi_uang_muka_swakelola.docx',
+                'RAPAT': 'kuitansi_uang_muka_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_uang_muka_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_uang_muka_swakelola.docx',
+                'default': 'kuitansi_uang_muka.docx',
+            },
+            # Kuitansi Rampung
+            'KUIT_RAMP': {
+                'PERJALANAN_DINAS': 'kuitansi_rampung_pd.docx',
+                'KEPANITIAAN': 'kuitansi_rampung_swakelola.docx',
+                'RAPAT': 'kuitansi_rampung_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_rampung_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_rampung_swakelola.docx',
+                'default': 'kuitansi_rampung.docx',
+            },
+            # Kuitansi Uang Muka TUP (same logic)
+            'KUIT_UM_TUP': {
+                'PERJALANAN_DINAS': 'kuitansi_uang_muka_pd.docx',
+                'KEPANITIAAN': 'kuitansi_uang_muka_swakelola.docx',
+                'RAPAT': 'kuitansi_uang_muka_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_uang_muka_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_uang_muka_swakelola.docx',
+                'default': 'kuitansi_uang_muka.docx',
+            },
+            # Kuitansi Rampung TUP
+            'KUIT_RAMP_TUP': {
+                'PERJALANAN_DINAS': 'kuitansi_rampung_pd.docx',
+                'KEPANITIAAN': 'kuitansi_rampung_swakelola.docx',
+                'RAPAT': 'kuitansi_rampung_swakelola.docx',
+                'JAMUAN_TAMU': 'kuitansi_rampung_swakelola.docx',
+                'OPERASIONAL': 'kuitansi_rampung_swakelola.docx',
+                'default': 'kuitansi_rampung.docx',
+            },
+        }
+
+        if kode_dokumen in kuitansi_templates:
+            mapping = kuitansi_templates[kode_dokumen]
+            return mapping.get(jenis_kegiatan, mapping.get('default', default_template))
+
+        return default_template
 
     def _handle_view_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle viewing document."""
@@ -637,9 +778,11 @@ class MainWindowV2(QMainWindow):
             QMessageBox.critical(self, "Error", f"Gagal membuka dokumen: {str(e)}")
 
     def _handle_edit_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
-        """Handle editing document."""
-        # For now, same as view - opens in default app for editing
-        self._handle_view_dokumen(kode_dokumen, transaksi_data)
+        """Handle editing document - regenerate the document."""
+        # Get fase from current transaksi data
+        fase = transaksi_data.get('fase_aktif', 1)
+        # Regenerate the document using the create handler
+        self._handle_create_dokumen(kode_dokumen, fase, transaksi_data)
 
     def _handle_upload_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle uploading document."""
@@ -649,6 +792,8 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+        # Always refresh document list after dialog closes
+        self._refresh_current_page()
 
     def _handle_upload_arsip(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle uploading document archive."""
@@ -659,6 +804,271 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+        # Always refresh document list after dialog closes
+        self._refresh_current_page()
+
+    def _handle_open_draft(self, kode_dokumen: str, transaksi_data: Dict):
+        """Open existing draft document if available."""
+        try:
+            from ..services.dokumen_generator import get_dokumen_generator
+            from pathlib import Path
+            import subprocess
+            import platform
+            import os
+
+            generator = get_dokumen_generator()
+            output_folder = generator.get_output_folder(transaksi=transaksi_data)
+
+            # Find the most recent file matching the kode_dokumen
+            pattern = f"{kode_dokumen}*.docx"
+            matching_files = list(output_folder.glob(pattern))
+
+            if not matching_files:
+                QMessageBox.information(
+                    self,
+                    "Draft Tidak Ditemukan",
+                    f"Belum ada draft dokumen {kode_dokumen}.\n"
+                    "Silakan klik '+ Buat' untuk membuat dokumen baru."
+                )
+                return
+
+            # Sort by modification time (newest first)
+            matching_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+            latest_file = matching_files[0]
+
+            # Open the file with default application
+            if platform.system() == 'Windows':
+                os.startfile(str(latest_file))
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.run(['open', str(latest_file)])
+            else:  # Linux
+                subprocess.run(['xdg-open', str(latest_file)])
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka draft dokumen:\n{str(e)}"
+            )
+
+    def _handle_prepare_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle document preparation based on kode_dokumen or jenis_kegiatan."""
+        # Handle specific document dialogs
+        if kode_dokumen == 'REKAP_BKT':
+            self._show_rekap_bukti_dialog(transaksi_data)
+            return
+        elif kode_dokumen == 'HITUNG_TK':
+            self._show_perhitungan_tk_dialog(transaksi_data)
+            return
+
+        # Handle activity-type specific preparation
+        jenis_kegiatan = transaksi_data.get('jenis_kegiatan', '')
+
+        if jenis_kegiatan == 'PERJALANAN_DINAS':
+            self._show_perjalanan_dinas_dialog(transaksi_data)
+        elif jenis_kegiatan in ['KEPANITIAAN', 'RAPAT', 'JAMUAN_TAMU', 'OPERASIONAL']:
+            self._show_swakelola_dialog(transaksi_data)
+        else:
+            QMessageBox.information(
+                self,
+                "Info",
+                "Persiapan dokumen khusus hanya tersedia untuk:\n"
+                "• Perjalanan Dinas\n"
+                "• Kepanitiaan\n"
+                "• Rapat\n"
+                "• Jamuan Tamu\n"
+                "• Operasional"
+            )
+
+    def _show_perjalanan_dinas_dialog(self, transaksi_data: Dict):
+        """Show Perjalanan Dinas preparation dialog."""
+        try:
+            # Get satker data
+            satker_data = self.db.get_satker_aktif()
+
+            dialog = PerjalananDinasDialog(
+                transaksi=transaksi_data,
+                satker=satker_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Dokumen Disiapkan",
+                    "Dokumen perjalanan dinas telah disiapkan.\n"
+                    "Silakan periksa folder output untuk melihat hasilnya."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog perjalanan dinas:\n{str(e)}"
+            )
+
+    def _show_swakelola_dialog(self, transaksi_data: Dict):
+        """Show Swakelola preparation dialog."""
+        try:
+            # Get satker data
+            satker_data = self.db.get_satker_aktif()
+
+            dialog = SwakelolaDialog(
+                transaksi=transaksi_data,
+                satker=satker_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Dokumen Disiapkan",
+                    "Dokumen swakelola telah disiapkan.\n"
+                    "Silakan periksa folder output untuk melihat hasilnya."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog swakelola:\n{str(e)}"
+            )
+
+    def _show_rekap_bukti_dialog(self, transaksi_data: Dict):
+        """Show Rekap Bukti Pengeluaran dialog."""
+        try:
+            dialog = RekapBuktiPengeluaranDialog(
+                transaksi=transaksi_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                bukti_list = dialog.get_bukti_list()
+                total = dialog.get_total()
+
+                # Save bukti list to transaksi
+                transaksi_id = transaksi_data.get('id')
+                if transaksi_id and bukti_list:
+                    self.db.update_transaksi(transaksi_id, {
+                        'bukti_pengeluaran': bukti_list,
+                        'total_realisasi': total
+                    })
+
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Rekap Bukti Disimpan",
+                    f"Berhasil merekap {len(bukti_list)} bukti pengeluaran.\n"
+                    f"Total: Rp {total:,.0f}".replace(",", ".")
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog rekap bukti:\n{str(e)}"
+            )
+
+    def _show_perhitungan_tk_dialog(self, transaksi_data: Dict):
+        """Show Perhitungan Tambah/Kurang dialog."""
+        try:
+            # Get bukti list from transaksi if available
+            bukti_list = transaksi_data.get('bukti_pengeluaran', [])
+
+            dialog = PerhitunganTambahKurangDialog(
+                transaksi=transaksi_data,
+                bukti_list=bukti_list,
+                parent=self
+            )
+
+            if dialog.exec():
+                result = dialog.get_result()
+
+                # Save result to transaksi
+                transaksi_id = transaksi_data.get('id')
+                if transaksi_id:
+                    self.db.update_transaksi(transaksi_id, {
+                        'realisasi': result.get('realisasi', 0),
+                        'selisih': result.get('selisih', 0),
+                        'status_tk': result.get('status', 'NIHIL')
+                    })
+
+                self._refresh_current_page()
+
+                status = result.get('status', 'NIHIL')
+                selisih = result.get('selisih', 0)
+                msg = f"Hasil Perhitungan: {status}\n"
+                if status == 'KURANG_BAYAR':
+                    msg += f"Perlu tambahan pembayaran: Rp {selisih:,.0f}".replace(",", ".")
+                elif status == 'LEBIH_BAYAR':
+                    msg += f"Perlu pengembalian: Rp {abs(selisih):,.0f}".replace(",", ".")
+                else:
+                    msg += "Tidak ada selisih, lanjut ke kuitansi rampung."
+
+                QMessageBox.information(self, "Perhitungan Selesai", msg)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog perhitungan:\n{str(e)}"
+            )
+
+    def _generate_rekap_transaksi_pdf(self, transaksi_data: Dict):
+        """Generate combined PDF rekap of all transaction documents."""
+        try:
+            # Check document completion status first
+            generator = get_dokumen_generator()
+            status = generator.get_completion_status(transaksi_data)
+            missing = generator.get_missing_documents(transaksi_data)
+
+            # Warn if there are missing required documents
+            if missing:
+                missing_names = [doc['nama'] for doc in missing[:5]]
+                if len(missing) > 5:
+                    missing_names.append(f"... dan {len(missing) - 5} lainnya")
+
+                reply = QMessageBox.question(
+                    self,
+                    "Dokumen Belum Lengkap",
+                    f"Ada {len(missing)} dokumen wajib yang belum diupload:\n"
+                    f"- {chr(10).join(missing_names)}\n\n"
+                    "Lanjutkan membuat rekap?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+
+                if reply != QMessageBox.Yes:
+                    return
+
+            # Generate the combined PDF
+            output_path, error = generator.generate_rekap_pdf(transaksi_data)
+
+            if error:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Gagal membuat rekap PDF:\n{error}"
+                )
+                return
+
+            if output_path:
+                reply = QMessageBox.information(
+                    self,
+                    "Rekap Berhasil Dibuat",
+                    f"Rekap transaksi berhasil dibuat:\n{output_path}\n\n"
+                    "Buka file sekarang?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+
+                if reply == QMessageBox.Yes:
+                    generator.open_document(output_path)
+
+                self._refresh_current_page()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuat rekap transaksi:\n{str(e)}"
+            )
 
     def _refresh_current_page(self):
         """Refresh current active page."""

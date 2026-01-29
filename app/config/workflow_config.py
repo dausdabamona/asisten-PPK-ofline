@@ -17,7 +17,8 @@ from typing import Dict, List, Any, Optional
 # Mapping dari kode jenis_belanja ke dokumen yang diperlukan:
 # - perdin (Perjalanan Dinas) → Upload Surat Tugas
 # - honorarium, jamuan (Kegiatan) → Upload SK
-# - atk, pjlp, lainnya (Belanja Barang/Operasional) → Lembar Permintaan
+# - pjlp (Tenaga Kontrak) → Upload Kontrak
+# - atk, lainnya (Belanja Barang/Operasional) → Lembar Permintaan
 
 JENIS_BELANJA_DOKUMEN_MAP = {
     # Perjalanan Dinas → Upload Surat Tugas
@@ -27,9 +28,11 @@ JENIS_BELANJA_DOKUMEN_MAP = {
     "honorarium": "SK_UPLOAD",
     "jamuan": "SK_UPLOAD",
 
+    # PJLP (Tenaga Kontrak) → Upload Kontrak
+    "pjlp": "KONTRAK_UPLOAD",
+
     # Belanja Barang/Operasional → Lembar Permintaan
     "atk": "LBR_REQ",
-    "pjlp": "LBR_REQ",
     "lainnya": "LBR_REQ",
 }
 
@@ -37,7 +40,8 @@ JENIS_BELANJA_DOKUMEN_MAP = {
 JENIS_BELANJA_GROUPS = {
     "PERJALANAN_DINAS": ["perdin"],
     "KEGIATAN": ["honorarium", "jamuan"],
-    "BELANJA_BARANG": ["atk", "pjlp", "lainnya"],
+    "PJLP": ["pjlp"],
+    "BELANJA_BARANG": ["atk", "lainnya"],
 }
 
 # ============================================================================
@@ -156,14 +160,23 @@ UP_WORKFLOW = {
                     "deskripsi": "Upload scan Surat Tugas perjalanan dinas",
                     "jenis_belanja": ["perdin"],
                 },
-                # Lembar Permintaan - Untuk jenis belanja BARANG/OPERASIONAL (atk, pjlp, lainnya)
+                # Upload Kontrak - Untuk jenis belanja PJLP (Tenaga Kontrak)
+                {
+                    "kode": "KONTRAK_UPLOAD",
+                    "nama": "Upload Kontrak PJLP",
+                    "kategori": "upload",
+                    "template": None,
+                    "deskripsi": "Upload scan Kontrak/Perjanjian Kerja PJLP",
+                    "jenis_belanja": ["pjlp"],
+                },
+                # Lembar Permintaan - Untuk jenis belanja BARANG/OPERASIONAL (atk, lainnya)
                 {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
                     "deskripsi": "Lembar permintaan pencairan dana dengan rincian barang/jasa",
-                    "jenis_belanja": ["atk", "pjlp", "lainnya"],
+                    "jenis_belanja": ["atk", "lainnya"],
                 },
 
                 # ========================================

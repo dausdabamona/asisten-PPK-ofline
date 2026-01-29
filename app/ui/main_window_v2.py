@@ -491,7 +491,7 @@ class MainWindowV2(QMainWindow):
         # Load data into form
         form_page = self._page_map.get(form_page_id)
         if form_page:
-            form_page.set_data(transaksi)
+            form_page.set_transaksi(transaksi)
 
     def _on_form_saved(self, data: Dict[str, Any]):
         """Handle form save."""

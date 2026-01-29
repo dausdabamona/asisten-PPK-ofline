@@ -153,13 +153,13 @@ class TransaksiFormPage(QWidget):
 
         # Title
         title_text = "Edit Transaksi" if self._is_edit else f"Buat {self.mekanisme} Baru"
-        title = QLabel(title_text)
-        title.setStyleSheet("""
+        self.title_label = QLabel(title_text)
+        self.title_label.setStyleSheet("""
             font-size: 20px;
             font-weight: bold;
             color: #2c3e50;
         """)
-        layout.addWidget(title)
+        layout.addWidget(self.title_label)
 
         layout.addStretch()
 
@@ -647,9 +647,9 @@ class TransaksiFormPage(QWidget):
         save_text = "Simpan Perubahan" if self._is_edit else "Buat Transaksi"
         color = self.MEKANISME_COLORS.get(self.mekanisme, "#3498db")
 
-        save_btn = QPushButton(save_text)
-        save_btn.setCursor(Qt.PointingHandCursor)
-        save_btn.setStyleSheet(f"""
+        self.save_btn = QPushButton(save_text)
+        self.save_btn.setCursor(Qt.PointingHandCursor)
+        self.save_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {color};
                 color: white;
@@ -662,8 +662,8 @@ class TransaksiFormPage(QWidget):
                 background-color: {self._darken_color(color)};
             }}
         """)
-        save_btn.clicked.connect(self._on_save)
-        layout.addWidget(save_btn)
+        self.save_btn.clicked.connect(self._on_save)
+        layout.addWidget(self.save_btn)
 
         return actions
 
@@ -809,8 +809,13 @@ class TransaksiFormPage(QWidget):
         self._is_edit = True
         self._transaksi_id = data.get('id')
 
-        # Update header
-        # ... would need to update title label
+        # Update header title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(f"Edit Transaksi {self.mekanisme}")
+
+        # Update save button text
+        if hasattr(self, 'save_btn'):
+            self.save_btn.setText("Simpan Perubahan")
 
         # Fill form fields
         self.nama_input.setText(data.get('nama_kegiatan', ''))
@@ -864,6 +869,14 @@ class TransaksiFormPage(QWidget):
         self._transaksi_id = None
         self._is_edit = False
 
+        # Reset header title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(f"Buat {self.mekanisme} Baru")
+
+        # Reset save button text
+        if hasattr(self, 'save_btn'):
+            self.save_btn.setText("Simpan")
+
         self.nama_input.clear()
         self.jenis_combo.setCurrentIndex(0)
         self.akun_input.clear()
@@ -875,6 +888,10 @@ class TransaksiFormPage(QWidget):
             self.penerima_nama_combo.setCurrentIndex(0)
             self.penerima_nip_input.clear()
             self.penerima_jabatan_input.clear()
+
+        # Reset jenis kegiatan if exists
+        if hasattr(self, 'jenis_kegiatan_combo'):
+            self.jenis_kegiatan_combo.setCurrentIndex(0)
 
         self.dasar_nomor_input.clear()
         self.dasar_perihal_input.clear()

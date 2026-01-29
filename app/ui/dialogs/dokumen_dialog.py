@@ -262,196 +262,151 @@ class DokumenGeneratorDialog(QDialog):
             del_btn.clicked.connect(self._delete_rincian_item)
             rincian_layout.addWidget(del_btn)
 
-            # Total
-            total_layout = QHBoxLayout()
-            total_layout.addStretch()
-            total_layout.addWidget(QLabel("TOTAL:"))
-            self.total_label = QLabel("Rp 0")
-            self.total_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            total_layout.addWidget(self.total_label)
-            rincian_layout.addLayout(total_layout)
-
-            # Tax Options (PPN & PPh)
+            # Compact Summary Panel - Total, Pajak, Grand Total in grid
             from PySide6.QtWidgets import QCheckBox
-            tax_group = QGroupBox("Pajak")
-            tax_layout = QGridLayout(tax_group)
-            tax_layout.setSpacing(5)
+            summary_frame = QFrame()
+            summary_frame.setStyleSheet("QFrame { background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; padding: 5px; }")
+            summary_grid = QGridLayout(summary_frame)
+            summary_grid.setSpacing(8)
+            summary_grid.setContentsMargins(10, 8, 10, 8)
 
-            # PPN 11%
+            # Row 0: Subtotal | PPN checkbox + value
+            summary_grid.addWidget(QLabel("Subtotal:"), 0, 0)
+            self.total_label = QLabel("Rp 0")
+            self.total_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+            summary_grid.addWidget(self.total_label, 0, 1)
+
             self.ppn_checkbox = QCheckBox("PPN 11%")
             self.ppn_checkbox.stateChanged.connect(self._update_total)
-            tax_layout.addWidget(self.ppn_checkbox, 0, 0)
+            summary_grid.addWidget(self.ppn_checkbox, 0, 2)
             self.ppn_label = QLabel("Rp 0")
-            self.ppn_label.setStyleSheet("color: #e74c3c;")
-            tax_layout.addWidget(self.ppn_label, 0, 1)
+            self.ppn_label.setStyleSheet("color: #e74c3c; font-size: 12px;")
+            summary_grid.addWidget(self.ppn_label, 0, 3)
 
-            # PPh options
+            # Row 1: Grand Total | PPh checkbox + dropdown + value
+            summary_grid.addWidget(QLabel("GRAND TOTAL:"), 1, 0)
+            self.grand_total_label = QLabel("Rp 0")
+            self.grand_total_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+            summary_grid.addWidget(self.grand_total_label, 1, 1)
+
+            # PPh in same row
+            pph_container = QHBoxLayout()
+            pph_container.setSpacing(5)
             self.pph_checkbox = QCheckBox("PPh")
             self.pph_checkbox.stateChanged.connect(self._update_total)
-            tax_layout.addWidget(self.pph_checkbox, 1, 0)
+            pph_container.addWidget(self.pph_checkbox)
 
             self.pph_rate_combo = QComboBox()
-            self.pph_rate_combo.addItems(["1.5% (PPh 23)", "2% (PPh 23 Jasa)", "4% (PPh 23)", "15% (PPh 23)"])
-            self.pph_rate_combo.wheelEvent = lambda e: e.ignore()  # Disable scroll
+            self.pph_rate_combo.addItems(["1.5%", "2%", "4%", "15%"])
+            self.pph_rate_combo.setFixedWidth(60)
+            self.pph_rate_combo.wheelEvent = lambda e: e.ignore()
             self.pph_rate_combo.currentIndexChanged.connect(self._update_total)
             self.pph_rate_combo.setEnabled(False)
-            tax_layout.addWidget(self.pph_rate_combo, 1, 1)
+            pph_container.addWidget(self.pph_rate_combo)
+            summary_grid.addLayout(pph_container, 1, 2)
 
             self.pph_label = QLabel("Rp 0")
-            self.pph_label.setStyleSheet("color: #e74c3c;")
-            tax_layout.addWidget(self.pph_label, 1, 2)
+            self.pph_label.setStyleSheet("color: #e74c3c; font-size: 12px;")
+            summary_grid.addWidget(self.pph_label, 1, 3)
 
-            rincian_layout.addWidget(tax_group)
+            # Set column stretches
+            summary_grid.setColumnStretch(1, 1)
+            summary_grid.setColumnStretch(3, 1)
 
-            # Grand Total after taxes
-            grand_total_layout = QHBoxLayout()
-            grand_total_layout.addStretch()
-            grand_total_layout.addWidget(QLabel("GRAND TOTAL:"))
-            self.grand_total_label = QLabel("Rp 0")
-            self.grand_total_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #27ae60;")
-            grand_total_layout.addWidget(self.grand_total_label)
-            rincian_layout.addLayout(grand_total_layout)
+            rincian_layout.addWidget(summary_frame)
 
-            # Perhitungan Tambah/Kurang Panel (for REKAP_BKT) - Table Format
+            # Perhitungan Tambah/Kurang Panel (for REKAP_BKT) - Compact Grid Format
             if self.kode_dokumen == 'REKAP_BKT':
-                calc_group = QGroupBox("Perhitungan Tambah/Kurang")
-                calc_group.setStyleSheet("""
-                    QGroupBox {
-                        font-weight: bold;
-                        font-size: 14px;
+                calc_frame = QFrame()
+                calc_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #e8f4fc;
                         border: 2px solid #3498db;
-                        border-radius: 8px;
-                        margin-top: 15px;
-                        padding: 10px;
-                        background-color: #f8f9fa;
-                    }
-                    QGroupBox::title {
-                        subcontrol-origin: margin;
-                        left: 15px;
-                        padding: 0 10px;
-                        color: #2c3e50;
-                        background-color: #f8f9fa;
+                        border-radius: 6px;
+                        margin-top: 5px;
                     }
                 """)
-                calc_layout = QVBoxLayout(calc_group)
-                calc_layout.setSpacing(10)
-                calc_layout.setContentsMargins(10, 15, 10, 10)
+                calc_grid = QGridLayout(calc_frame)
+                calc_grid.setSpacing(5)
+                calc_grid.setContentsMargins(10, 8, 10, 8)
 
-                # Create calculation table
-                self.calc_table = QTableWidget(3, 2)
-                self.calc_table.setHorizontalHeaderLabels(["Keterangan", "Nilai"])
-                self.calc_table.verticalHeader().setVisible(False)
-                self.calc_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-                self.calc_table.setSelectionMode(QAbstractItemView.NoSelection)
-                self.calc_table.setMaximumHeight(130)
+                # Header
+                header_lbl = QLabel("Perhitungan Tambah/Kurang")
+                header_lbl.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50;")
+                calc_grid.addWidget(header_lbl, 0, 0, 1, 4)
 
-                # Set column widths
-                self.calc_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-                self.calc_table.setColumnWidth(1, 180)
+                # Row 1: Uang Muka | Realisasi
+                calc_grid.addWidget(QLabel("Uang Muka:"), 1, 0)
+                self.uang_muka_item = QLabel("Rp 0")
+                self.uang_muka_item.setStyleSheet("font-weight: bold; color: #3498db;")
+                calc_grid.addWidget(self.uang_muka_item, 1, 1)
 
-                # Row height
-                self.calc_table.verticalHeader().setDefaultSectionSize(38)
+                calc_grid.addWidget(QLabel("Realisasi:"), 1, 2)
+                self.realisasi_item = QLabel("Rp 0")
+                self.realisasi_item.setStyleSheet("font-weight: bold;")
+                calc_grid.addWidget(self.realisasi_item, 1, 3)
 
-                # Styling
-                self.calc_table.setStyleSheet("""
-                    QTableWidget {
-                        font-size: 13px;
-                        font-family: 'Segoe UI', Arial, sans-serif;
-                        border: 1px solid #c0c0c0;
-                        background-color: white;
-                    }
-                    QTableWidget::item {
-                        padding: 8px;
-                    }
-                    QHeaderView::section {
-                        background-color: #3498db;
-                        color: white;
-                        padding: 8px;
-                        font-weight: bold;
-                        font-size: 12px;
-                        border: none;
-                    }
-                """)
+                # Row 2: Selisih | Status
+                calc_grid.addWidget(QLabel("SELISIH:"), 2, 0)
+                self.selisih_item = QLabel("Rp 0")
+                self.selisih_item.setStyleSheet("font-weight: bold; font-size: 14px;")
+                calc_grid.addWidget(self.selisih_item, 2, 1)
 
-                # Row 0: Uang Muka
-                um_label = QTableWidgetItem("Uang Muka Diterima")
-                um_label.setFont(QFont('Segoe UI', 11))
-                self.calc_table.setItem(0, 0, um_label)
-                self.uang_muka_item = QTableWidgetItem("Rp 0")
-                self.uang_muka_item.setFont(QFont('Segoe UI', 11, QFont.Bold))
-                self.uang_muka_item.setForeground(Qt.blue)
-                self.uang_muka_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                self.calc_table.setItem(0, 1, self.uang_muka_item)
-
-                # Row 1: Realisasi
-                real_label = QTableWidgetItem("Total Realisasi")
-                real_label.setFont(QFont('Segoe UI', 11))
-                self.calc_table.setItem(1, 0, real_label)
-                self.realisasi_item = QTableWidgetItem("Rp 0")
-                self.realisasi_item.setFont(QFont('Segoe UI', 11, QFont.Bold))
-                self.realisasi_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                self.calc_table.setItem(1, 1, self.realisasi_item)
-
-                # Row 2: Selisih
-                selisih_label = QTableWidgetItem("SELISIH")
-                selisih_label.setFont(QFont('Segoe UI', 11, QFont.Bold))
-                self.calc_table.setItem(2, 0, selisih_label)
-                self.selisih_item = QTableWidgetItem("Rp 0")
-                self.selisih_item.setFont(QFont('Segoe UI', 12, QFont.Bold))
-                self.selisih_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                self.calc_table.setItem(2, 1, self.selisih_item)
-
-                calc_layout.addWidget(self.calc_table)
-
-                # Status (Kurang Bayar / Lebih Bayar / Nihil)
                 self.status_calc_label = QLabel("")
-                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px; margin-top: 5px;")
+                self.status_calc_label.setStyleSheet("font-weight: bold; font-size: 12px; padding: 5px 10px; border-radius: 4px;")
                 self.status_calc_label.setAlignment(Qt.AlignCenter)
-                calc_layout.addWidget(self.status_calc_label)
+                calc_grid.addWidget(self.status_calc_label, 2, 2, 1, 2)
 
-                rincian_layout.addWidget(calc_group)
+                # Column stretch
+                calc_grid.setColumnStretch(1, 1)
+                calc_grid.setColumnStretch(3, 1)
+
+                rincian_layout.addWidget(calc_frame)
 
                 # Load uang muka from database
                 self._load_uang_muka_for_calc()
 
-            # Uang Muka Percentage Option (for KUIT_UM / Kuitansi Uang Muka)
+            # Uang Muka Options (for KUIT_UM) - Compact single row
             if self.kode_dokumen == 'KUIT_UM':
                 from PySide6.QtWidgets import QRadioButton, QButtonGroup
 
-                # Nomor Tanda Terima (auto-generated)
-                nomor_tt_group = QGroupBox("Nomor Tanda Terima Uang Muka")
-                nomor_tt_layout = QHBoxLayout(nomor_tt_group)
+                um_frame = QFrame()
+                um_frame.setStyleSheet("QFrame { background-color: #e8f8e8; border: 1px solid #27ae60; border-radius: 5px; }")
+                um_grid = QGridLayout(um_frame)
+                um_grid.setSpacing(8)
+                um_grid.setContentsMargins(10, 8, 10, 8)
+
+                # Row 0: Nomor Tanda Terima | Persentase options
+                um_grid.addWidget(QLabel("No. Tanda Terima:"), 0, 0)
                 self._generate_nomor_tanda_terima()
                 self.nomor_tt_label = QLabel(self._nomor_tanda_terima)
-                self.nomor_tt_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60; padding: 5px;")
-                nomor_tt_layout.addWidget(self.nomor_tt_label)
-                nomor_tt_layout.addStretch()
-                rincian_layout.addWidget(nomor_tt_group)
+                self.nomor_tt_label.setStyleSheet("font-weight: bold; color: #27ae60;")
+                um_grid.addWidget(self.nomor_tt_label, 0, 1)
 
-                um_group_box = QGroupBox("Persentase Uang Muka Diterima")
-                um_layout = QHBoxLayout(um_group_box)
-
+                um_grid.addWidget(QLabel("Persentase:"), 0, 2)
+                persen_container = QHBoxLayout()
+                persen_container.setSpacing(5)
                 self.um_btn_group = QButtonGroup(self)
                 self.um_100 = QRadioButton("100%")
                 self.um_100.setChecked(True)
                 self.um_90 = QRadioButton("90%")
                 self.um_80 = QRadioButton("80%")
-
                 self.um_btn_group.addButton(self.um_100, 100)
                 self.um_btn_group.addButton(self.um_90, 90)
                 self.um_btn_group.addButton(self.um_80, 80)
+                persen_container.addWidget(self.um_100)
+                persen_container.addWidget(self.um_90)
+                persen_container.addWidget(self.um_80)
+                um_grid.addLayout(persen_container, 0, 3)
 
-                um_layout.addWidget(self.um_100)
-                um_layout.addWidget(self.um_90)
-                um_layout.addWidget(self.um_80)
-                um_layout.addStretch()
-
-                self.um_nilai_label = QLabel("Nilai Diterima: Rp 0")
-                self.um_nilai_label.setStyleSheet("font-weight: bold; color: #3498db;")
-                um_layout.addWidget(self.um_nilai_label)
+                # Row 1: Nilai Diterima
+                um_grid.addWidget(QLabel("Nilai Diterima:"), 1, 0)
+                self.um_nilai_label = QLabel("Rp 0")
+                self.um_nilai_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+                um_grid.addWidget(self.um_nilai_label, 1, 1, 1, 3)
 
                 self.um_btn_group.buttonClicked.connect(self._update_total)
-                rincian_layout.addWidget(um_group_box)
+                rincian_layout.addWidget(um_frame)
 
             scroll_layout.addWidget(rincian_group)
 
@@ -1155,49 +1110,37 @@ class DokumenGeneratorDialog(QDialog):
                 nilai_diterima = grand_total * persen / 100
                 self.um_nilai_label.setText(f"Nilai Diterima: Rp {nilai_diterima:,.0f}".replace(",", "."))
 
-        # Update calculation panel (for REKAP_BKT) - supports both table and label formats
+        # Update calculation panel (for REKAP_BKT) - compact grid format
         # Calculate selisih
         uang_muka = getattr(self, '_uang_muka_nilai', 0) or 0
         selisih = grand_total - uang_muka
 
-        # Update table items if using table format
+        # Update labels if calculation panel exists
         if hasattr(self, 'realisasi_item') and hasattr(self, 'selisih_item'):
             self.realisasi_item.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
             self.selisih_item.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
 
-            # Color coding for selisih
+            # Color coding for selisih - using stylesheet for QLabel
+            base_style = "font-weight: bold; font-size: 14px;"
             if selisih > 0:
-                self.selisih_item.setForeground(Qt.red)
+                self.selisih_item.setStyleSheet(base_style + " color: #e74c3c;")
             elif selisih < 0:
-                self.selisih_item.setForeground(Qt.darkGreen)
+                self.selisih_item.setStyleSheet(base_style + " color: #27ae60;")
             else:
-                self.selisih_item.setForeground(Qt.blue)
+                self.selisih_item.setStyleSheet(base_style + " color: #3498db;")
 
-        # Fallback to label format
-        elif hasattr(self, 'realisasi_label') and hasattr(self, 'selisih_label'):
-            self.realisasi_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
-            self.selisih_label.setText(f"Rp {abs(selisih):,.0f}".replace(",", "."))
-
-            base_selisih_style = "font-weight: bold; font-size: 16px; padding: 5px;"
-            if selisih > 0:
-                self.selisih_label.setStyleSheet(base_selisih_style + "color: #e74c3c;")
-            elif selisih < 0:
-                self.selisih_label.setStyleSheet(base_selisih_style + "color: #27ae60;")
-            else:
-                self.selisih_label.setStyleSheet(base_selisih_style + "color: #3498db;")
-
-        # Update status label (common for both formats)
+        # Update status label
         if hasattr(self, 'status_calc_label'):
-            base_status_style = "font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px; margin-top: 5px;"
+            base_status_style = "font-weight: bold; font-size: 12px; padding: 5px 10px; border-radius: 4px;"
 
             if selisih > 0:
-                self.status_calc_label.setText("⚠ KURANG BAYAR")
+                self.status_calc_label.setText("KURANG BAYAR")
                 self.status_calc_label.setStyleSheet(base_status_style + "background-color: #e74c3c; color: white;")
             elif selisih < 0:
-                self.status_calc_label.setText("✓ LEBIH BAYAR (Kembali ke Kas)")
+                self.status_calc_label.setText("LEBIH BAYAR")
                 self.status_calc_label.setStyleSheet(base_status_style + "background-color: #27ae60; color: white;")
             else:
-                self.status_calc_label.setText("✓ NIHIL")
+                self.status_calc_label.setText("NIHIL")
                 self.status_calc_label.setStyleSheet(base_status_style + "background-color: #3498db; color: white;")
 
     def _collect_data(self) -> Dict[str, Any]:

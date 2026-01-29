@@ -206,10 +206,12 @@ class DokumenGeneratorDialog(QDialog):
             # Table
             self.rincian_table = QTableWidget()
             self.rincian_table.setColumnCount(5)
-            self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga", "Jumlah"])
+            self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga Satuan", "Jumlah (Auto)"])
             self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
             self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
             self.rincian_table.setMinimumHeight(150)
+            # Connect to recalculate jumlah when volume or harga is edited
+            self.rincian_table.itemChanged.connect(self._on_table_item_changed)
             rincian_layout.addWidget(self.rincian_table)
 
             # Delete button
@@ -715,6 +717,9 @@ class DokumenGeneratorDialog(QDialog):
 
         # Load rincian items if available (either provided or loaded from DB)
         if self.rincian_items and hasattr(self, 'rincian_table'):
+            # Block signals while loading items
+            self.rincian_table.blockSignals(True)
+
             for item in self.rincian_items:
                 row = self.rincian_table.rowCount()
                 self.rincian_table.insertRow(row)
@@ -730,7 +735,14 @@ class DokumenGeneratorDialog(QDialog):
                 self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
                 self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
                 self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-                self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+
+                # Jumlah column - read-only (auto-calculated)
+                jumlah_item = QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", "."))
+                jumlah_item.setFlags(jumlah_item.flags() & ~Qt.ItemIsEditable)  # Make read-only
+                jumlah_item.setBackground(Qt.lightGray)  # Visual indicator
+                self.rincian_table.setItem(row, 4, jumlah_item)
+
+            self.rincian_table.blockSignals(False)
 
             # Load PPN and uang muka settings from the saved data
             if self.rincian_items:
@@ -872,6 +884,58 @@ class DokumenGeneratorDialog(QDialog):
             jumlah = volume * harga
             self.jumlah_preview.setText(f"Rp {jumlah:,.0f}".replace(",", "."))
 
+    def _on_table_item_changed(self, item):
+        """Handle table item changes - recalculate jumlah when volume or harga is edited."""
+        if not hasattr(self, 'rincian_table') or not hasattr(self, 'rincian_items'):
+            return
+
+        row = item.row()
+        col = item.column()
+
+        # Only recalculate if volume (col 1) or harga (col 3) was changed
+        if col in [1, 3] and row < len(self.rincian_items):
+            try:
+                # Block signals to prevent recursion
+                self.rincian_table.blockSignals(True)
+
+                # Get current values
+                volume_item = self.rincian_table.item(row, 1)
+                harga_item = self.rincian_table.item(row, 3)
+
+                if volume_item and harga_item:
+                    # Parse volume (integer)
+                    try:
+                        volume = int(volume_item.text().replace(".", "").replace(",", ""))
+                    except:
+                        volume = 1
+
+                    # Parse harga (remove Rp and formatting)
+                    harga_text = harga_item.text().replace("Rp", "").replace(".", "").replace(",", "").strip()
+                    try:
+                        harga = float(harga_text)
+                    except:
+                        harga = 0
+
+                    # Calculate jumlah
+                    jumlah = volume * harga
+
+                    # Update jumlah cell
+                    jumlah_item = self.rincian_table.item(row, 4)
+                    if jumlah_item:
+                        jumlah_item.setText(f"Rp {jumlah:,.0f}".replace(",", "."))
+
+                    # Update rincian_items
+                    if row < len(self.rincian_items):
+                        self.rincian_items[row]['volume'] = volume
+                        self.rincian_items[row]['harga_satuan'] = harga
+                        self.rincian_items[row]['jumlah'] = jumlah
+
+                    # Update total
+                    self._update_total()
+
+            finally:
+                self.rincian_table.blockSignals(False)
+
     def _add_rincian_item(self):
         """Add rincian item to table."""
         uraian = self.uraian_edit.text().strip()
@@ -883,6 +947,9 @@ class DokumenGeneratorDialog(QDialog):
         harga = self.harga_spin.value()
         jumlah = volume * harga
 
+        # Block signals while adding
+        self.rincian_table.blockSignals(True)
+
         # Add to table
         row = self.rincian_table.rowCount()
         self.rincian_table.insertRow(row)
@@ -891,7 +958,14 @@ class DokumenGeneratorDialog(QDialog):
         self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
         self.rincian_table.setItem(row, 2, QTableWidgetItem(satuan))
         self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-        self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+
+        # Jumlah column - read-only (auto-calculated)
+        jumlah_item = QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", "."))
+        jumlah_item.setFlags(jumlah_item.flags() & ~Qt.ItemIsEditable)  # Make read-only
+        jumlah_item.setBackground(Qt.lightGray)  # Visual indicator
+        self.rincian_table.setItem(row, 4, jumlah_item)
+
+        self.rincian_table.blockSignals(False)
 
         # Add to list
         self.rincian_items.append({

@@ -778,9 +778,11 @@ class MainWindowV2(QMainWindow):
             QMessageBox.critical(self, "Error", f"Gagal membuka dokumen: {str(e)}")
 
     def _handle_edit_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
-        """Handle editing document."""
-        # For now, same as view - opens in default app for editing
-        self._handle_view_dokumen(kode_dokumen, transaksi_data)
+        """Handle editing document - regenerate the document."""
+        # Get fase from current transaksi data
+        fase = transaksi_data.get('fase_aktif', 1)
+        # Regenerate the document using the create handler
+        self._handle_create_dokumen(kode_dokumen, fase, transaksi_data)
 
     def _handle_upload_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
         """Handle uploading document."""

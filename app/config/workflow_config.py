@@ -290,15 +290,6 @@ UP_WORKFLOW = {
                     "dialog": "RekapBuktiPengeluaranDialog"
                 },
                 {
-                    "kode": "HITUNG_TK",
-                    "nama": "Perhitungan Tambah/Kurang",
-                    "kategori": "wajib",
-                    "template": "perhitungan_tambah_kurang.xlsx",
-                    "deskripsi": "Perhitungan selisih uang muka vs realisasi",
-                    "action": "prepare",
-                    "dialog": "PerhitunganTambahKurangDialog"
-                },
-                {
                     "kode": "KUIT_RAMP",
                     "nama": "Kuitansi Rampung",
                     "kategori": "wajib",

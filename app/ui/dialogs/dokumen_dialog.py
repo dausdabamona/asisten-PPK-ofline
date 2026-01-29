@@ -106,8 +106,8 @@ class DokumenGeneratorDialog(QDialog):
         data_layout.addWidget(self.kode_akun_edit, row, 1)
         row += 1
 
-        # Nilai/Estimasi - Hide for REKAP_BKT (calculated from rincian items)
-        if self.kode_dokumen != 'REKAP_BKT':
+        # Nilai/Estimasi - Hide for REKAP_BKT and KUIT_RAMP (calculated from rincian items)
+        if self.kode_dokumen not in ['REKAP_BKT', 'KUIT_RAMP']:
             data_layout.addWidget(QLabel("Estimasi Biaya:"), row, 0)
             self.estimasi_spin = QDoubleSpinBox()
             self.estimasi_spin.setRange(0, 999999999999)
@@ -691,11 +691,16 @@ class DokumenGeneratorDialog(QDialog):
                 row = self.rincian_table.rowCount()
                 self.rincian_table.insertRow(row)
 
-                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
-                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(item.get('volume', 1))))
-                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
+                volume = item.get('volume', 1)
                 harga = item.get('harga_satuan', 0)
-                jumlah = item.get('jumlah', 0)
+                # Auto-calculate jumlah from volume × harga (not from stored value)
+                jumlah = volume * harga
+                # Update item with calculated jumlah
+                item['jumlah'] = jumlah
+
+                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
+                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
+                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
                 self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
                 self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
 

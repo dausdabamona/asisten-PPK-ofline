@@ -207,9 +207,43 @@ class DokumenGeneratorDialog(QDialog):
             self.rincian_table = QTableWidget()
             self.rincian_table.setColumnCount(5)
             self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga Satuan", "Jumlah (Auto)"])
-            self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+
+            # Set column widths
+            self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # Uraian stretches
+            self.rincian_table.setColumnWidth(1, 80)   # Volume
+            self.rincian_table.setColumnWidth(2, 80)   # Satuan
+            self.rincian_table.setColumnWidth(3, 130)  # Harga Satuan
+            self.rincian_table.setColumnWidth(4, 130)  # Jumlah
+
             self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-            self.rincian_table.setMinimumHeight(150)
+            self.rincian_table.setMinimumHeight(180)
+
+            # Set row height and font
+            self.rincian_table.verticalHeader().setDefaultSectionSize(32)
+            self.rincian_table.verticalHeader().setVisible(False)
+
+            # Table styling
+            self.rincian_table.setStyleSheet("""
+                QTableWidget {
+                    font-size: 12px;
+                    gridline-color: #d0d0d0;
+                    border: 1px solid #c0c0c0;
+                }
+                QTableWidget::item {
+                    padding: 5px;
+                }
+                QTableWidget::item:selected {
+                    background-color: #3498db;
+                    color: white;
+                }
+                QHeaderView::section {
+                    background-color: #f0f0f0;
+                    padding: 6px;
+                    font-weight: bold;
+                    border: 1px solid #c0c0c0;
+                }
+            """)
+
             # Connect to recalculate jumlah when volume or harga is edited
             self.rincian_table.itemChanged.connect(self._on_table_item_changed)
             rincian_layout.addWidget(self.rincian_table)

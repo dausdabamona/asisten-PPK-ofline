@@ -333,22 +333,15 @@ UP_WORKFLOW = {
         },
 
         5: {
-            "nama": "SPBY & Penyelesaian",
-            "deskripsi": "Pembuatan SPBY dan arsip dokumen final",
+            "nama": "Penyelesaian & Arsip",
+            "deskripsi": "Penyelesaian dan pengarsipan dokumen final",
             "icon": "check-circle",
             "color": "#27ae60",
             "dokumen": [
                 {
-                    "kode": "SPBY",
-                    "nama": "Surat Pernyataan Tanggung Jawab Belanja",
-                    "kategori": "wajib",
-                    "template": "spby.docx",
-                    "deskripsi": "SPBY untuk pertanggungjawaban belanja"
-                },
-                {
                     "kode": "REKAP_FINAL",
                     "nama": "Rekap Final Transaksi",
-                    "kategori": "wajib",
+                    "kategori": "opsional",
                     "template": "rekap_final.xlsx",
                     "deskripsi": "Rekap akhir seluruh transaksi"
                 },
@@ -358,10 +351,7 @@ UP_WORKFLOW = {
                 "Arsip ke folder tahun berjalan",
                 "Update sisa UP tersedia",
             ],
-            "validasi": [
-                {"field": "dokumen_spby", "rule": "required", "message": "SPBY wajib dibuat"},
-                {"field": "dokumen_spby", "rule": "signed", "message": "SPBY wajib sudah ditandatangani"},
-            ],
+            "validasi": [],
             "next_condition": "Transaksi selesai dan semua dokumen diarsipkan"
         }
     }
@@ -1140,7 +1130,7 @@ NAMA_FASE = {
         2: "Pencairan UM",
         3: "Pelaksanaan",
         4: "Pertanggungjawaban",
-        5: "SPBY & Selesai"
+        5: "Selesai & Arsip"
     },
     "TUP": {
         1: "Pengajuan TUP",

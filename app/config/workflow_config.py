@@ -64,14 +64,15 @@ UP_WORKFLOW = {
             "icon": "file-text",
             "color": "#3498db",
 
-            # Dokumen WAJIB untuk SEMUA jenis kegiatan
+            # Dokumen WAJIB untuk SEMUA jenis kegiatan KECUALI Perjalanan Dinas
             "dokumen": [
                 {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
-                    "deskripsi": "Lembar permintaan pencairan dana"
+                    "deskripsi": "Lembar permintaan pencairan dana",
+                    "exclude_jenis_kegiatan": ["PERJALANAN_DINAS"]
                 },
             ],
 
@@ -161,16 +162,16 @@ UP_WORKFLOW = {
                     "kode": "ST",
                     "nama": "Surat Tugas",
                     "kategori": "wajib",
-                    "template": "surat_tugas.docx",
-                    "deskripsi": "Surat Tugas dari pejabat berwenang",
+                    "is_arsip": True,
+                    "deskripsi": "Upload Surat Tugas dari pejabat berwenang",
                     "jenis_kegiatan": ["PERJALANAN_DINAS"]
                 },
                 {
-                    "kode": "CHECKLIST_PD",
-                    "nama": "Checklist Dokumen Perjalanan Dinas",
+                    "kode": "SPPD",
+                    "nama": "SPPD (Surat Perintah Perjalanan Dinas)",
                     "kategori": "wajib",
-                    "template": "checklist_perjalanan_dinas.docx",
-                    "deskripsi": "Daftar checklist kelengkapan dokumen perjalanan dinas",
+                    "template": "sppd.docx",
+                    "deskripsi": "Draft SPPD untuk perjalanan dinas",
                     "jenis_kegiatan": ["PERJALANAN_DINAS"]
                 },
             ],

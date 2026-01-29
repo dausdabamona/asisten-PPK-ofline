@@ -1,8 +1,7 @@
 """
-PPK DOCUMENT FACTORY - Workflow Configuration
-==============================================
-Konfigurasi workflow untuk setiap mekanisme pencairan.
-Mendefinisikan fase, dokumen wajib/opsional, dan validasi per fase.
+PPK DOCUMENT FACTORY - Workflow Configuration V2
+=================================================
+Konfigurasi workflow yang disederhanakan dan terintegrasi dengan master data.
 
 Mekanisme Pencairan Dana:
 1. UP (Uang Persediaan) - Maksimal Rp 50.000.000
@@ -11,6 +10,64 @@ Mekanisme Pencairan Dana:
 """
 
 from typing import Dict, List, Any, Optional
+
+# ============================================================================
+# JENIS KEGIATAN CONFIGURATION
+# ============================================================================
+
+# UP - Jenis Kegiatan yang didukung
+UP_JENIS_KEGIATAN = {
+    "OPERASIONAL": {
+        "label": "Belanja Operasional Kantor",
+        "deskripsi": "Belanja rutin operasional < Rp 1 juta",
+        "icon": "shopping-cart",
+        "max_nilai": 1_000_000,
+    },
+    "KEPANITIAAN": {
+        "label": "Kegiatan Kepanitiaan",
+        "deskripsi": "Kegiatan dengan SK Panitia",
+        "icon": "users",
+        "perlu_sk": True,
+    },
+    "JAMUAN_TAMU": {
+        "label": "Jamuan Tamu",
+        "deskripsi": "Jamuan/konsumsi penerimaan tamu",
+        "icon": "coffee",
+        "perlu_sk": True,
+    },
+    "RAPAT": {
+        "label": "Rapat/Pertemuan/Workshop",
+        "deskripsi": "Kegiatan rapat atau pertemuan",
+        "icon": "message-square",
+        "perlu_sk": True,
+    },
+    "PERJALANAN_DINAS": {
+        "label": "Perjalanan Dinas Lokal",
+        "deskripsi": "Perjalanan dinas dalam kota/lokal",
+        "icon": "map-pin",
+        "perlu_surat_tugas": True,
+    },
+    "LAINNYA": {
+        "label": "Kegiatan Lainnya",
+        "deskripsi": "Kegiatan lain yang tidak termasuk kategori di atas",
+        "icon": "folder",
+    },
+}
+
+# LS - Jenis Dasar yang didukung
+LS_JENIS_DASAR = {
+    "KONTRAK": {
+        "label": "Kontrak/SPK (Pengadaan Barang/Jasa)",
+        "deskripsi": "Pembayaran berdasarkan kontrak dengan penyedia",
+        "icon": "file-text",
+    },
+    "PERJALANAN_DINAS": {
+        "label": "Perjalanan Dinas",
+        "deskripsi": "Pembayaran perjalanan dinas luar kota",
+        "icon": "plane",
+        "perlu_surat_tugas": True,
+    },
+}
 
 # ============================================================================
 # WORKFLOW UP (UANG PERSEDIAAN)
@@ -22,366 +79,304 @@ UP_WORKFLOW = {
     "deskripsi": "Pencairan dana untuk belanja operasional <= Rp 50 juta",
     "batas_maksimal": 50_000_000,
     "icon": "wallet",
-    "color": "#27ae60",  # Green
+    "color": "#27ae60",
     "color_light": "#d5f5e3",
 
-    # UP mendukung beberapa jenis kegiatan dengan kebutuhan dokumen berbeda
-    "jenis_kegiatan_options": [
-        "OPERASIONAL",      # Belanja operasional kantor (< 1jt, cukup lembar permintaan)
-        "KEPANITIAAN",      # Kegiatan kepanitiaan (perlu TOR, RAB, SK)
-        "JAMUAN_TAMU",      # Jamuan tamu (perlu Undangan, SK)
-        "RAPAT",            # Rapat/pertemuan (perlu Undangan, SK)
-        "PERJALANAN_LOKAL", # Perjalanan lokal (perlu ST)
-        "LAINNYA",          # Kegiatan lainnya
-    ],
-    "jenis_kegiatan_labels": {
-        "OPERASIONAL": "Belanja Operasional Kantor (< Rp 1 juta)",
-        "KEPANITIAAN": "Kegiatan Kepanitiaan",
-        "JAMUAN_TAMU": "Jamuan Tamu",
-        "RAPAT": "Rapat/Pertemuan/Workshop",
-        "PERJALANAN_LOKAL": "Perjalanan Lokal",
-        "LAINNYA": "Kegiatan Lainnya",
-    },
+    "jenis_kegiatan": UP_JENIS_KEGIATAN,
 
     "fase": {
+        # ================================================================
+        # FASE 1: INISIASI & DASAR HUKUM
+        # ================================================================
         1: {
-            "nama": "Inisiasi & SK",
-            "deskripsi": "Persiapan awal dan penerbitan SK/Dasar Hukum",
+            "nama": "Inisiasi & Dasar Hukum",
+            "deskripsi": "Persiapan awal dan kelengkapan dasar hukum",
             "icon": "file-text",
             "color": "#3498db",
 
-            # Dokumen WAJIB untuk SEMUA jenis kegiatan
             "dokumen": [
+                # Checklist - WAJIB untuk semua
                 {
                     "kode": "CHECKLIST",
                     "nama": "Checklist Kelengkapan Dokumen",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Upload checklist kelengkapan dokumen pencairan UP"
+                    "deskripsi": "Upload checklist kelengkapan dokumen",
+                    "untuk_semua": True,
                 },
+                # SK Upload - Opsional untuk semua
                 {
                     "kode": "SK_UPLOAD",
                     "nama": "Upload SK (Opsional)",
                     "kategori": "opsional",
                     "template": None,
-                    "deskripsi": "Upload scan SK jika diperlukan"
+                    "deskripsi": "Upload scan SK jika diperlukan",
+                    "untuk_semua": True,
                 },
-            ],
-
-            # Dokumen untuk SELAIN perjalanan dinas (OPERASIONAL, KEPANITIAAN, JAMUAN_TAMU, RAPAT, LAINNYA)
-            "dokumen_non_perdin": [
+                # Lembar Permintaan - Untuk NON perjalanan dinas
                 {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
                     "deskripsi": "Lembar permintaan pencairan dana",
-                    "jenis_kegiatan": ["OPERASIONAL", "KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "LAINNYA"]
+                    "jenis_kegiatan": ["OPERASIONAL", "KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "LAINNYA"],
                 },
-            ],
-
-            # Dokumen khusus PERJALANAN DINAS
-            "dokumen_perjalanan_dinas": [
+                # Surat Tugas - Untuk perjalanan dinas
                 {
                     "kode": "SURAT_TUGAS",
                     "nama": "Upload Surat Tugas",
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Upload scan Surat Tugas perjalanan dinas",
-                    "jenis_kegiatan": ["PERJALANAN_LOKAL"]
+                    "jenis_kegiatan": ["PERJALANAN_DINAS"],
                 },
-            ],
-
-            # Dokumen WAJIB untuk kegiatan yang memerlukan SK (KEPANITIAAN, JAMUAN_TAMU, RAPAT, LAINNYA)
-            "dokumen_dengan_sk": [
-                {
-                    "kode": "SK_KPA",
-                    "nama": "SK KPA / Surat Tugas",
-                    "kategori": "wajib",
-                    "template": "sk_kpa.docx",
-                    "deskripsi": "Surat Keputusan atau Surat Tugas dari KPA",
-                    "jenis_kegiatan": ["KEPANITIAAN", "JAMUAN_TAMU", "RAPAT", "LAINNYA"]
-                },
-            ],
-
-            # Dokumen khusus KEPANITIAAN
-            "dokumen_kepanitiaan": [
+                # TOR/KAK - Untuk kepanitiaan
                 {
                     "kode": "TOR",
                     "nama": "TOR/KAK",
                     "kategori": "wajib",
                     "template": "kak.docx",
                     "deskripsi": "Terms of Reference / Kerangka Acuan Kerja",
-                    "jenis_kegiatan": ["KEPANITIAAN"]
+                    "jenis_kegiatan": ["KEPANITIAAN"],
                 },
+                # RAB - Untuk kepanitiaan dan rapat (opsional untuk rapat)
                 {
                     "kode": "RAB",
                     "nama": "Rencana Anggaran Biaya",
                     "kategori": "wajib",
                     "template": "rab_swakelola.xlsx",
                     "deskripsi": "Rincian estimasi biaya kegiatan",
-                    "jenis_kegiatan": ["KEPANITIAAN"]
-                },
-            ],
-
-            # Dokumen khusus JAMUAN_TAMU
-            "dokumen_jamuan_tamu": [
-                {
-                    "kode": "UND",
-                    "nama": "Undangan",
-                    "kategori": "wajib",
-                    "template": "undangan_pl.docx",
-                    "deskripsi": "Surat undangan tamu",
-                    "jenis_kegiatan": ["JAMUAN_TAMU"]
-                },
-            ],
-
-            # Dokumen khusus RAPAT
-            "dokumen_rapat": [
-                {
-                    "kode": "UND",
-                    "nama": "Undangan Rapat",
-                    "kategori": "wajib",
-                    "template": "undangan_pl.docx",
-                    "deskripsi": "Surat undangan untuk peserta rapat",
-                    "jenis_kegiatan": ["RAPAT"]
-                },
-                {
-                    "kode": "TOR",
-                    "nama": "TOR/KAK",
-                    "kategori": "opsional",
-                    "template": "kak.docx",
-                    "deskripsi": "Terms of Reference (jika diperlukan)",
-                    "jenis_kegiatan": ["RAPAT"]
+                    "jenis_kegiatan": ["KEPANITIAAN"],
                 },
                 {
                     "kode": "RAB",
                     "nama": "Rencana Anggaran Biaya",
                     "kategori": "opsional",
                     "template": "rab_swakelola.xlsx",
-                    "deskripsi": "Rincian estimasi biaya rapat",
-                    "jenis_kegiatan": ["RAPAT"]
+                    "deskripsi": "Rincian estimasi biaya rapat (jika diperlukan)",
+                    "jenis_kegiatan": ["RAPAT"],
+                },
+                # Undangan - Untuk jamuan tamu dan rapat
+                {
+                    "kode": "UNDANGAN",
+                    "nama": "Undangan",
+                    "kategori": "wajib",
+                    "template": "undangan_pl.docx",
+                    "deskripsi": "Surat undangan",
+                    "jenis_kegiatan": ["JAMUAN_TAMU", "RAPAT"],
                 },
             ],
 
-            # Validasi berbeda per jenis
-            "validasi_operasional": [
-                {"field": "estimasi_biaya", "rule": "max:1000000", "message": "Belanja operasional maksimal Rp 1 juta"},
-            ],
-            "validasi_dengan_sk": [
-                {"field": "nomor_dasar", "rule": "required", "message": "Nomor SK/Surat Tugas wajib diisi"},
-                {"field": "tanggal_dasar", "rule": "required", "message": "Tanggal SK wajib diisi"},
-            ],
             "validasi": [
                 {"field": "estimasi_biaya", "rule": "max:50000000", "message": "Estimasi biaya UP maksimal Rp 50 juta"},
             ],
-            "next_condition": "Semua dokumen wajib sudah dibuat dan SK sudah ditandatangani"
+            "next_condition": "Semua dokumen wajib sudah dibuat"
         },
 
+        # ================================================================
+        # FASE 2: PENCAIRAN UANG MUKA
+        # ================================================================
         2: {
             "nama": "Pencairan Uang Muka",
             "deskripsi": "Pengajuan dan pencairan uang muka dari UP",
             "icon": "dollar-sign",
             "color": "#f39c12",
+
             "dokumen": [
                 {
                     "kode": "KUIT_UM",
                     "nama": "Kuitansi Uang Muka",
                     "kategori": "wajib",
                     "template": "kuitansi_uang_muka.docx",
-                    "deskripsi": "Kuitansi penerimaan uang muka"
+                    "deskripsi": "Kuitansi penerimaan uang muka",
+                    "untuk_semua": True,
                 },
             ],
+
             "validasi": [
                 {"field": "uang_muka", "rule": "required", "message": "Jumlah uang muka wajib diisi"},
-                {"field": "penerima_nama", "rule": "required", "message": "Nama penerima wajib diisi"},
+                {"field": "penerima_id", "rule": "required", "message": "Penerima wajib dipilih"},
             ],
-            "catatan": "Uang muka untuk keperluan kegiatan",
-            "next_condition": "Uang muka sudah dicairkan dan diterima penerima"
+            "next_condition": "Uang muka sudah dicairkan dan diterima"
         },
 
+        # ================================================================
+        # FASE 3: PELAKSANAAN KEGIATAN
+        # ================================================================
         3: {
             "nama": "Pelaksanaan Kegiatan",
             "deskripsi": "Kegiatan dilaksanakan dan bukti dikumpulkan",
             "icon": "activity",
             "color": "#9b59b6",
 
-            # Dokumen WAJIB untuk SEMUA jenis kegiatan (termasuk operasional)
             "dokumen": [
+                # Dokumentasi foto - WAJIB untuk semua
                 {
                     "kode": "DOK_FOTO",
                     "nama": "Dokumentasi Foto (Tagging)",
                     "kategori": "wajib",
                     "template": None,
-                    "deskripsi": "Foto dokumentasi pelaksanaan dengan tagging lokasi/waktu"
+                    "deskripsi": "Foto dokumentasi pelaksanaan dengan tagging lokasi/waktu",
+                    "untuk_semua": True,
                 },
+                # Nota/Faktur - Upload untuk semua
                 {
                     "kode": "NOTA_BLJ",
                     "nama": "Nota/Faktur Belanja",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Nota pembelian dari toko/penyedia"
+                    "deskripsi": "Nota pembelian dari toko/penyedia",
+                    "untuk_semua": True,
                 },
+                # Kwitansi Toko - Upload untuk semua
                 {
                     "kode": "KWIT_TOKO",
                     "nama": "Kwitansi Toko",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Kwitansi pembayaran dari toko"
+                    "deskripsi": "Kwitansi pembayaran dari toko",
+                    "untuk_semua": True,
                 },
-            ],
-
-            # Dokumen tambahan untuk KEPANITIAAN (perlu laporan kegiatan)
-            "dokumen_kepanitiaan": [
-                {
-                    "kode": "LAP_KEG",
-                    "nama": "Laporan Kegiatan",
-                    "kategori": "wajib",
-                    "template": "laporan_kegiatan.docx",
-                    "deskripsi": "Laporan pelaksanaan kegiatan kepanitiaan",
-                    "jenis_kegiatan": ["KEPANITIAAN"]
-                },
-            ],
-
-            # Dokumen tambahan untuk RAPAT dan JAMUAN_TAMU (perlu daftar hadir dan notulensi)
-            "dokumen_rapat_jamuan": [
+                # Daftar Hadir - Wajib untuk rapat, jamuan, kepanitiaan
                 {
                     "kode": "DH",
                     "nama": "Daftar Hadir",
                     "kategori": "wajib",
                     "template": "daftar_hadir_swakelola.docx",
-                    "deskripsi": "Daftar hadir peserta rapat/jamuan",
-                    "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU"]
+                    "deskripsi": "Daftar hadir peserta",
+                    "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU", "KEPANITIAAN"],
                 },
+                # Notulensi - Wajib untuk rapat dan jamuan
                 {
                     "kode": "NOTULEN",
                     "nama": "Notulensi Rapat",
                     "kategori": "wajib",
                     "template": "notulen.docx",
                     "deskripsi": "Notulen/catatan hasil rapat",
-                    "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU"]
+                    "jenis_kegiatan": ["RAPAT", "JAMUAN_TAMU"],
                 },
-            ],
-
-            # Dokumen tambahan untuk kegiatan lainnya (opsional)
-            "dokumen_lainnya": [
-                {
-                    "kode": "DH",
-                    "nama": "Daftar Hadir",
-                    "kategori": "opsional",
-                    "template": "daftar_hadir_swakelola.docx",
-                    "deskripsi": "Daftar hadir (jika ada peserta)",
-                    "jenis_kegiatan": ["LAINNYA", "PERJALANAN_LOKAL"]
-                },
+                # Laporan Kegiatan - Wajib untuk kepanitiaan
                 {
                     "kode": "LAP_KEG",
                     "nama": "Laporan Kegiatan",
-                    "kategori": "opsional",
+                    "kategori": "wajib",
                     "template": "laporan_kegiatan.docx",
-                    "deskripsi": "Laporan pelaksanaan kegiatan",
-                    "jenis_kegiatan": ["LAINNYA", "PERJALANAN_LOKAL"]
+                    "deskripsi": "Laporan pelaksanaan kegiatan kepanitiaan",
+                    "jenis_kegiatan": ["KEPANITIAAN"],
+                },
+                # Laporan Perjalanan - Wajib untuk perjalanan dinas
+                {
+                    "kode": "LAP_PJD",
+                    "nama": "Laporan Perjalanan Dinas",
+                    "kategori": "wajib",
+                    "template": "laporan_perjalanan_dinas.docx",
+                    "deskripsi": "Laporan hasil perjalanan dinas",
+                    "jenis_kegiatan": ["PERJALANAN_DINAS"],
                 },
             ],
 
-            # Validasi berbeda per jenis kegiatan
             "validasi": [
                 {"field": "dokumen_foto", "rule": "required", "message": "Dokumentasi foto wajib ada"},
-            ],
-            "validasi_rapat_jamuan": [
-                {"field": "dokumen_dh", "rule": "required", "message": "Daftar hadir wajib ada"},
-                {"field": "dokumen_notulen", "rule": "required", "message": "Notulensi rapat wajib ada"},
-            ],
-            "validasi_kepanitiaan": [
-                {"field": "dokumen_lap_keg", "rule": "required", "message": "Laporan kegiatan wajib ada"},
             ],
             "next_condition": "Kegiatan selesai dan semua bukti terkumpul"
         },
 
+        # ================================================================
+        # FASE 4: PERTANGGUNGJAWABAN
+        # ================================================================
         4: {
             "nama": "Pertanggungjawaban",
             "deskripsi": "Membuat dokumen pertanggungjawaban dan perhitungan tambah/kurang",
             "icon": "calculator",
             "color": "#e74c3c",
+
             "dokumen": [
                 {
                     "kode": "KUIT_RAMP",
                     "nama": "Kuitansi Rampung",
                     "kategori": "wajib",
                     "template": "kuitansi_rampung.docx",
-                    "deskripsi": "Kuitansi penyelesaian/rampung kegiatan"
+                    "deskripsi": "Kuitansi penyelesaian/rampung kegiatan",
+                    "untuk_semua": True,
                 },
                 {
                     "kode": "HITUNG_TK",
                     "nama": "Perhitungan Tambah/Kurang",
                     "kategori": "wajib",
                     "template": "perhitungan_tambah_kurang.xlsx",
-                    "deskripsi": "Perhitungan selisih uang muka vs realisasi"
+                    "deskripsi": "Perhitungan selisih uang muka vs realisasi",
+                    "untuk_semua": True,
                 },
                 {
                     "kode": "REKAP_BKT",
                     "nama": "Rekap Bukti Pengeluaran",
                     "kategori": "wajib",
                     "template": "rekap_bukti_pengeluaran.xlsx",
-                    "deskripsi": "Rekap seluruh bukti pengeluaran"
+                    "deskripsi": "Rekap seluruh bukti pengeluaran",
+                    "untuk_semua": True,
                 },
                 {
                     "kode": "LPJ",
                     "nama": "LPJ Kegiatan",
                     "kategori": "opsional",
                     "template": "lpj.docx",
-                    "deskripsi": "Laporan Pertanggungjawaban kegiatan"
+                    "deskripsi": "Laporan Pertanggungjawaban kegiatan",
+                    "jenis_kegiatan": ["KEPANITIAAN", "RAPAT"],
                 },
             ],
+
             "kalkulasi": {
                 "formula": "selisih = realisasi - uang_muka",
                 "hasil_positif": {
                     "label": "KURANG BAYAR",
                     "aksi": "Ajukan pembayaran tambahan",
                     "color": "#e74c3c",
-                    "icon": "arrow-up"
                 },
                 "hasil_negatif": {
                     "label": "LEBIH BAYAR",
                     "aksi": "Kembalikan kelebihan ke kas",
                     "color": "#f39c12",
-                    "icon": "arrow-down"
                 },
                 "hasil_nol": {
                     "label": "PAS / NIHIL",
-                    "aksi": "Lanjut ke SPBY",
+                    "aksi": "Lanjut ke rekap",
                     "color": "#27ae60",
-                    "icon": "check"
                 },
             },
+
             "validasi": [
                 {"field": "realisasi", "rule": "required", "message": "Total realisasi wajib diisi"},
-                {"field": "dokumen_kuit_ramp", "rule": "required", "message": "Kuitansi rampung wajib dibuat"},
             ],
             "next_condition": "Perhitungan selesai dan dokumen pertanggungjawaban lengkap"
         },
 
+        # ================================================================
+        # FASE 5: REKAP & ARSIP
+        # ================================================================
         5: {
             "nama": "Rekap & Arsip",
             "deskripsi": "Rekap final dan arsip dokumen (SPBY diinput via SAKTI)",
             "icon": "check-circle",
             "color": "#27ae60",
+
             "dokumen": [
                 {
                     "kode": "REKAP_FINAL",
                     "nama": "Rekap Final Transaksi",
                     "kategori": "wajib",
                     "template": "rekap_final.xlsx",
-                    "deskripsi": "Rekap akhir seluruh transaksi"
+                    "deskripsi": "Rekap akhir seluruh transaksi",
+                    "untuk_semua": True,
                 },
             ],
+
             "aksi_tambahan": [
                 "Input SPBY di SAKTI",
                 "Arsip ke folder tahun berjalan",
                 "Update sisa UP tersedia",
             ],
-            "validasi": [
-                {"field": "dokumen_rekap_final", "rule": "required", "message": "Rekap final wajib dibuat"},
-            ],
+
             "catatan": "SPBY diinput langsung di aplikasi SAKTI, bukan di aplikasi ini",
             "next_condition": "Transaksi selesai dan semua dokumen diarsipkan"
         }
@@ -398,7 +393,7 @@ TUP_WORKFLOW = {
     "deskripsi": "Tambahan UP jika kebutuhan melebihi sisa UP, wajib selesai 1 bulan",
     "batas_hari": 30,
     "icon": "plus-circle",
-    "color": "#f39c12",  # Orange
+    "color": "#f39c12",
     "color_light": "#fef5e7",
 
     "fase": {
@@ -430,14 +425,6 @@ TUP_WORKFLOW = {
                     "deskripsi": "Bukti saldo UP saat ini tidak mencukupi"
                 },
             ],
-            "syarat": [
-                "UP yang ada tidak mencukupi",
-                "Kebutuhan mendesak dan tidak dapat ditunda",
-                "Rincian penggunaan jelas dan terukur",
-            ],
-            "validasi": [
-                {"field": "estimasi_biaya", "rule": "required", "message": "Nilai TUP yang diajukan wajib diisi"},
-            ],
             "next_condition": "Surat permohonan diajukan ke KPPN"
         },
 
@@ -454,10 +441,6 @@ TUP_WORKFLOW = {
                     "template": None,
                     "deskripsi": "Surat persetujuan dari Kepala KPPN"
                 },
-            ],
-            "catatan": "Proses persetujuan biasanya 1-3 hari kerja",
-            "validasi": [
-                {"field": "dokumen_appr_tup", "rule": "required", "message": "Surat persetujuan dari KPPN wajib ada"},
             ],
             "next_condition": "TUP disetujui oleh Kepala KPPN"
         },
@@ -482,17 +465,6 @@ TUP_WORKFLOW = {
                     "template": "kuitansi_uang_muka.docx",
                     "deskripsi": "Kuitansi penerimaan uang muka TUP"
                 },
-                {
-                    "kode": "BST_UM_TUP",
-                    "nama": "Bukti Serah Terima Uang TUP",
-                    "kategori": "wajib",
-                    "template": "bukti_serah_terima_um.docx",
-                    "deskripsi": "Berita acara serah terima uang muka TUP"
-                },
-            ],
-            "validasi": [
-                {"field": "dokumen_sp2d_tup", "rule": "required", "message": "SP2D TUP wajib ada"},
-                {"field": "dokumen_kuit_um_tup", "rule": "required", "message": "Kuitansi uang muka TUP wajib ada"},
             ],
             "catatan": "Catat tanggal SP2D untuk menghitung batas 1 bulan",
             "next_condition": "Dana TUP sudah masuk ke rekening bendahara"
@@ -528,9 +500,6 @@ TUP_WORKFLOW = {
             ],
             "catatan": "WAJIB selesai dalam 1 BULAN sejak SP2D diterbitkan",
             "countdown": True,
-            "validasi": [
-                {"field": "penggunaan", "rule": "sesuai_rincian", "message": "Penggunaan harus sesuai rincian yang diajukan"},
-            ],
             "next_condition": "Semua dana TUP sudah digunakan atau batas waktu tercapai"
         },
 
@@ -555,13 +524,6 @@ TUP_WORKFLOW = {
                     "deskripsi": "Perhitungan selisih uang muka vs realisasi TUP"
                 },
                 {
-                    "kode": "SPBY_TUP",
-                    "nama": "SPBY TUP",
-                    "kategori": "wajib",
-                    "template": "spby_tup.docx",
-                    "deskripsi": "SPBY untuk TUP"
-                },
-                {
                     "kode": "REKAP_TUP",
                     "nama": "Rekap Penggunaan TUP",
                     "kategori": "wajib",
@@ -575,23 +537,8 @@ TUP_WORKFLOW = {
                     "template": "ssbp.xlsx",
                     "deskripsi": "Surat Setoran Bukan Pajak untuk pengembalian"
                 },
-                {
-                    "kode": "BUKTI_SETOR",
-                    "nama": "Bukti Setor Pengembalian",
-                    "kategori": "kondisional",
-                    "template": None,
-                    "deskripsi": "Bukti setoran pengembalian sisa TUP"
-                },
             ],
-            "kalkulasi": {
-                "formula": "sisa = nilai_tup - total_penggunaan",
-                "jika_sisa": "Wajib setor kembali ke kas negara via SSBP",
-            },
-            "validasi": [
-                {"field": "dokumen_kuit_ramp_tup", "rule": "required", "message": "Kuitansi rampung TUP wajib dibuat"},
-                {"field": "dokumen_spby_tup", "rule": "required", "message": "SPBY TUP wajib dibuat"},
-                {"field": "sisa_tup", "rule": "dikembalikan", "message": "Sisa TUP wajib disetor kembali"},
-            ],
+            "catatan": "SPBY diinput di SAKTI. Sisa TUP wajib dikembalikan ke kas negara.",
             "next_condition": "TUP nihil atau sisa sudah dikembalikan ke kas negara"
         }
     }
@@ -604,45 +551,42 @@ TUP_WORKFLOW = {
 LS_WORKFLOW = {
     "kode": "LS",
     "nama": "Pembayaran Langsung",
-    "deskripsi": "Pembayaran langsung ke penyedia via KPPN untuk kontrak/SPK atau Surat Tugas",
+    "deskripsi": "Pembayaran langsung ke penyedia via KPPN",
     "icon": "send",
-    "color": "#3498db",  # Blue
+    "color": "#3498db",
     "color_light": "#ebf5fb",
 
-    # LS mendukung 2 mode: KONTRAK atau SURAT_TUGAS
-    "jenis_dasar_options": ["KONTRAK", "SURAT_TUGAS"],
-    "jenis_dasar_labels": {
-        "KONTRAK": "Kontrak/SPK (Pengadaan Barang/Jasa)",
-        "SURAT_TUGAS": "Surat Tugas (Perjalanan Dinas, dll)"
-    },
+    "jenis_dasar": LS_JENIS_DASAR,
 
     "fase": {
+        # ================================================================
+        # FASE 1: DASAR HUKUM
+        # ================================================================
         1: {
             "nama": "Dasar Hukum",
             "deskripsi": "Pembuatan dasar hukum (Kontrak/SPK atau Surat Tugas)",
             "icon": "file-signature",
             "color": "#3498db",
 
-            # Dokumen WAJIB untuk semua jenis
             "dokumen": [
+                # Checklist - Wajib untuk semua
                 {
                     "kode": "CHECKLIST",
                     "nama": "Checklist Kelengkapan Dokumen",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Upload checklist kelengkapan dokumen pencairan LS"
+                    "deskripsi": "Upload checklist kelengkapan dokumen pencairan LS",
+                    "untuk_semua": True,
                 },
-            ],
 
-            # Dokumen khusus KONTRAK (ditampilkan jika jenis_dasar == KONTRAK)
-            "dokumen_kontrak": [
+                # === DOKUMEN KONTRAK ===
                 {
                     "kode": "LBR_REQ",
                     "nama": "Lembar Permintaan",
                     "kategori": "wajib",
                     "template": "lembar_permintaan.docx",
                     "deskripsi": "Lembar permintaan pencairan dana",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "SPK",
@@ -650,7 +594,7 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "spk.docx",
                     "deskripsi": "Kontrak kerja dengan penyedia",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "SSUK",
@@ -658,7 +602,7 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "ssuk.docx",
                     "deskripsi": "Syarat umum kontrak",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "SSKK",
@@ -666,7 +610,7 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "sskk.docx",
                     "deskripsi": "Syarat khusus kontrak",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "SPMK",
@@ -674,43 +618,33 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "spmk.docx",
                     "deskripsi": "Perintah untuk memulai pekerjaan",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "JAM_PELAKS",
                     "nama": "Jaminan Pelaksanaan",
                     "kategori": "kondisional",
                     "template": None,
-                    "deskripsi": "Jaminan pelaksanaan dari bank/asuransi",
-                    "jenis_dasar": "KONTRAK"
+                    "deskripsi": "Jaminan pelaksanaan dari bank/asuransi (nilai > 200jt)",
+                    "jenis_dasar": "KONTRAK",
                 },
-                {
-                    "kode": "JAM_UM",
-                    "nama": "Jaminan Uang Muka (jika ada UM kontrak)",
-                    "kategori": "kondisional",
-                    "template": None,
-                    "deskripsi": "Jaminan uang muka kontrak",
-                    "jenis_dasar": "KONTRAK"
-                },
-            ],
 
-            # Dokumen khusus SURAT_TUGAS / Perjalanan Dinas (ditampilkan jika jenis_dasar == SURAT_TUGAS)
-            "dokumen_surat_tugas": [
+                # === DOKUMEN PERJALANAN DINAS ===
                 {
                     "kode": "SURAT_TUGAS",
                     "nama": "Upload Surat Tugas",
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Upload scan Surat Tugas perjalanan dinas",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "SPD",
                     "nama": "Surat Perjalanan Dinas",
                     "kategori": "wajib",
                     "template": "sppd.docx",
-                    "deskripsi": "Surat Perjalanan Dinas",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "deskripsi": "Surat Perjalanan Dinas (SPPD)",
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "RAB_SPPD",
@@ -718,39 +652,40 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "rab_sppd.xlsx",
                     "deskripsi": "Rincian anggaran biaya perjalanan dinas",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
             ],
 
-            # Validasi berbeda per jenis
             "validasi_kontrak": [
                 {"field": "nomor_kontrak", "rule": "required", "message": "Nomor kontrak/SPK wajib diisi"},
                 {"field": "nilai_kontrak", "rule": "required", "message": "Nilai kontrak wajib diisi"},
                 {"field": "penyedia_id", "rule": "required", "message": "Penyedia wajib dipilih"},
             ],
-            "validasi_surat_tugas": [
+            "validasi_perjalanan_dinas": [
                 {"field": "nomor_st", "rule": "required", "message": "Nomor Surat Tugas wajib diisi"},
-                {"field": "tanggal_st", "rule": "required", "message": "Tanggal Surat Tugas wajib diisi"},
-                {"field": "tujuan_perjalanan", "rule": "required", "message": "Tujuan perjalanan wajib diisi"},
+                {"field": "tujuan", "rule": "required", "message": "Tujuan perjalanan wajib diisi"},
             ],
             "next_condition": "Dasar hukum sudah ditandatangani"
         },
 
+        # ================================================================
+        # FASE 2: PELAKSANAAN
+        # ================================================================
         2: {
             "nama": "Pelaksanaan",
             "deskripsi": "Pelaksanaan pekerjaan/kegiatan sesuai dasar hukum",
             "icon": "hard-hat",
             "color": "#f39c12",
 
-            # Dokumen untuk mode KONTRAK
-            "dokumen_kontrak": [
+            "dokumen": [
+                # === DOKUMEN KONTRAK ===
                 {
                     "kode": "LAP_PROG",
                     "nama": "Laporan Progress Pekerjaan",
                     "kategori": "wajib",
                     "template": "laporan_kemajuan.docx",
                     "deskripsi": "Laporan kemajuan pekerjaan",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "BA_MC",
@@ -758,27 +693,17 @@ LS_WORKFLOW = {
                     "kategori": "kondisional",
                     "template": "ba_mc.docx",
                     "deskripsi": "Berita acara progress bulanan",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
-                {
-                    "kode": "MONEV",
-                    "nama": "Laporan Monitoring & Evaluasi",
-                    "kategori": "opsional",
-                    "template": "monev.docx",
-                    "deskripsi": "Laporan monev pekerjaan",
-                    "jenis_dasar": "KONTRAK"
-                },
-            ],
 
-            # Dokumen untuk mode SURAT_TUGAS (Perjalanan Dinas)
-            "dokumen_surat_tugas": [
+                # === DOKUMEN PERJALANAN DINAS ===
                 {
                     "kode": "DH_PJD",
                     "nama": "Daftar Hadir / Bukti Kehadiran",
                     "kategori": "wajib",
                     "template": "daftar_hadir_swakelola.docx",
                     "deskripsi": "Daftar hadir atau bukti kehadiran di lokasi tujuan",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "DOK_FOTO_PJD",
@@ -786,7 +711,7 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": None,
                     "deskripsi": "Foto dokumentasi pelaksanaan kegiatan perjalanan",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "TIKET",
@@ -794,7 +719,7 @@ LS_WORKFLOW = {
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Tiket pesawat/kereta/kapal atau boarding pass",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "BUKTI_HOTEL",
@@ -802,35 +727,31 @@ LS_WORKFLOW = {
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Bill/invoice dari hotel atau penginapan",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
             ],
 
-            "validasi_kontrak": [
-                {"field": "progress", "rule": "updated", "message": "Progress pekerjaan harus di-update"},
-            ],
-            "validasi_surat_tugas": [
-                {"field": "tanggal_berangkat", "rule": "required", "message": "Tanggal berangkat wajib diisi"},
-                {"field": "tanggal_kembali", "rule": "required", "message": "Tanggal kembali wajib diisi"},
-            ],
             "next_condition": "Pekerjaan/kegiatan selesai dilaksanakan"
         },
 
+        # ================================================================
+        # FASE 3: SERAH TERIMA / LAPORAN
+        # ================================================================
         3: {
             "nama": "Serah Terima / Laporan",
             "deskripsi": "Pemeriksaan dan serah terima hasil pekerjaan atau laporan kegiatan",
-            "icon": "handshake",
+            "icon": "clipboard-check",
             "color": "#9b59b6",
 
-            # Dokumen untuk mode KONTRAK
-            "dokumen_kontrak": [
+            "dokumen": [
+                # === DOKUMEN KONTRAK ===
                 {
                     "kode": "BA_PMR",
                     "nama": "BA Pemeriksaan Pekerjaan",
                     "kategori": "wajib",
                     "template": "bahp.docx",
                     "deskripsi": "Berita acara pemeriksaan oleh PPHP",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "BAST",
@@ -838,97 +759,83 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "bast.docx",
                     "deskripsi": "BAST hasil pekerjaan",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "BA_PHO",
                     "nama": "BA Provisional Hand Over (PHO)",
                     "kategori": "kondisional",
                     "template": "bast_konstruksi_pho.docx",
-                    "deskripsi": "Serah terima sementara",
-                    "jenis_dasar": "KONTRAK"
+                    "deskripsi": "Serah terima sementara (untuk konstruksi)",
+                    "jenis_dasar": "KONTRAK",
                 },
-                {
-                    "kode": "BA_FHO",
-                    "nama": "BA Final Hand Over (konstruksi)",
-                    "kategori": "kondisional",
-                    "template": "bast_konstruksi_fho.docx",
-                    "deskripsi": "Serah terima akhir untuk konstruksi",
-                    "jenis_dasar": "KONTRAK"
-                },
-            ],
 
-            # Dokumen untuk mode SURAT_TUGAS (Perjalanan Dinas)
-            "dokumen_surat_tugas": [
+                # === DOKUMEN PERJALANAN DINAS ===
                 {
                     "kode": "LAP_PJD",
                     "nama": "Laporan Perjalanan Dinas",
                     "kategori": "wajib",
                     "template": "laporan_perjalanan_dinas.docx",
                     "deskripsi": "Laporan hasil perjalanan dinas",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "SPD_TTD",
                     "nama": "SPD yang Sudah Ditandatangani",
-                    "kategori": "wajib",
+                    "kategori": "upload",
                     "template": None,
                     "deskripsi": "SPD dengan tanda tangan pejabat di lokasi tujuan",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
             ],
 
-            "validasi_kontrak": [
-                {"field": "dokumen_bast", "rule": "required", "message": "BAST wajib dibuat"},
-                {"field": "dokumen_bast", "rule": "signed", "message": "BAST wajib ditandatangani kedua pihak"},
-            ],
-            "validasi_surat_tugas": [
-                {"field": "dokumen_lap_pjd", "rule": "required", "message": "Laporan perjalanan dinas wajib dibuat"},
-                {"field": "dokumen_spd_ttd", "rule": "required", "message": "SPD yang ditandatangani wajib ada"},
-            ],
             "next_condition": "Serah terima/laporan selesai"
         },
 
+        # ================================================================
+        # FASE 4: PENGAJUAN TAGIHAN SPM
+        # ================================================================
         4: {
             "nama": "Pengajuan Tagihan SPM",
             "deskripsi": "Pemrosesan dokumen SPP/SPM untuk pembayaran",
             "icon": "file-invoice-dollar",
             "color": "#e74c3c",
 
-            # Dokumen umum untuk semua jenis
             "dokumen": [
+                # Dokumen umum untuk semua jenis
                 {
                     "kode": "SPP_LS",
                     "nama": "Surat Permintaan Pembayaran",
                     "kategori": "wajib",
                     "template": "spp_ls.docx",
-                    "deskripsi": "SPP untuk pengajuan ke PPSPM"
+                    "deskripsi": "SPP untuk pengajuan ke PPSPM",
+                    "untuk_semua": True,
                 },
                 {
                     "kode": "SPM_LS",
                     "nama": "Surat Perintah Membayar",
                     "kategori": "wajib",
                     "template": "spm_ls.docx",
-                    "deskripsi": "SPM untuk dikirim ke KPPN"
+                    "deskripsi": "SPM untuk dikirim ke KPPN",
+                    "untuk_semua": True,
                 },
                 {
                     "kode": "KUIT_LS",
                     "nama": "Kuitansi Pembayaran LS",
                     "kategori": "wajib",
                     "template": "kuitansi.docx",
-                    "deskripsi": "Kuitansi pembayaran LS"
+                    "deskripsi": "Kuitansi pembayaran LS",
+                    "untuk_semua": True,
                 },
-            ],
 
-            # Dokumen khusus KONTRAK
-            "dokumen_kontrak": [
+                # === DOKUMEN KONTRAK ===
                 {
                     "kode": "INVOICE",
                     "nama": "Invoice/Tagihan dari Penyedia",
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Tagihan resmi dari penyedia",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "FAKTUR_PJK",
@@ -936,7 +843,7 @@ LS_WORKFLOW = {
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Faktur pajak dari PKP",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "SSP_PPN",
@@ -944,7 +851,7 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "ssp.xlsx",
                     "deskripsi": "Surat Setoran Pajak PPN",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
                 {
                     "kode": "SSP_PPH",
@@ -952,19 +859,17 @@ LS_WORKFLOW = {
                     "kategori": "wajib",
                     "template": "ssp.xlsx",
                     "deskripsi": "Surat Setoran Pajak PPh",
-                    "jenis_dasar": "KONTRAK"
+                    "jenis_dasar": "KONTRAK",
                 },
-            ],
 
-            # Dokumen khusus SURAT_TUGAS (Perjalanan Dinas)
-            "dokumen_surat_tugas": [
+                # === DOKUMEN PERJALANAN DINAS ===
                 {
                     "kode": "RINCIAN_BIAYA",
                     "nama": "Rincian Biaya Perjalanan",
                     "kategori": "wajib",
                     "template": "rincian_biaya_pd.docx",
                     "deskripsi": "Rincian biaya perjalanan dinas yang direalisasi",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
                 {
                     "kode": "BUKTI_BAYAR_PJD",
@@ -972,66 +877,49 @@ LS_WORKFLOW = {
                     "kategori": "upload",
                     "template": None,
                     "deskripsi": "Bukti pembayaran (tiket, hotel, transport lokal)",
-                    "jenis_dasar": "SURAT_TUGAS"
+                    "jenis_dasar": "PERJALANAN_DINAS",
                 },
             ],
 
-            "kelengkapan_kontrak": [
-                "Resume Kontrak",
-                "Ringkasan Kontrak",
-                "Copy SPK",
-                "Copy BAST",
-                "Faktur Pajak",
-                "NPWP Penyedia",
-                "Copy Rekening Penyedia",
-            ],
-            "kelengkapan_surat_tugas": [
-                "Copy Surat Tugas",
-                "Copy SPD yang ditandatangani",
-                "Laporan Perjalanan Dinas",
-                "Bukti-bukti pengeluaran",
-            ],
-            "validasi": [
-                {"field": "dokumen_spm", "rule": "required", "message": "SPM wajib dibuat"},
-            ],
-            "validasi_kontrak": [
-                {"field": "pajak", "rule": "calculated", "message": "Pajak wajib dihitung"},
-            ],
             "next_condition": "SPM diajukan ke KPPN"
         },
 
+        # ================================================================
+        # FASE 5: SP2D & PENYELESAIAN
+        # ================================================================
         5: {
             "nama": "SP2D & Penyelesaian",
-            "deskripsi": "KPPN menerbitkan SP2D, dana masuk ke rekening penyedia",
+            "deskripsi": "KPPN menerbitkan SP2D, dana masuk ke rekening penerima",
             "icon": "check-circle",
             "color": "#27ae60",
+
             "dokumen": [
                 {
                     "kode": "SP2D_LS",
                     "nama": "Surat Perintah Pencairan Dana",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "SP2D dari KPPN"
+                    "deskripsi": "SP2D dari KPPN",
+                    "untuk_semua": True,
                 },
                 {
                     "kode": "BUKTI_TRF",
-                    "nama": "Bukti Transfer ke Penyedia",
+                    "nama": "Bukti Transfer ke Penerima",
                     "kategori": "upload",
                     "template": None,
-                    "deskripsi": "Bukti transfer pembayaran"
+                    "deskripsi": "Bukti transfer pembayaran",
+                    "untuk_semua": True,
                 },
             ],
+
             "aksi_tambahan": [
-                "Verifikasi dana sudah diterima penyedia",
-                "Update status kontrak menjadi SELESAI",
+                "Verifikasi dana sudah diterima",
+                "Update status menjadi SELESAI",
                 "Arsip seluruh dokumen",
                 "Update realisasi anggaran di DIPA",
             ],
-            "validasi": [
-                {"field": "dokumen_sp2d", "rule": "required", "message": "SP2D wajib ada"},
-                {"field": "pembayaran", "rule": "confirmed", "message": "Pembayaran wajib dikonfirmasi penyedia"},
-            ],
-            "next_condition": "Transaksi selesai dan pembayaran diterima penyedia"
+
+            "next_condition": "Transaksi selesai dan pembayaran diterima"
         }
     }
 }
@@ -1040,7 +928,6 @@ LS_WORKFLOW = {
 # EXPORT & HELPER FUNCTIONS
 # ============================================================================
 
-# Export semua workflow
 ALL_WORKFLOWS = {
     "UP": UP_WORKFLOW,
     "TUP": TUP_WORKFLOW,
@@ -1050,54 +937,66 @@ ALL_WORKFLOWS = {
 # Alias for backwards compatibility
 WORKFLOW_CONFIGS = ALL_WORKFLOWS
 
+
 def get_workflow(mekanisme: str) -> Optional[Dict[str, Any]]:
-    """
-    Get konfigurasi workflow berdasarkan mekanisme.
-
-    Args:
-        mekanisme: Kode mekanisme (UP, TUP, LS)
-
-    Returns:
-        Dictionary konfigurasi workflow atau None
-    """
+    """Get konfigurasi workflow berdasarkan mekanisme."""
     return ALL_WORKFLOWS.get(mekanisme.upper())
 
 
 def get_fase_config(mekanisme: str, fase: int) -> Optional[Dict[str, Any]]:
-    """
-    Get konfigurasi fase tertentu.
-
-    Args:
-        mekanisme: Kode mekanisme (UP, TUP, LS)
-        fase: Nomor fase (1-5)
-
-    Returns:
-        Dictionary konfigurasi fase atau None
-    """
+    """Get konfigurasi fase tertentu."""
     workflow = get_workflow(mekanisme)
     if workflow and fase in workflow.get("fase", {}):
         return workflow["fase"][fase]
     return None
 
 
-def get_dokumen_list(mekanisme: str, fase: int) -> List[Dict[str, Any]]:
+def get_dokumen_list(mekanisme: str, fase: int, jenis_kegiatan: str = None, jenis_dasar: str = None) -> List[Dict[str, Any]]:
     """
-    Get daftar dokumen untuk fase tertentu.
+    Get daftar dokumen untuk fase tertentu, difilter berdasarkan jenis kegiatan/dasar.
 
     Args:
-        mekanisme: Kode mekanisme
-        fase: Nomor fase
+        mekanisme: UP, TUP, atau LS
+        fase: Nomor fase (1-5)
+        jenis_kegiatan: Untuk UP (OPERASIONAL, KEPANITIAAN, dll)
+        jenis_dasar: Untuk LS (KONTRAK atau PERJALANAN_DINAS)
 
     Returns:
-        List dokumen untuk fase tersebut
+        List dokumen yang sesuai
     """
     fase_config = get_fase_config(mekanisme, fase)
-    if fase_config:
-        return fase_config.get("dokumen", [])
-    return []
+    if not fase_config:
+        return []
+
+    all_docs = fase_config.get("dokumen", [])
+    filtered_docs = []
+
+    for doc in all_docs:
+        # Dokumen untuk semua jenis
+        if doc.get("untuk_semua"):
+            filtered_docs.append(doc)
+            continue
+
+        # Filter berdasarkan jenis_kegiatan (untuk UP)
+        if jenis_kegiatan and "jenis_kegiatan" in doc:
+            if jenis_kegiatan in doc["jenis_kegiatan"]:
+                filtered_docs.append(doc)
+            continue
+
+        # Filter berdasarkan jenis_dasar (untuk LS)
+        if jenis_dasar and "jenis_dasar" in doc:
+            if doc["jenis_dasar"] == jenis_dasar:
+                filtered_docs.append(doc)
+            continue
+
+        # Dokumen tanpa filter khusus (untuk TUP atau dokumen umum)
+        if "jenis_kegiatan" not in doc and "jenis_dasar" not in doc:
+            filtered_docs.append(doc)
+
+    return filtered_docs
 
 
-def get_all_dokumen(mekanisme: str) -> List[Dict[str, Any]]:
+def get_all_dokumen(mekanisme: str, jenis_kegiatan: str = None, jenis_dasar: str = None) -> List[Dict[str, Any]]:
     """
     Get semua dokumen untuk mekanisme tertentu.
 
@@ -1109,36 +1008,56 @@ def get_all_dokumen(mekanisme: str) -> List[Dict[str, Any]]:
         return []
 
     dokumen_list = []
-    for fase_num, fase_config in workflow.get("fase", {}).items():
-        for dok in fase_config.get("dokumen", []):
+    for fase_num in workflow.get("fase", {}).keys():
+        docs = get_dokumen_list(mekanisme, fase_num, jenis_kegiatan, jenis_dasar)
+        for dok in docs:
             dok_copy = dok.copy()
             dok_copy["fase"] = fase_num
-            dok_copy["fase_nama"] = fase_config.get("nama", "")
+            dok_copy["fase_nama"] = workflow["fase"][fase_num].get("nama", "")
             dokumen_list.append(dok_copy)
 
     return dokumen_list
 
 
-def get_validasi_rules(mekanisme: str, fase: int) -> List[Dict[str, str]]:
+def get_jenis_kegiatan_options(mekanisme: str) -> Dict[str, Dict]:
+    """Get opsi jenis kegiatan untuk mekanisme tertentu."""
+    workflow = get_workflow(mekanisme)
+    if not workflow:
+        return {}
+
+    if mekanisme == "UP":
+        return workflow.get("jenis_kegiatan", {})
+    elif mekanisme == "LS":
+        return workflow.get("jenis_dasar", {})
+    return {}
+
+
+def get_validasi_rules(mekanisme: str, fase: int, jenis: str = None) -> List[Dict[str, str]]:
     """
     Get aturan validasi untuk fase tertentu.
 
-    Returns:
-        List aturan validasi
+    Args:
+        mekanisme: UP, TUP, atau LS
+        fase: Nomor fase
+        jenis: Jenis kegiatan/dasar untuk validasi spesifik
     """
     fase_config = get_fase_config(mekanisme, fase)
-    if fase_config:
-        return fase_config.get("validasi", [])
-    return []
+    if not fase_config:
+        return []
+
+    # Validasi umum
+    rules = fase_config.get("validasi", [])
+
+    # Validasi spesifik per jenis
+    if jenis:
+        jenis_key = f"validasi_{jenis.lower()}"
+        rules.extend(fase_config.get(jenis_key, []))
+
+    return rules
 
 
 def get_workflow_summary(mekanisme: str) -> Dict[str, Any]:
-    """
-    Get ringkasan workflow untuk display.
-
-    Returns:
-        Dictionary dengan informasi ringkas workflow
-    """
+    """Get ringkasan workflow untuk display."""
     workflow = get_workflow(mekanisme)
     if not workflow:
         return {}
@@ -1151,7 +1070,6 @@ def get_workflow_summary(mekanisme: str) -> Dict[str, Any]:
             "icon": fase_config.get("icon", ""),
             "color": fase_config.get("color", "#666"),
             "jumlah_dokumen": len(fase_config.get("dokumen", [])),
-            "dokumen_wajib": len([d for d in fase_config.get("dokumen", []) if d.get("kategori") == "wajib"]),
         })
 
     return {
@@ -1168,7 +1086,7 @@ def get_workflow_summary(mekanisme: str) -> Dict[str, Any]:
 # Nama fase untuk display
 NAMA_FASE = {
     "UP": {
-        1: "Inisiasi & SK",
+        1: "Inisiasi & Dasar",
         2: "Pencairan UM",
         3: "Pelaksanaan",
         4: "Pertanggungjawaban",
@@ -1182,7 +1100,7 @@ NAMA_FASE = {
         5: "Pertanggungjawaban"
     },
     "LS": {
-        1: "Kontrak/SPK",
+        1: "Dasar Hukum",
         2: "Pelaksanaan",
         3: "Serah Terima",
         4: "Tagihan SPM",

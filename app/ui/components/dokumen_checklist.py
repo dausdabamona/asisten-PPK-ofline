@@ -145,12 +145,12 @@ class DokumenItem(QFrame):
                 self._add_action_btn(actions_layout, "upload", "Ganti", "#95a5a6")
         else:
             if self.status == "pending":
-                # Tombol Buat untuk generate dokumen final
+                # Tombol Buat untuk generate dokumen baru (menimpa draft jika ada)
                 self._add_action_btn(actions_layout, "create", "+ Buat", "#27ae60")
-                # Tombol Draft untuk menyimpan sebagai draft
-                self._add_action_btn(actions_layout, "draft", "Draft", "#f39c12")
-                # Tombol Buka untuk membuka folder dokumen
-                self._add_action_btn(actions_layout, "open_folder", "Buka", "#3498db")
+                # Tombol Draft untuk membuka dokumen draft yang sudah di-generate
+                self._add_action_btn(actions_layout, "view_draft", "Draft", "#f39c12")
+                # Tombol Buka untuk membuka file yang sudah di-upload via Arsip
+                self._add_action_btn(actions_layout, "open_uploaded", "Buka", "#3498db")
                 # Tombol Arsip untuk upload dokumen
                 self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
             elif self.status == "draft":

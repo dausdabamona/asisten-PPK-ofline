@@ -244,6 +244,9 @@ class MainWindowV2(QMainWindow):
             lambda: self._on_next_fase(self.up_detail_page._transaksi_id)
         )
         self.up_detail_page.dokumen_action.connect(self._on_dokumen_action)
+        self.up_detail_page.edit_transaksi_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "UP")
+        )
 
         # UP form signals
         self.up_form_page.saved.connect(self._on_form_saved)
@@ -263,6 +266,9 @@ class MainWindowV2(QMainWindow):
             lambda: self._on_next_fase(self.tup_detail_page._transaksi_id)
         )
         self.tup_detail_page.dokumen_action.connect(self._on_dokumen_action)
+        self.tup_detail_page.edit_transaksi_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "TUP")
+        )
 
         # TUP form signals
         self.tup_form_page.saved.connect(self._on_form_saved)
@@ -282,6 +288,9 @@ class MainWindowV2(QMainWindow):
             lambda: self._on_next_fase(self.ls_detail_page._transaksi_id)
         )
         self.ls_detail_page.dokumen_action.connect(self._on_dokumen_action)
+        self.ls_detail_page.edit_transaksi_clicked.connect(
+            lambda id: self._on_edit_transaksi(id, "LS")
+        )
 
         # LS form signals
         self.ls_form_page.saved.connect(self._on_form_saved)
@@ -438,6 +447,23 @@ class MainWindowV2(QMainWindow):
         if form_page:
             form_page.clear()
 
+    def _on_edit_transaksi(self, transaksi_id: int, mekanisme: str):
+        """Handle edit transaksi."""
+        # Get transaksi data
+        transaksi = self.db.get_transaksi(transaksi_id)
+        if not transaksi:
+            QMessageBox.warning(self, "Error", "Transaksi tidak ditemukan.")
+            return
+
+        # Navigate to form page
+        form_page_id = f"{mekanisme.lower()}_form"
+        self._navigate_to(form_page_id)
+
+        # Load data into form
+        form_page = self._page_map.get(form_page_id)
+        if form_page:
+            form_page.set_transaksi(transaksi)
+
     def _on_form_saved(self, data: Dict[str, Any]):
         """Handle form save."""
         try:
@@ -510,7 +536,7 @@ class MainWindowV2(QMainWindow):
                 )
 
     def _on_dokumen_action(self, kode_dokumen: str, action: str, fase: int):
-        """Handle document action (create, view, edit, upload, upload_arsip, draft, open_folder, finalize)."""
+        """Handle document action (create, view, edit, upload, upload_arsip, view_draft, open_uploaded, finalize)."""
         # Get current transaksi data
         transaksi_data = self._get_current_transaksi_data()
 
@@ -518,14 +544,16 @@ class MainWindowV2(QMainWindow):
             self._handle_create_dokumen(kode_dokumen, fase, transaksi_data)
         elif action == "view":
             self._handle_view_dokumen(kode_dokumen, transaksi_data)
+        elif action == "view_draft":
+            self._handle_view_draft(kode_dokumen, transaksi_data)
+        elif action == "open_uploaded":
+            self._handle_open_uploaded(kode_dokumen, transaksi_data)
         elif action == "edit":
             self._handle_edit_dokumen(kode_dokumen, transaksi_data)
         elif action == "upload":
             self._handle_upload_dokumen(kode_dokumen, transaksi_data)
         elif action == "upload_arsip":
             self._handle_upload_arsip(kode_dokumen, transaksi_data)
-        elif action == "draft":
-            self._handle_draft_dokumen(kode_dokumen, fase, transaksi_data)
         elif action == "open_folder":
             self._handle_open_folder(kode_dokumen, transaksi_data)
         elif action == "finalize":
@@ -668,6 +696,67 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+
+    def _handle_view_draft(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle viewing existing draft document."""
+        try:
+            generator = get_dokumen_generator()
+            folder = generator.get_output_folder(transaksi=transaksi_data)
+
+            # Find draft documents with this kode
+            import glob
+            pattern = str(folder / f"{kode_dokumen}_*")
+            files = glob.glob(pattern)
+
+            if files:
+                # Open most recent draft
+                latest_file = max(files, key=lambda x: x)
+                generator.open_document(latest_file)
+            else:
+                QMessageBox.information(
+                    self,
+                    "Draft Tidak Ditemukan",
+                    f"Dokumen draft {kode_dokumen} belum dibuat.\n\n"
+                    "Gunakan tombol '+ Buat' untuk membuat dokumen baru."
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal membuka draft: {str(e)}")
+
+    def _handle_open_uploaded(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle opening uploaded/archived document."""
+        try:
+            generator = get_dokumen_generator()
+            folder = generator.get_output_folder(transaksi=transaksi_data)
+
+            # Look for uploaded files in arsip subfolder
+            arsip_folder = folder / "arsip"
+
+            import glob
+            files = []
+
+            # Check arsip folder first
+            if arsip_folder.exists():
+                pattern = str(arsip_folder / f"{kode_dokumen}*")
+                files = glob.glob(pattern)
+
+            # Also check main folder for uploaded files
+            if not files:
+                pattern = str(folder / f"{kode_dokumen}_arsip*")
+                files = glob.glob(pattern)
+
+            if files:
+                # Open most recent uploaded file
+                latest_file = max(files, key=lambda x: x)
+                generator.open_document(latest_file)
+            else:
+                QMessageBox.information(
+                    self,
+                    "File Arsip Tidak Ditemukan",
+                    f"File arsip untuk {kode_dokumen} belum di-upload.\n\n"
+                    "Gunakan tombol 'Arsip' untuk meng-upload dokumen."
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal membuka file arsip: {str(e)}")
 
     def _handle_draft_dokumen(self, kode_dokumen: str, fase: int, transaksi_data: Dict):
         """Handle creating draft document."""

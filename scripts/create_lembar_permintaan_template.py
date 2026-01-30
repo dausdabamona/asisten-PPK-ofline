@@ -3,12 +3,19 @@ Script untuk membuat template Lembar Permintaan sesuai format yang diminta.
 """
 
 from docx import Document
-from docx.shared import Inches, Pt, Cm, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt, Cm, RGBColor, Twips
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from pathlib import Path
+
+
+def set_single_spacing(paragraph):
+    """Set paragraph to single spacing with no space before/after."""
+    paragraph.paragraph_format.space_before = Pt(0)
+    paragraph.paragraph_format.space_after = Pt(0)
+    paragraph.paragraph_format.line_spacing = 1.0
 
 
 def set_cell_border(cell, **kwargs):
@@ -42,6 +49,7 @@ def create_template():
     # Title 1
     title1 = doc.add_paragraph()
     title1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_single_spacing(title1)
     run1 = title1.add_run("FORMULIR PERMINTAAN REALISASI KEGIATAN")
     run1.bold = True
     run1.font.size = Pt(12)
@@ -50,14 +58,16 @@ def create_template():
     # Title 2 - Institution name
     title2 = doc.add_paragraph()
     title2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_single_spacing(title2)
     run2 = title2.add_run("{{satker_nama}}")
     run2.bold = True
     run2.font.size = Pt(12)
     run2.font.color.rgb = RGBColor(139, 0, 0)
     run2.underline = True
 
-    # Spacing
-    doc.add_paragraph()
+    # Small spacing
+    spacer = doc.add_paragraph()
+    set_single_spacing(spacer)
 
     # ========== INFO FIELDS ==========
     # Create table for info fields (2 columns)
@@ -174,6 +184,7 @@ def create_template():
     # ========== LOCATION AND DATE ==========
     loc_date = doc.add_paragraph()
     loc_date.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    set_single_spacing(loc_date)
     loc_date.add_run("{{satker_kota}}, {{tanggal_dokumen:tanggal_panjang}}")
 
     doc.add_paragraph()
@@ -234,6 +245,7 @@ def create_template():
 
     # ========== FOOTER NOTES ==========
     notes = doc.add_paragraph()
+    set_single_spacing(notes)
     notes_run = notes.add_run("Catatan Bagian Keuangan :")
     notes_run.italic = True
     notes_run.font.size = Pt(9)
@@ -248,11 +260,11 @@ def create_template():
 
     for item in note_items:
         p = doc.add_paragraph()
+        set_single_spacing(p)
         r = p.add_run(item)
         r.italic = True
         r.font.size = Pt(9)
         r.font.color.rgb = RGBColor(139, 0, 0)
-        p.paragraph_format.space_after = Pt(0)
 
     # Save
     output_path = Path(__file__).parent.parent / "templates" / "word" / "lembar_permintaan.docx"

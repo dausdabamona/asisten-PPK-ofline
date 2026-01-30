@@ -85,7 +85,7 @@ def hitung_harga_hps(survey1: float, survey2: float, survey3: float, metode: str
 # ============================================================================
 
 SATKER_DEFAULT = {
-    'kode': '427266',
+    'kode': '634146',
     'nama': 'POLITEKNIK KELAUTAN DAN PERIKANAN SORONG',
     'nama_pendek': 'Politeknik KP Sorong',
     'alamat': 'Jl. Kapitan Pattimura, Klademak II, Distrik Sorong Manoi',

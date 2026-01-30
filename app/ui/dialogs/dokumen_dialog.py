@@ -17,6 +17,7 @@ from PySide6.QtGui import QFont
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import sqlite3
 
 
 class DokumenGeneratorDialog(QDialog):
@@ -37,8 +38,16 @@ class DokumenGeneratorDialog(QDialog):
         self.additional_data = additional_data or {}
         self.rincian_items = self.additional_data.get('rincian_items', [])
         self.generated_path = None
+        
+        # Database connection
+        from app.core.config import DATABASE_PATH
+        self.db_path = DATABASE_PATH
+        
+        # Pegawai data cache
+        self.pegawai_data = {}  # nip -> {nama, jabatan, ...}
 
         self._setup_ui()
+        self._load_pegawai_data()
         self._load_data()
 
     def _setup_ui(self):
@@ -120,17 +129,20 @@ class DokumenGeneratorDialog(QDialog):
 
         # Penerima
         data_layout.addWidget(QLabel("Nama Penerima:"), 4, 0)
-        self.penerima_nama_edit = QLineEdit()
-        self.penerima_nama_edit.setText(self.transaksi.get('penerima_nama', ''))
-        data_layout.addWidget(self.penerima_nama_edit, 4, 1)
+        self.penerima_nama_combo = QComboBox()
+        self.penerima_nama_combo.setEditable(False)
+        self.penerima_nama_combo.currentTextChanged.connect(self._on_penerima_changed)
+        data_layout.addWidget(self.penerima_nama_combo, 4, 1)
 
         data_layout.addWidget(QLabel("NIP Penerima:"), 5, 0)
         self.penerima_nip_edit = QLineEdit()
+        self.penerima_nip_edit.setReadOnly(True)
         self.penerima_nip_edit.setText(self.transaksi.get('penerima_nip', ''))
         data_layout.addWidget(self.penerima_nip_edit, 5, 1)
 
         data_layout.addWidget(QLabel("Jabatan:"), 6, 0)
         self.penerima_jabatan_edit = QLineEdit()
+        self.penerima_jabatan_edit.setReadOnly(True)
         self.penerima_jabatan_edit.setText(self.transaksi.get('penerima_jabatan', ''))
         data_layout.addWidget(self.penerima_jabatan_edit, 6, 1)
 
@@ -245,6 +257,65 @@ class DokumenGeneratorDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def _load_pegawai_data(self):
+        """Load pegawai data from database."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Get all active pegawai
+            cursor.execute("""
+                SELECT id, nip, nama, jabatan
+                FROM pegawai
+                WHERE is_active = 1
+                ORDER BY nama ASC
+            """)
+            
+            pegawai_list = cursor.fetchall()
+            conn.close()
+            
+            # Clear existing items
+            self.penerima_nama_combo.blockSignals(True)
+            self.penerima_nama_combo.clear()
+            self.penerima_nama_combo.addItem("-- Pilih Pegawai --", None)
+            
+            # Add pegawai items
+            for id_, nip, nama, jabatan in pegawai_list:
+                display_text = f"{nama} ({nip})"
+                self.penerima_nama_combo.addItem(display_text, nip)
+                
+                # Store pegawai data
+                self.pegawai_data[nip] = {
+                    'id': id_,
+                    'nama': nama,
+                    'nip': nip,
+                    'jabatan': jabatan or ""
+                }
+            
+            self.penerima_nama_combo.blockSignals(False)
+            
+            # Set current value if available
+            if self.transaksi.get('penerima_nip'):
+                idx = self.penerima_nama_combo.findData(self.transaksi.get('penerima_nip'))
+                if idx >= 0:
+                    self.penerima_nama_combo.setCurrentIndex(idx)
+        
+        except Exception as e:
+            print(f"Error loading pegawai data: {str(e)}")
+    
+    def _on_penerima_changed(self, text):
+        """Handle penerima pegawai selection change."""
+        nip = self.penerima_nama_combo.currentData()
+        
+        if nip and nip in self.pegawai_data:
+            
+            pegawai = self.pegawai_data[nip]
+            self.penerima_nip_edit.setText(pegawai.get('nip', ''))
+            self.penerima_jabatan_edit.setText(pegawai.get('jabatan', ''))
+        else:
+            self.penerima_nip_edit.clear()
+            self.penerima_jabatan_edit.clear()
+
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
         # Load rincian items if provided
@@ -321,12 +392,16 @@ class DokumenGeneratorDialog(QDialog):
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
+        # Get penerima nama from combo display text (remove NIP in parentheses)
+        penerima_display = self.penerima_nama_combo.currentText()
+        penerima_nama = penerima_display.split(" (")[0] if "(" in penerima_display else penerima_display
+        
         data = {
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
             'estimasi_biaya': self.estimasi_spin.value(),
             'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
-            'penerima_nama': self.penerima_nama_edit.text(),
+            'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
         }

@@ -134,6 +134,10 @@ class MenuHandlersMixin:
         """Open Satker Manager."""
         self._open_manager_dialog('app.ui.satker_manager', 'SatkerManager')
 
+    def _open_dipa_manager(self):
+        """Open Data DIPA Manager."""
+        self._open_manager_dialog('app.ui.dipa_manager', 'DipaManager')
+
     def _backup_master_data(self):
         """Backup master data."""
         default_name = f"backup_master_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"

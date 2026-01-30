@@ -120,6 +120,7 @@ class IconProvider:
         "user": "user.svg",
         "box": "box.svg",
         "building": "building.svg",
+        "database": "database.svg",
         "file-text": "file-text.svg",
         "folder": "folder.svg",
         "document": "document.svg",

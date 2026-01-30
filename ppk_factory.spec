@@ -20,6 +20,11 @@ pyside6_datas = collect_data_files('PySide6', include_py_files=False)
 
 # Collect submodules - termasuk modul baru untuk workflow
 hidden_imports = [
+    'encodings',
+    'encodings.ascii',
+    'encodings.utf_8',
+    'encodings.latin_1',
+    'encodings.cp1252',
     'PySide6.QtCore',
     'PySide6.QtGui',
     'PySide6.QtWidgets',

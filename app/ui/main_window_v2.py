@@ -55,6 +55,7 @@ from ..core.config import ROOT_DIR
 # Import document services and dialogs
 from ..services.dokumen_generator import get_dokumen_generator
 from .dialogs.dokumen_dialog import DokumenGeneratorDialog, UploadDokumenDialog
+from .dialogs.backup_restore_dialog import BackupRestoreDialog
 
 
 def format_rupiah(value: float) -> str:
@@ -324,8 +325,12 @@ class MainWindowV2(QMainWindow):
             self._show_legacy_page("pegawai")
         elif menu_id == "satker":
             self._show_legacy_page("satker")
+        elif menu_id == "dipa":
+            self._show_legacy_page("dipa")
         elif menu_id == "template":
             self._show_legacy_page("template")
+        elif menu_id == "backup_restore":
+            self._show_backup_restore_dialog()
         else:
             QMessageBox.information(
                 self,
@@ -345,6 +350,12 @@ class MainWindowV2(QMainWindow):
                 dialog = PegawaiManager(self)
                 # Refresh data setelah perubahan pegawai
                 dialog.pegawai_changed.connect(self._refresh_data)
+                dialog.exec()
+            elif page_type == "dipa":
+                from .dipa_manager import DipaManager
+                dialog = DipaManager(self.db.db_path, self)
+                # Refresh data setelah perubahan DIPA
+                dialog.data_changed.connect(self._refresh_data)
                 dialog.exec()
             elif page_type == "template":
                 from .template_manager import TemplateManagerDialog
@@ -379,6 +390,18 @@ class MainWindowV2(QMainWindow):
                 self,
                 "Error",
                 f"Terjadi kesalahan:\n{str(e)}"
+            )
+
+    def _show_backup_restore_dialog(self):
+        """Show backup and restore dialog."""
+        try:
+            dialog = BackupRestoreDialog(self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka dialog backup/restore:\n{str(e)}"
             )
 
     def _refresh_data(self):

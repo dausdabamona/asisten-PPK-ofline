@@ -336,6 +336,8 @@ class MainWindowV2(QMainWindow):
             self._show_legacy_page("pegawai")
         elif menu_id == "satker":
             self._show_legacy_page("satker")
+        elif menu_id == "dipa":
+            self._show_legacy_page("dipa")
         elif menu_id == "template":
             self._show_legacy_page("template")
         else:
@@ -365,6 +367,10 @@ class MainWindowV2(QMainWindow):
             elif page_type == "penyedia":
                 from .penyedia_manager import PenyediaManager
                 dialog = PenyediaManager(self)
+                dialog.exec()
+            elif page_type == "dipa":
+                from .dialogs import DipaImportDialog
+                dialog = DipaImportDialog(self)
                 dialog.exec()
             elif page_type == "paket":
                 # Paket pekerjaan - masih menggunakan fitur dari dashboard lama

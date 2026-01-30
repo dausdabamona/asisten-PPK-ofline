@@ -294,6 +294,7 @@ class Sidebar(QWidget):
         menu_layout.addWidget(SidebarSection("Pengaturan"))
         self._add_menu_item(menu_layout, "Data Satker", "building", "satker", indent=1)
         self._add_menu_item(menu_layout, "Data Pegawai", "user", "pegawai", indent=1)
+        self._add_menu_item(menu_layout, "Data DIPA", "database", "dipa", indent=1)
         self._add_menu_item(menu_layout, "Template Dokumen", "file-text", "template", indent=1)
 
         # Spacer

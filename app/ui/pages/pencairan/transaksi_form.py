@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt, Signal, QDate
 from typing import Dict, Any, Optional
 
 from ....models.pencairan_models import JENIS_BELANJA, BATAS_UP_MAKSIMAL
+from ....core.database import get_db_manager
 
 
 def format_rupiah(value: float) -> str:
@@ -216,11 +217,13 @@ class TransaksiFormPage(QWidget):
         self.jenis_combo.setStyleSheet(self._get_input_style())
         form_layout.addRow("Jenis Belanja *", self.jenis_combo)
 
-        # Kode Akun
-        self.akun_input = QLineEdit()
-        self.akun_input.setPlaceholderText("Contoh: 5.2.2.03")
+        # Kode Akun - combobox with DIPA data
+        self.akun_input = QComboBox()
+        self.akun_input.setEditable(True)
         self.akun_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Kode Akun", self.akun_input)
+        self.akun_input.lineEdit().setPlaceholderText("Pilih atau ketik kode akun...")
+        self._load_dipa_kode_akun()
+        form_layout.addRow("Kode Akun / MAK", self.akun_input)
 
         # Auto-fill kode akun when jenis changes
         self.jenis_combo.currentIndexChanged.connect(self._on_jenis_changed)
@@ -642,12 +645,42 @@ class TransaksiFormPage(QWidget):
         }
         return darken_map.get(hex_color, hex_color)
 
+    def _load_dipa_kode_akun(self):
+        """Load kode akun from DIPA data into combobox."""
+        try:
+            db = get_db_manager()
+            dipa_list = db.get_dipa_kode_akun_list()
+
+            self.akun_input.clear()
+            self.akun_input.addItem("", "")  # Empty option
+
+            for item in dipa_list:
+                kode = item.get('kode_akun', '')
+                total = item.get('total_pagu', 0) or 0
+                jumlah = item.get('jumlah_item', 0) or 0
+
+                # Format: "521111 - Rp 10.000.000 (5 item)"
+                pagu_text = f"Rp {total:,.0f}".replace(',', '.')
+                display = f"{kode} - {pagu_text} ({jumlah} item)"
+
+                self.akun_input.addItem(display, kode)
+        except Exception:
+            # If DIPA data not available, just keep empty combobox
+            pass
+
     def _on_jenis_changed(self, index: int):
         """Handle jenis belanja change to auto-fill kode akun."""
         kode = self.jenis_combo.currentData()
         for jenis in JENIS_BELANJA:
             if jenis['kode'] == kode:
-                self.akun_input.setText(jenis['akun_default'])
+                akun_default = jenis['akun_default']
+                # Find and select matching item in combobox
+                for i in range(self.akun_input.count()):
+                    if self.akun_input.itemData(i) == akun_default:
+                        self.akun_input.setCurrentIndex(i)
+                        return
+                # If not found in dropdown, set as text
+                self.akun_input.setCurrentText(akun_default)
                 break
 
     def _on_save(self):
@@ -705,7 +738,7 @@ class TransaksiFormPage(QWidget):
             'mekanisme': self.mekanisme,
             'nama_kegiatan': self.nama_input.text().strip(),
             'jenis_belanja': self.jenis_combo.currentData(),
-            'kode_akun': self.akun_input.text().strip(),
+            'kode_akun': self.akun_input.currentData() or self.akun_input.currentText().split(' - ')[0].strip(),
             'jenis_dasar': self.dasar_jenis_combo.currentText(),
             'nomor_dasar': self.dasar_nomor_input.text().strip(),
             'tanggal_dasar': self.dasar_tgl_input.date().toString('yyyy-MM-dd'),
@@ -765,7 +798,16 @@ class TransaksiFormPage(QWidget):
                 self.jenis_combo.setCurrentIndex(i)
                 break
 
-        self.akun_input.setText(data.get('kode_akun', ''))
+        # Set kode akun - find in dropdown or set as text
+        kode_akun = data.get('kode_akun', '')
+        found = False
+        for i in range(self.akun_input.count()):
+            if self.akun_input.itemData(i) == kode_akun:
+                self.akun_input.setCurrentIndex(i)
+                found = True
+                break
+        if not found and kode_akun:
+            self.akun_input.setCurrentText(kode_akun)
 
         if self.mekanisme in ["UP", "TUP"]:
             self.estimasi_input.setValue(data.get('estimasi_biaya', 0) or 0)
@@ -792,7 +834,7 @@ class TransaksiFormPage(QWidget):
 
         self.nama_input.clear()
         self.jenis_combo.setCurrentIndex(0)
-        self.akun_input.clear()
+        self.akun_input.setCurrentIndex(0)  # Reset to first (empty) option
 
         if hasattr(self, 'estimasi_input'):
             self.estimasi_input.setValue(0)

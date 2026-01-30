@@ -1080,6 +1080,64 @@ CREATE TABLE IF NOT EXISTS honorarium_pengelola (
 
 CREATE INDEX IF NOT EXISTS idx_hon_pengelola_tahun_bulan ON honorarium_pengelola(tahun, bulan);
 CREATE INDEX IF NOT EXISTS idx_hon_pengelola_jabatan ON honorarium_pengelola(jabatan);
+
+-- ============================================================================
+-- DIPA (Daftar Isian Pelaksanaan Anggaran) - Import from CSV
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS dipa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tahun_anggaran INTEGER NOT NULL,
+
+    -- Kode Satker & Hierarki
+    kode_satker TEXT,
+    kode_program TEXT,
+    kode_kegiatan TEXT,
+    kode_output TEXT,
+    kode_akun TEXT,
+
+    -- Uraian
+    uraian_item TEXT NOT NULL,
+
+    -- Volume & Satuan
+    volume REAL DEFAULT 0,
+    satuan TEXT,
+    harga_satuan REAL DEFAULT 0,
+    total REAL DEFAULT 0,
+
+    -- POK (Pagu Operasional Kegiatan) per bulan
+    pok_nilai_1 REAL DEFAULT 0,   -- Januari
+    pok_nilai_2 REAL DEFAULT 0,   -- Februari
+    pok_nilai_3 REAL DEFAULT 0,   -- Maret
+    pok_nilai_4 REAL DEFAULT 0,   -- April
+    pok_nilai_5 REAL DEFAULT 0,   -- Mei
+    pok_nilai_6 REAL DEFAULT 0,   -- Juni
+    pok_nilai_7 REAL DEFAULT 0,   -- Juli
+    pok_nilai_8 REAL DEFAULT 0,   -- Agustus
+    pok_nilai_9 REAL DEFAULT 0,   -- September
+    pok_nilai_10 REAL DEFAULT 0,  -- Oktober
+    pok_nilai_11 REAL DEFAULT 0,  -- November
+    pok_nilai_12 REAL DEFAULT 0,  -- Desember
+
+    -- Realisasi
+    realisasi REAL DEFAULT 0,
+    sisa REAL DEFAULT 0,
+
+    -- Kode lengkap gabungan untuk lookup
+    kode_full TEXT,
+
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Unique constraint untuk update/replace
+    UNIQUE(tahun_anggaran, kode_satker, kode_akun, uraian_item)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dipa_tahun ON dipa(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_dipa_kode_akun ON dipa(kode_akun);
+CREATE INDEX IF NOT EXISTS idx_dipa_kode_satker ON dipa(kode_satker);
+CREATE INDEX IF NOT EXISTS idx_dipa_kode_full ON dipa(kode_full);
 """
 
 # ============================================================================
@@ -4089,6 +4147,323 @@ class DatabaseManagerV4:
                 ORDER BY kode_akun
             """, (tahun,))
             return [dict(row) for row in cursor.fetchall()]
+
+    # ========================================================================
+    # DIPA (Daftar Isian Pelaksanaan Anggaran) Methods
+    # ========================================================================
+
+    def import_dipa_csv(self, filepath: str, tahun_anggaran: int = None) -> Tuple[int, int, List[str]]:
+        """
+        Import DIPA data from CSV file.
+
+        Expected columns: KDSATKER, KODE_PROGRAM, KODE_KEGIATAN, KODE_OUTPUT,
+                         KODE_AKUN, URAIAN_ITEM, VOLKEG, SATKEG, HARGASAT, TOTAL,
+                         POK_NILAI_1 to POK_NILAI_12
+
+        Returns: (success_count, error_count, error_messages)
+        """
+        import csv
+
+        if tahun_anggaran is None:
+            tahun_anggaran = TAHUN_ANGGARAN
+
+        success = 0
+        errors_count = 0
+        errors = []
+
+        try:
+            # Try to detect encoding
+            encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
+            content = None
+
+            for enc in encodings:
+                try:
+                    with open(filepath, 'r', encoding=enc) as f:
+                        content = f.read()
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if content is None:
+                return 0, 1, ["Tidak dapat membaca file CSV - format encoding tidak dikenali"]
+
+            # Parse CSV
+            lines = content.strip().split('\n')
+            if len(lines) < 2:
+                return 0, 1, ["File CSV kosong atau hanya berisi header"]
+
+            # Get headers
+            reader = csv.reader(lines)
+            headers = next(reader)
+            headers = [h.strip().upper() for h in headers]
+
+            # Map column indices
+            col_map = {}
+            required_cols = ['KODE_AKUN', 'URAIAN_ITEM']
+
+            for idx, h in enumerate(headers):
+                h_clean = h.replace(' ', '_').replace('-', '_')
+                if h_clean in ['KDSATKER', 'KODE_SATKER']:
+                    col_map['kode_satker'] = idx
+                elif h_clean in ['KODE_PROGRAM']:
+                    col_map['kode_program'] = idx
+                elif h_clean in ['KODE_KEGIATAN']:
+                    col_map['kode_kegiatan'] = idx
+                elif h_clean in ['KODE_OUTPUT']:
+                    col_map['kode_output'] = idx
+                elif h_clean in ['KODE_AKUN']:
+                    col_map['kode_akun'] = idx
+                elif h_clean in ['URAIAN_ITEM', 'URAIAN']:
+                    col_map['uraian_item'] = idx
+                elif h_clean in ['VOLKEG', 'VOLUME']:
+                    col_map['volume'] = idx
+                elif h_clean in ['SATKEG', 'SATUAN']:
+                    col_map['satuan'] = idx
+                elif h_clean in ['HARGASAT', 'HARGA_SATUAN']:
+                    col_map['harga_satuan'] = idx
+                elif h_clean in ['TOTAL', 'JUMLAH']:
+                    col_map['total'] = idx
+                # POK monthly values
+                for i in range(1, 13):
+                    if h_clean == f'POK_NILAI_{i}':
+                        col_map[f'pok_nilai_{i}'] = idx
+
+            # Check required columns
+            missing = [c for c in required_cols if c.lower() not in col_map]
+            if missing:
+                return 0, 1, [f"Kolom wajib tidak ditemukan: {', '.join(missing)}"]
+
+            # Process data rows
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for row_idx, row_text in enumerate(lines[1:], start=2):
+                    if not row_text.strip():
+                        continue
+
+                    try:
+                        # Parse row
+                        row = list(csv.reader([row_text]))[0]
+
+                        def get_val(key, default=''):
+                            if key in col_map and col_map[key] < len(row):
+                                val = row[col_map[key]]
+                                return val.strip() if val else default
+                            return default
+
+                        def get_num(key, default=0):
+                            val = get_val(key, '')
+                            if not val:
+                                return default
+                            try:
+                                # Remove thousand separators
+                                val = val.replace('.', '').replace(',', '.')
+                                return float(val)
+                            except:
+                                return default
+
+                        kode_akun = get_val('kode_akun')
+                        uraian_item = get_val('uraian_item')
+
+                        # Skip if required fields are empty
+                        if not kode_akun or not uraian_item:
+                            continue
+
+                        kode_satker = get_val('kode_satker')
+                        kode_program = get_val('kode_program')
+                        kode_kegiatan = get_val('kode_kegiatan')
+                        kode_output = get_val('kode_output')
+
+                        # Build kode_full
+                        kode_parts = [p for p in [kode_program, kode_kegiatan, kode_output, kode_akun] if p]
+                        kode_full = '.'.join(kode_parts)
+
+                        # Check if exists
+                        cursor.execute("""
+                            SELECT id FROM dipa
+                            WHERE tahun_anggaran = ? AND kode_satker = ?
+                                  AND kode_akun = ? AND uraian_item = ?
+                        """, (tahun_anggaran, kode_satker, kode_akun, uraian_item))
+                        existing = cursor.fetchone()
+
+                        data_values = (
+                            kode_satker,
+                            kode_program,
+                            kode_kegiatan,
+                            kode_output,
+                            kode_akun,
+                            uraian_item,
+                            get_num('volume'),
+                            get_val('satuan'),
+                            get_num('harga_satuan'),
+                            get_num('total'),
+                            get_num('pok_nilai_1'),
+                            get_num('pok_nilai_2'),
+                            get_num('pok_nilai_3'),
+                            get_num('pok_nilai_4'),
+                            get_num('pok_nilai_5'),
+                            get_num('pok_nilai_6'),
+                            get_num('pok_nilai_7'),
+                            get_num('pok_nilai_8'),
+                            get_num('pok_nilai_9'),
+                            get_num('pok_nilai_10'),
+                            get_num('pok_nilai_11'),
+                            get_num('pok_nilai_12'),
+                            kode_full,
+                        )
+
+                        if existing:
+                            # Update existing
+                            cursor.execute("""
+                                UPDATE dipa SET
+                                    kode_satker = ?, kode_program = ?, kode_kegiatan = ?,
+                                    kode_output = ?, kode_akun = ?, uraian_item = ?,
+                                    volume = ?, satuan = ?, harga_satuan = ?, total = ?,
+                                    pok_nilai_1 = ?, pok_nilai_2 = ?, pok_nilai_3 = ?,
+                                    pok_nilai_4 = ?, pok_nilai_5 = ?, pok_nilai_6 = ?,
+                                    pok_nilai_7 = ?, pok_nilai_8 = ?, pok_nilai_9 = ?,
+                                    pok_nilai_10 = ?, pok_nilai_11 = ?, pok_nilai_12 = ?,
+                                    kode_full = ?, updated_at = CURRENT_TIMESTAMP
+                                WHERE id = ?
+                            """, data_values + (existing[0],))
+                        else:
+                            # Insert new
+                            cursor.execute("""
+                                INSERT INTO dipa (
+                                    tahun_anggaran, kode_satker, kode_program, kode_kegiatan,
+                                    kode_output, kode_akun, uraian_item,
+                                    volume, satuan, harga_satuan, total,
+                                    pok_nilai_1, pok_nilai_2, pok_nilai_3,
+                                    pok_nilai_4, pok_nilai_5, pok_nilai_6,
+                                    pok_nilai_7, pok_nilai_8, pok_nilai_9,
+                                    pok_nilai_10, pok_nilai_11, pok_nilai_12,
+                                    kode_full
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (tahun_anggaran,) + data_values)
+
+                        success += 1
+
+                    except Exception as e:
+                        errors_count += 1
+                        errors.append(f"Baris {row_idx}: {str(e)}")
+                        if errors_count >= 10:
+                            errors.append("... (error lainnya tidak ditampilkan)")
+                            break
+
+                conn.commit()
+
+            return success, errors_count, errors
+
+        except Exception as e:
+            return 0, 1, [f"Error membaca file: {str(e)}"]
+
+    def get_all_dipa(self, tahun: int = None, kode_akun: str = None) -> List[Dict]:
+        """Get all DIPA records with optional filters."""
+        if tahun is None:
+            tahun = TAHUN_ANGGARAN
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            sql = "SELECT * FROM dipa WHERE tahun_anggaran = ?"
+            params = [tahun]
+
+            if kode_akun:
+                sql += " AND kode_akun LIKE ?"
+                params.append(f"{kode_akun}%")
+
+            sql += " ORDER BY kode_akun, uraian_item"
+
+            cursor.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_dipa(self, dipa_id: int) -> Optional[Dict]:
+        """Get single DIPA record by ID."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM dipa WHERE id = ?", (dipa_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_dipa_kode_akun_list(self, tahun: int = None) -> List[Dict]:
+        """
+        Get list of unique kode_akun from DIPA for dropdown.
+        Returns: [{'kode_akun': '521111', 'uraian': 'Belanja Barang...', 'total': 1000000}, ...]
+        """
+        if tahun is None:
+            tahun = TAHUN_ANGGARAN
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT kode_akun,
+                       MIN(uraian_item) as uraian_sample,
+                       SUM(total) as total_pagu,
+                       COUNT(*) as jumlah_item
+                FROM dipa
+                WHERE tahun_anggaran = ?
+                GROUP BY kode_akun
+                ORDER BY kode_akun
+            """, (tahun,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_dipa_by_kode_akun(self, kode_akun: str, tahun: int = None) -> List[Dict]:
+        """Get all DIPA items for a specific kode_akun."""
+        if tahun is None:
+            tahun = TAHUN_ANGGARAN
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM dipa
+                WHERE tahun_anggaran = ? AND kode_akun = ?
+                ORDER BY uraian_item
+            """, (tahun, kode_akun))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def search_dipa(self, keyword: str, tahun: int = None) -> List[Dict]:
+        """Search DIPA by uraian or kode_akun."""
+        if tahun is None:
+            tahun = TAHUN_ANGGARAN
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM dipa
+                WHERE tahun_anggaran = ?
+                      AND (uraian_item LIKE ? OR kode_akun LIKE ?)
+                ORDER BY kode_akun, uraian_item
+                LIMIT 50
+            """, (tahun, f"%{keyword}%", f"%{keyword}%"))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_dipa_summary(self, tahun: int = None) -> Dict:
+        """Get DIPA summary statistics."""
+        if tahun is None:
+            tahun = TAHUN_ANGGARAN
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_item,
+                    COUNT(DISTINCT kode_akun) as total_akun,
+                    SUM(total) as total_pagu,
+                    SUM(realisasi) as total_realisasi
+                FROM dipa
+                WHERE tahun_anggaran = ?
+            """, (tahun,))
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+
+    def delete_all_dipa(self, tahun: int) -> int:
+        """Delete all DIPA records for a specific year."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM dipa WHERE tahun_anggaran = ?", (tahun,))
+            deleted = cursor.rowcount
+            conn.commit()
+            return deleted
 
 
 # ============================================================================

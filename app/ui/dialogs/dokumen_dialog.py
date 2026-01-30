@@ -658,31 +658,40 @@ class DokumenGeneratorDialog(QDialog):
         self.uang_muka_spin.setValue(uang_muka)
 
     def _load_data(self):
-        """Load initial data including pre-filled rincian items from database."""
+        """Load initial data including pre-filled rincian items and estimasi from database."""
+        # Try to load rincian from database if not provided and transaksi has ID
+        transaksi_id = self.transaksi.get('id')
+        if transaksi_id and not self.rincian_items:
+            try:
+                db = get_db_manager()
+                db_items = db.get_paket_items(transaksi_id)
+                if db_items:
+                    # Convert database items to rincian format
+                    for item in db_items:
+                        self.rincian_items.append({
+                            'uraian': item.get('nama_item', ''),
+                            'nama_barang': item.get('nama_item', ''),
+                            'spesifikasi': item.get('spesifikasi', ''),
+                            'satuan': item.get('satuan', ''),
+                            'volume': item.get('volume', 0),
+                            'harga_satuan': item.get('harga_satuan', 0),
+                            'jumlah': item.get('jumlah', 0),
+                        })
+            except Exception as e:
+                print(f"Error loading rincian from database: {e}")
+
+        # Calculate total from rincian items and set estimasi
+        if self.rincian_items:
+            total_rincian = sum(item.get('jumlah', 0) for item in self.rincian_items)
+            if total_rincian > 0:
+                self.estimasi_spin.setValue(total_rincian)
+                # Trigger recalculation for KUIT_UM
+                if self.kode_dokumen == 'KUIT_UM':
+                    self._auto_set_percentage()
+
+        # Load rincian items to table if table exists
         if not hasattr(self, 'rincian_table'):
             return
-
-        # Try to load rincian from database if not provided and transaksi has ID
-        if not self.rincian_items:
-            transaksi_id = self.transaksi.get('id')
-            if transaksi_id:
-                try:
-                    db = get_db_manager()
-                    db_items = db.get_paket_items(transaksi_id)
-                    if db_items:
-                        # Convert database items to rincian format
-                        for item in db_items:
-                            self.rincian_items.append({
-                                'uraian': item.get('nama_item', ''),
-                                'nama_barang': item.get('nama_item', ''),
-                                'spesifikasi': item.get('spesifikasi', ''),
-                                'satuan': item.get('satuan', ''),
-                                'volume': item.get('volume', 0),
-                                'harga_satuan': item.get('harga_satuan', 0),
-                                'jumlah': item.get('jumlah', 0),
-                            })
-                except Exception as e:
-                    print(f"Error loading rincian from database: {e}")
 
         # Load rincian items to table
         if self.rincian_items:
@@ -949,6 +958,11 @@ class DokumenGeneratorDialog(QDialog):
                         try:
                             db = get_db_manager()
                             db.save_paket_items(transaksi_id, self.rincian_items)
+
+                            # Update transaksi estimasi_biaya with total from rincian
+                            total_rincian = sum(item.get('jumlah', 0) for item in self.rincian_items)
+                            if total_rincian > 0:
+                                db.update_paket(transaksi_id, {'estimasi_biaya': total_rincian})
                         except Exception as e:
                             print(f"Warning: Could not save rincian to database: {e}")
 

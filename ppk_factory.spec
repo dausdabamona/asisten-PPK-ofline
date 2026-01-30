@@ -43,11 +43,21 @@ hidden_imports = [
     'PIL.TiffImagePlugin',
     'PIL.JpegImagePlugin',
     'PIL.PngImagePlugin',
-    # Modul baru untuk workflow
+    # Core modules
+    'app.core',
+    'app.core.config',
+    'app.core.database',
+    'app.core.database_v4',
+    # Model modules
     'app.models',
     'app.models.pencairan_models',
+    # Config modules
     'app.config',
     'app.config.workflow_config',
+    # Service modules
+    'app.services',
+    'app.services.dokumen_generator',
+    # UI Components
     'app.ui.components',
     'app.ui.components.sidebar',
     'app.ui.components.dashboard_cards',
@@ -55,8 +65,24 @@ hidden_imports = [
     'app.ui.components.dokumen_checklist',
     'app.ui.components.kalkulasi_widget',
     'app.ui.components.countdown_widget',
+    'app.ui.components.rincian_kalkulasi_widget',
+    # UI Dialogs
+    'app.ui.dialogs',
+    'app.ui.dialogs.dokumen_dialog',
+    # UI Pages
     'app.ui.pages',
     'app.ui.pages.pencairan',
+    'app.ui.pages.pencairan.base_list_page',
+    'app.ui.pages.pencairan.base_detail_page',
+    'app.ui.pages.pencairan.transaksi_form',
+    'app.ui.pages.pencairan.up_list',
+    'app.ui.pages.pencairan.up_detail',
+    'app.ui.pages.pencairan.tup_list',
+    'app.ui.pages.pencairan.tup_detail',
+    'app.ui.pages.pencairan.ls_list',
+    'app.ui.pages.pencairan.ls_detail',
+    'app.ui.pages.pencairan.dashboard_pencairan',
+    # Main window
     'app.ui.main_window_v2',
 ]
 

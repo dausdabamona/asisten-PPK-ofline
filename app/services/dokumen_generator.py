@@ -194,6 +194,8 @@ class DokumenGenerator:
         data['kode_transaksi'] = transaksi.get('kode', '')
         data['nama_kegiatan'] = transaksi.get('nama_kegiatan', '')
         data['kode_akun'] = transaksi.get('kode_akun', '')
+        data['sumber_dana'] = transaksi.get('sumber_dana', transaksi.get('kode_akun', ''))
+        data['unit_kerja'] = transaksi.get('unit_kerja', '')
         data['estimasi_biaya'] = transaksi.get('estimasi_biaya', 0)
         data['uang_muka'] = transaksi.get('uang_muka', 0)
         data['realisasi'] = transaksi.get('realisasi', 0)
@@ -206,6 +208,7 @@ class DokumenGenerator:
         data['tanggal_pencairan'] = transaksi.get('tanggal_pencairan', '')
         data['tanggal_selesai'] = transaksi.get('tanggal_selesai', '')
         data['tanggal_hari_ini'] = datetime.now().strftime("%Y-%m-%d")
+        data['tanggal_dokumen'] = transaksi.get('tanggal_dokumen', datetime.now().strftime("%Y-%m-%d"))
 
         # Data satker
         if satker:
@@ -217,7 +220,7 @@ class DokumenGenerator:
             data['unit_organisasi'] = satker.get('unit_organisasi', '')
             data['lokasi'] = satker.get('kota', '')
 
-        # Data penerima/pegawai
+        # Data penerima/pegawai (Yang Mengajukan)
         if pegawai:
             data['penerima_nama'] = pegawai.get('nama', transaksi.get('penerima_nama', ''))
             data['penerima_nip'] = pegawai.get('nip', transaksi.get('penerima_nip', ''))
@@ -227,7 +230,12 @@ class DokumenGenerator:
             data['penerima_nip'] = transaksi.get('penerima_nip', '')
             data['penerima_jabatan'] = transaksi.get('penerima_jabatan', '')
 
-        # Data PPK dari satker
+        # Alias for template compatibility
+        data['yang_mengajukan_nama'] = data['penerima_nama']
+        data['yang_mengajukan_nip'] = data['penerima_nip']
+        data['yang_mengajukan_jabatan'] = data['penerima_jabatan']
+
+        # Data PPK, PPSPM, KPA dari satker
         if satker:
             data['ppk_nama'] = satker.get('ppk_nama', '')
             data['ppk_nip'] = satker.get('ppk_nip', '')
@@ -235,6 +243,19 @@ class DokumenGenerator:
             data['kpa_nip'] = satker.get('kpa_nip', '')
             data['bendahara_nama'] = satker.get('bendahara_nama', '')
             data['bendahara_nip'] = satker.get('bendahara_nip', '')
+            # PPSPM sebagai Verifikator
+            data['ppspm_nama'] = satker.get('ppspm_nama', '')
+            data['ppspm_nip'] = satker.get('ppspm_nip', '')
+            data['ppspm_jabatan'] = satker.get('ppspm_jabatan', '')
+            data['verifikator_nama'] = satker.get('ppspm_nama', '')
+            data['verifikator_nip'] = satker.get('ppspm_nip', '')
+
+        # Override verifikator from transaksi if provided
+        if transaksi.get('verifikator_nama'):
+            data['verifikator_nama'] = transaksi.get('verifikator_nama', '')
+            data['verifikator_nip'] = transaksi.get('verifikator_nip', '')
+            data['ppspm_nama'] = transaksi.get('verifikator_nama', '')
+            data['ppspm_nip'] = transaksi.get('verifikator_nip', '')
 
         # Rincian items
         if rincian:

@@ -94,56 +94,96 @@ class DokumenGeneratorDialog(QDialog):
         data_layout = QGridLayout(data_group)
         data_layout.setSpacing(10)
 
+        row = 0
+
         # Nama Kegiatan
-        data_layout.addWidget(QLabel("Nama Kegiatan:"), 0, 0)
+        data_layout.addWidget(QLabel("Nama Kegiatan:"), row, 0)
         self.nama_kegiatan_edit = QLineEdit()
         self.nama_kegiatan_edit.setText(self.transaksi.get('nama_kegiatan', ''))
-        data_layout.addWidget(self.nama_kegiatan_edit, 0, 1)
+        data_layout.addWidget(self.nama_kegiatan_edit, row, 1)
+        row += 1
 
-        # Kode Akun/MAK
-        data_layout.addWidget(QLabel("Kode Akun/MAK:"), 1, 0)
+        # Unit Kerja - Dropdown
+        data_layout.addWidget(QLabel("Unit Kerja:"), row, 0)
+        self.unit_kerja_combo = QComboBox()
+        self.unit_kerja_combo.setEditable(True)
+        self.unit_kerja_combo.setPlaceholderText("Pilih atau ketik unit kerja...")
+        data_layout.addWidget(self.unit_kerja_combo, row, 1)
+        row += 1
+
+        # Kode Akun/MAK (Sumber Dana)
+        data_layout.addWidget(QLabel("Sumber Dana/MAK:"), row, 0)
         self.kode_akun_edit = QLineEdit()
         self.kode_akun_edit.setText(self.transaksi.get('kode_akun', ''))
-        data_layout.addWidget(self.kode_akun_edit, 1, 1)
+        self.kode_akun_edit.setPlaceholderText("DIPA ... TA. 2026")
+        data_layout.addWidget(self.kode_akun_edit, row, 1)
+        row += 1
 
         # Nilai/Estimasi
-        data_layout.addWidget(QLabel("Estimasi Biaya:"), 2, 0)
+        data_layout.addWidget(QLabel("Estimasi Biaya:"), row, 0)
         self.estimasi_spin = QDoubleSpinBox()
         self.estimasi_spin.setRange(0, 999999999999)
         self.estimasi_spin.setDecimals(0)
         self.estimasi_spin.setPrefix("Rp ")
         self.estimasi_spin.setGroupSeparatorShown(True)
         self.estimasi_spin.setValue(self.transaksi.get('estimasi_biaya', 0))
-        data_layout.addWidget(self.estimasi_spin, 2, 1)
+        data_layout.addWidget(self.estimasi_spin, row, 1)
+        row += 1
 
         # Tanggal
-        data_layout.addWidget(QLabel("Tanggal:"), 3, 0)
+        data_layout.addWidget(QLabel("Tanggal:"), row, 0)
         self.tanggal_edit = QDateEdit()
         self.tanggal_edit.setDate(QDate.currentDate())
         self.tanggal_edit.setCalendarPopup(True)
-        data_layout.addWidget(self.tanggal_edit, 3, 1)
+        data_layout.addWidget(self.tanggal_edit, row, 1)
+        row += 1
+
+        # Separator - Yang Mengajukan
+        data_layout.addWidget(QLabel("<b>Yang Mengajukan:</b>"), row, 0, 1, 2)
+        row += 1
 
         # Penerima - Dropdown dari daftar pegawai
-        data_layout.addWidget(QLabel("Nama Penerima:"), 4, 0)
+        data_layout.addWidget(QLabel("Nama:"), row, 0)
         self.penerima_nama_combo = QComboBox()
         self.penerima_nama_combo.setEditable(True)  # Allow manual entry if needed
         self.penerima_nama_combo.setPlaceholderText("Pilih atau ketik nama penerima...")
         self.penerima_nama_combo.currentIndexChanged.connect(self._on_penerima_changed)
-        data_layout.addWidget(self.penerima_nama_combo, 4, 1)
+        data_layout.addWidget(self.penerima_nama_combo, row, 1)
+        row += 1
 
-        data_layout.addWidget(QLabel("NIP Penerima:"), 5, 0)
+        data_layout.addWidget(QLabel("NIP:"), row, 0)
         self.penerima_nip_edit = QLineEdit()
         self.penerima_nip_edit.setText(self.transaksi.get('penerima_nip', ''))
         self.penerima_nip_edit.setReadOnly(True)  # Auto-filled from dropdown
         self.penerima_nip_edit.setStyleSheet("background-color: #f5f5f5;")
-        data_layout.addWidget(self.penerima_nip_edit, 5, 1)
+        data_layout.addWidget(self.penerima_nip_edit, row, 1)
+        row += 1
 
-        data_layout.addWidget(QLabel("Jabatan:"), 6, 0)
+        data_layout.addWidget(QLabel("Jabatan:"), row, 0)
         self.penerima_jabatan_edit = QLineEdit()
         self.penerima_jabatan_edit.setText(self.transaksi.get('penerima_jabatan', ''))
         self.penerima_jabatan_edit.setReadOnly(True)  # Auto-filled from dropdown
         self.penerima_jabatan_edit.setStyleSheet("background-color: #f5f5f5;")
-        data_layout.addWidget(self.penerima_jabatan_edit, 6, 1)
+        data_layout.addWidget(self.penerima_jabatan_edit, row, 1)
+        row += 1
+
+        # Separator - Verifikator (PPSPM)
+        data_layout.addWidget(QLabel("<b>Verifikator (PPSPM):</b>"), row, 0, 1, 2)
+        row += 1
+
+        # Verifikator PPSPM - auto-filled from satker
+        data_layout.addWidget(QLabel("Nama:"), row, 0)
+        self.verifikator_nama_edit = QLineEdit()
+        self.verifikator_nama_edit.setReadOnly(True)
+        self.verifikator_nama_edit.setStyleSheet("background-color: #f5f5f5;")
+        data_layout.addWidget(self.verifikator_nama_edit, row, 1)
+        row += 1
+
+        data_layout.addWidget(QLabel("NIP:"), row, 0)
+        self.verifikator_nip_edit = QLineEdit()
+        self.verifikator_nip_edit.setReadOnly(True)
+        self.verifikator_nip_edit.setStyleSheet("background-color: #f5f5f5;")
+        data_layout.addWidget(self.verifikator_nip_edit, row, 1)
 
         scroll_layout.addWidget(data_group)
 
@@ -257,12 +297,32 @@ class DokumenGeneratorDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _load_pegawai(self):
-        """Load pegawai data for dropdown."""
+        """Load pegawai data for dropdown, unit kerja list, and PPSPM data."""
         try:
             db = get_db_manager()
             self.pegawai_list = db.get_all_pegawai(active_only=True)
 
-            # Add empty option first
+            # ===== Load Unit Kerja dropdown =====
+            unit_kerja_set = set()
+            for pegawai in self.pegawai_list:
+                uk = pegawai.get('unit_kerja', '')
+                if uk:
+                    unit_kerja_set.add(uk)
+
+            self.unit_kerja_combo.addItem("-- Pilih Unit Kerja --")
+            for uk in sorted(unit_kerja_set):
+                self.unit_kerja_combo.addItem(uk)
+
+            # Set current value if transaksi has unit_kerja
+            unit_kerja = self.transaksi.get('unit_kerja', '')
+            if unit_kerja:
+                idx = self.unit_kerja_combo.findText(unit_kerja)
+                if idx >= 0:
+                    self.unit_kerja_combo.setCurrentIndex(idx)
+                else:
+                    self.unit_kerja_combo.setCurrentText(unit_kerja)
+
+            # ===== Load Penerima dropdown =====
             self.penerima_nama_combo.addItem("-- Pilih Pegawai --", None)
 
             # Add pegawai to dropdown
@@ -284,6 +344,14 @@ class DokumenGeneratorDialog(QDialog):
                 else:
                     # Not found in list, set as editable text
                     self.penerima_nama_combo.setCurrentText(penerima_nama)
+
+            # ===== Load Verifikator (PPSPM) from satker =====
+            satker_pejabat = db.get_satker_pejabat()
+            if satker_pejabat:
+                ppspm_nama = satker_pejabat.get('ppspm_nama', '')
+                ppspm_nip = satker_pejabat.get('ppspm_nip', '')
+                self.verifikator_nama_edit.setText(ppspm_nama)
+                self.verifikator_nip_edit.setText(ppspm_nip)
 
         except Exception as e:
             print(f"Error loading pegawai: {e}")
@@ -390,14 +458,26 @@ class DokumenGeneratorDialog(QDialog):
             if " - " in penerima_nama:
                 penerima_nama = penerima_nama.split(" - ")[0]
 
+        # Get unit kerja
+        unit_kerja = self.unit_kerja_combo.currentText()
+        if unit_kerja.startswith("--"):
+            unit_kerja = ""
+
         data = {
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
+            'unit_kerja': unit_kerja,
+            'sumber_dana': self.kode_akun_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
             'estimasi_biaya': self.estimasi_spin.value(),
             'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
             'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
+            # Verifikator (PPSPM)
+            'verifikator_nama': self.verifikator_nama_edit.text(),
+            'verifikator_nip': self.verifikator_nip_edit.text(),
+            'ppspm_nama': self.verifikator_nama_edit.text(),
+            'ppspm_nip': self.verifikator_nip_edit.text(),
         }
 
         # Merge with transaksi data

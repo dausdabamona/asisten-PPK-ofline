@@ -287,6 +287,35 @@ class DokumenGenerator:
             data['ppn_persen'] = '0%'
             data['grand_total'] = data['total_rincian']
 
+        # Override KPA from transaksi if provided (untuk Lembar Permintaan)
+        if transaksi.get('kpa_nama'):
+            data['kpa_nama'] = transaksi.get('kpa_nama', '')
+            data['kpa_nip'] = transaksi.get('kpa_nip', '')
+
+        # Data Mengetahui (untuk Lembar Permintaan - 4 tanda tangan)
+        data['mengetahui_nama'] = transaksi.get('mengetahui_nama', '')
+        data['mengetahui_nip'] = transaksi.get('mengetahui_nip', '')
+        data['jabatan_mengetahui'] = transaksi.get('jabatan_mengetahui', '')
+
+        # Prepare rincian placeholders for template (up to 10 items)
+        if rincian:
+            for i, item in enumerate(rincian[:10], 1):
+                data[f'rincian_{i}_nama'] = item.get('nama_barang', item.get('uraian', ''))
+                data[f'rincian_{i}_spek'] = item.get('spesifikasi', '')
+                data[f'rincian_{i}_vol'] = str(item.get('volume', ''))
+                data[f'rincian_{i}_satuan'] = item.get('satuan', '')
+                data[f'rincian_{i}_harga'] = item.get('harga_satuan', 0)
+                data[f'rincian_{i}_total'] = item.get('jumlah', 0)
+
+            # Clear unused placeholders
+            for i in range(len(rincian) + 1, 11):
+                data[f'rincian_{i}_nama'] = ''
+                data[f'rincian_{i}_spek'] = ''
+                data[f'rincian_{i}_vol'] = ''
+                data[f'rincian_{i}_satuan'] = ''
+                data[f'rincian_{i}_harga'] = ''
+                data[f'rincian_{i}_total'] = ''
+
         return data
 
     def _apply_format(self, value: Any, format_type: str) -> str:

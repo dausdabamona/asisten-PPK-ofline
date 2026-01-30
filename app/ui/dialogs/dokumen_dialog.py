@@ -265,6 +265,46 @@ class DokumenGeneratorDialog(QDialog):
             self.verifikator_nip_edit.setReadOnly(True)
             self.verifikator_nip_edit.setStyleSheet("background-color: #f5f5f5;")
             data_layout.addWidget(self.verifikator_nip_edit, row, 1)
+            row += 1
+
+        # Khusus untuk Lembar Permintaan: KPA dan Mengetahui (4 tanda tangan)
+        if self.kode_dokumen == 'LBR_REQ':
+            # Separator - KPA (Kuasa Pengguna Anggaran)
+            data_layout.addWidget(QLabel("<b>KPA (Kuasa Pengguna Anggaran):</b>"), row, 0, 1, 2)
+            row += 1
+
+            data_layout.addWidget(QLabel("Nama:"), row, 0)
+            self.kpa_nama_edit = QLineEdit()
+            self.kpa_nama_edit.setReadOnly(True)
+            self.kpa_nama_edit.setStyleSheet("background-color: #f5f5f5;")
+            data_layout.addWidget(self.kpa_nama_edit, row, 1)
+            row += 1
+
+            data_layout.addWidget(QLabel("NIP:"), row, 0)
+            self.kpa_nip_edit = QLineEdit()
+            self.kpa_nip_edit.setReadOnly(True)
+            self.kpa_nip_edit.setStyleSheet("background-color: #f5f5f5;")
+            data_layout.addWidget(self.kpa_nip_edit, row, 1)
+            row += 1
+
+            # Separator - Mengetahui (Pejabat lain)
+            data_layout.addWidget(QLabel("<b>Mengetahui:</b>"), row, 0, 1, 2)
+            row += 1
+
+            data_layout.addWidget(QLabel("Jabatan:"), row, 0)
+            self.mengetahui_jabatan_edit = QLineEdit()
+            self.mengetahui_jabatan_edit.setPlaceholderText("Contoh: Pudir III")
+            data_layout.addWidget(self.mengetahui_jabatan_edit, row, 1)
+            row += 1
+
+            data_layout.addWidget(QLabel("Nama:"), row, 0)
+            self.mengetahui_nama_edit = QLineEdit()
+            data_layout.addWidget(self.mengetahui_nama_edit, row, 1)
+            row += 1
+
+            data_layout.addWidget(QLabel("NIP:"), row, 0)
+            self.mengetahui_nip_edit = QLineEdit()
+            data_layout.addWidget(self.mengetahui_nip_edit, row, 1)
 
         scroll_layout.addWidget(data_group)
 
@@ -536,6 +576,13 @@ class DokumenGeneratorDialog(QDialog):
                     self.bendahara_nama_edit.setText(bendahara_nama)
                     self.bendahara_nip_edit.setText(bendahara_nip)
 
+                # KPA untuk Lembar Permintaan
+                if hasattr(self, 'kpa_nama_edit'):
+                    kpa_nama = satker_pejabat.get('kpa_nama', '')
+                    kpa_nip = satker_pejabat.get('kpa_nip', '')
+                    self.kpa_nama_edit.setText(kpa_nama)
+                    self.kpa_nip_edit.setText(kpa_nip)
+
         except Exception as e:
             print(f"Error loading pegawai: {e}")
             # Fallback - allow manual entry
@@ -784,7 +831,7 @@ class DokumenGeneratorDialog(QDialog):
             data['bendahara_nama'] = self.bendahara_nama_edit.text() if hasattr(self, 'bendahara_nama_edit') else ''
             data['bendahara_nip'] = self.bendahara_nip_edit.text() if hasattr(self, 'bendahara_nip_edit') else ''
 
-        # Khusus untuk Lembar Permintaan - include PPn data
+        # Khusus untuk Lembar Permintaan - include PPn data, KPA, dan Mengetahui
         if self.kode_dokumen == 'LBR_REQ':
             if hasattr(self, '_subtotal'):
                 data['subtotal'] = self._subtotal
@@ -798,6 +845,17 @@ class DokumenGeneratorDialog(QDialog):
                     data['ppn_persen'] = "11%"
                 else:
                     data['ppn_persen'] = "0%"
+
+            # KPA (Kuasa Pengguna Anggaran)
+            if hasattr(self, 'kpa_nama_edit'):
+                data['kpa_nama'] = self.kpa_nama_edit.text()
+                data['kpa_nip'] = self.kpa_nip_edit.text()
+
+            # Mengetahui (Pejabat lain)
+            if hasattr(self, 'mengetahui_nama_edit'):
+                data['mengetahui_nama'] = self.mengetahui_nama_edit.text()
+                data['mengetahui_nip'] = self.mengetahui_nip_edit.text()
+                data['jabatan_mengetahui'] = self.mengetahui_jabatan_edit.text()
 
         # Verifikator (PPSPM) untuk dokumen non-KUIT_UM
         if self.kode_dokumen != 'KUIT_UM':

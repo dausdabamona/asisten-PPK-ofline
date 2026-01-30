@@ -41,6 +41,7 @@ class BaseDetailPage(QWidget):
     save_clicked = Signal(dict)
     next_fase_clicked = Signal()
     dokumen_action = Signal(str, str, int)
+    edit_transaksi_clicked = Signal(int)  # transaksi_id
 
     # Override in subclasses
     MEKANISME = "UP"
@@ -215,6 +216,26 @@ class BaseDetailPage(QWidget):
         nilai_layout.addWidget(self.nilai_value, alignment=Qt.AlignRight)
 
         layout.addLayout(nilai_layout)
+
+        # Edit button
+        edit_btn = QPushButton("Edit")
+        edit_btn.setCursor(Qt.PointingHandCursor)
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f39c12;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 5px;
+                font-weight: 500;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #d68910;
+            }
+        """)
+        edit_btn.clicked.connect(self._on_edit_clicked)
+        layout.addWidget(edit_btn)
 
         return bar
 
@@ -426,6 +447,11 @@ class BaseDetailPage(QWidget):
             "#3498db": "#2980b9",
         }
         return darken_map.get(hex_color, hex_color)
+
+    def _on_edit_clicked(self):
+        """Handle edit button click."""
+        if self._transaksi_id:
+            self.edit_transaksi_clicked.emit(self._transaksi_id)
 
     def _on_fase_clicked(self, fase: int):
         """Handle fase step click."""

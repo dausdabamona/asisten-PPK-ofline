@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt, Signal, QDate
 from typing import Dict, Any, Optional
 
 from ....models.pencairan_models import JENIS_BELANJA, BATAS_UP_MAKSIMAL
+from ....core.database import get_db_manager
 
 
 def format_rupiah(value: float) -> str:
@@ -101,6 +102,11 @@ class TransaksiFormPage(QWidget):
         if self.mekanisme in ["UP", "TUP"]:
             penerima_section = self._create_penerima_section()
             form_layout.addWidget(penerima_section)
+
+            # Perjalanan Dinas section (hidden by default, shown when jenis = perdin)
+            self.perdin_section_widget = self._create_perjalanan_dinas_section()
+            self.perdin_section_widget.setVisible(False)  # Hidden by default
+            form_layout.addWidget(self.perdin_section_widget)
 
         # Penyedia section (for LS KONTRAK mode only)
         if self.mekanisme == "LS":
@@ -191,94 +197,259 @@ class TransaksiFormPage(QWidget):
         return label
 
     def _create_basic_section(self) -> QWidget:
-        """Create basic info section."""
+        """Create basic info section with 2-column layout."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
 
         layout.addWidget(self._create_section_title("Informasi Dasar"))
 
-        form_layout = QFormLayout()
-        form_layout.setSpacing(10)
-        form_layout.setLabelAlignment(Qt.AlignRight)
+        # Grid layout for compact display
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
 
-        # Nama Kegiatan
+        # Row 0: Nama Kegiatan (full width)
+        grid.addWidget(QLabel("Nama Kegiatan *"), 0, 0)
         self.nama_input = QLineEdit()
         self.nama_input.setPlaceholderText("Contoh: Rapat Koordinasi Tim Teknis")
         self.nama_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Nama Kegiatan *", self.nama_input)
+        grid.addWidget(self.nama_input, 0, 1, 1, 3)  # Span 3 columns
 
-        # Jenis Belanja
+        # Row 1: Jenis Belanja & Kode Akun (side by side)
+        grid.addWidget(QLabel("Jenis Belanja *"), 1, 0)
         self.jenis_combo = QComboBox()
         for jenis in JENIS_BELANJA:
             self.jenis_combo.addItem(jenis['nama'], jenis['kode'])
         self.jenis_combo.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Jenis Belanja *", self.jenis_combo)
+        grid.addWidget(self.jenis_combo, 1, 1)
 
-        # Kode Akun
-        self.akun_input = QLineEdit()
-        self.akun_input.setPlaceholderText("Contoh: 5.2.2.03")
+        grid.addWidget(QLabel("Kode Akun"), 1, 2)
+        self.akun_input = QComboBox()
+        self.akun_input.setEditable(True)
         self.akun_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Kode Akun", self.akun_input)
+        self.akun_input.lineEdit().setPlaceholderText("Pilih kode akun...")
+        self._load_dipa_kode_akun()
+        grid.addWidget(self.akun_input, 1, 3)
 
         # Auto-fill kode akun when jenis changes
         self.jenis_combo.currentIndexChanged.connect(self._on_jenis_changed)
 
-        layout.addLayout(form_layout)
+        layout.addLayout(grid)
 
         return section
 
     def _create_financial_section_up(self) -> QWidget:
-        """Create financial section for UP/TUP."""
+        """Create financial section for UP/TUP with DIPA budget selection."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
 
-        layout.addWidget(self._create_section_title("Informasi Keuangan"))
+        layout.addWidget(self._create_section_title("Ketersediaan Anggaran DIPA"))
 
-        form_layout = QFormLayout()
-        form_layout.setSpacing(10)
-        form_layout.setLabelAlignment(Qt.AlignRight)
+        # Grid layout for compact display
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
 
-        # Estimasi Biaya
+        # Row 0: RO (Output) & Akun dropdowns
+        grid.addWidget(QLabel("Output (RO)"), 0, 0)
+        self.dipa_ro_combo = QComboBox()
+        self.dipa_ro_combo.setStyleSheet(self._get_input_style())
+        self.dipa_ro_combo.currentIndexChanged.connect(self._on_dipa_ro_changed)
+        grid.addWidget(self.dipa_ro_combo, 0, 1)
+
+        grid.addWidget(QLabel("Akun"), 0, 2)
+        self.dipa_akun_combo = QComboBox()
+        self.dipa_akun_combo.setStyleSheet(self._get_input_style())
+        self.dipa_akun_combo.currentIndexChanged.connect(self._on_dipa_akun_changed)
+        grid.addWidget(self.dipa_akun_combo, 0, 3)
+
+        # Row 1: Detail Item & Ketersediaan
+        grid.addWidget(QLabel("Detail Item"), 1, 0)
+        self.dipa_detail_combo = QComboBox()
+        self.dipa_detail_combo.setStyleSheet(self._get_input_style())
+        self.dipa_detail_combo.currentIndexChanged.connect(self._on_dipa_detail_changed)
+        grid.addWidget(self.dipa_detail_combo, 1, 1)
+
+        # Ketersediaan (read-only display)
+        grid.addWidget(QLabel("Ketersediaan"), 1, 2)
+        self.ketersediaan_label = QLabel("Rp 0")
+        self.ketersediaan_label.setStyleSheet("""
+            font-weight: bold;
+            color: #27ae60;
+            padding: 8px;
+            background-color: #e8f8f5;
+            border-radius: 4px;
+        """)
+        grid.addWidget(self.ketersediaan_label, 1, 3)
+
+        # Row 2: Estimasi Biaya & Tanggal
+        grid.addWidget(QLabel("Estimasi Biaya *"), 2, 0)
+        estimasi_layout = QHBoxLayout()
         self.estimasi_input = QDoubleSpinBox()
         self.estimasi_input.setRange(0, BATAS_UP_MAKSIMAL)
         self.estimasi_input.setDecimals(0)
         self.estimasi_input.setPrefix("Rp ")
         self.estimasi_input.setGroupSeparatorShown(True)
         self.estimasi_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Estimasi Biaya *", self.estimasi_input)
+        estimasi_layout.addWidget(self.estimasi_input)
 
-        # Warning for UP limit
         if self.mekanisme == "UP":
-            warning = QLabel(f"Maksimal UP: {format_rupiah(BATAS_UP_MAKSIMAL)}")
-            warning.setStyleSheet("font-size: 11px; color: #f39c12; font-style: italic;")
-            form_layout.addRow("", warning)
+            warning = QLabel(f"(Maks UP: {format_rupiah(BATAS_UP_MAKSIMAL)})")
+            warning.setStyleSheet("font-size: 10px; color: #f39c12;")
+            estimasi_layout.addWidget(warning)
 
-        # Tanggal kegiatan
-        date_layout = QHBoxLayout()
+        grid.addLayout(estimasi_layout, 2, 1)
 
+        # Tanggal compact
+        tgl_layout = QHBoxLayout()
+        tgl_layout.addWidget(QLabel("Tgl:"))
         self.tgl_mulai_input = QDateEdit()
         self.tgl_mulai_input.setCalendarPopup(True)
         self.tgl_mulai_input.setDate(QDate.currentDate())
         self.tgl_mulai_input.setStyleSheet(self._get_input_style())
-        date_layout.addWidget(QLabel("Mulai:"))
-        date_layout.addWidget(self.tgl_mulai_input)
+        self.tgl_mulai_input.dateChanged.connect(self._on_tanggal_changed)
+        tgl_layout.addWidget(self.tgl_mulai_input)
 
+        tgl_layout.addWidget(QLabel("s/d"))
         self.tgl_selesai_input = QDateEdit()
         self.tgl_selesai_input.setCalendarPopup(True)
         self.tgl_selesai_input.setDate(QDate.currentDate())
         self.tgl_selesai_input.setStyleSheet(self._get_input_style())
-        date_layout.addWidget(QLabel("Selesai:"))
-        date_layout.addWidget(self.tgl_selesai_input)
+        self.tgl_selesai_input.dateChanged.connect(self._on_tanggal_changed)
+        tgl_layout.addWidget(self.tgl_selesai_input)
 
-        form_layout.addRow("Tanggal Kegiatan", date_layout)
+        grid.addLayout(tgl_layout, 2, 2, 1, 2)
 
-        layout.addLayout(form_layout)
+        layout.addLayout(grid)
+
+        # Load DIPA data into dropdowns
+        self._load_dipa_hierarchy()
 
         return section
+
+    def _load_dipa_hierarchy(self):
+        """Load DIPA data into hierarchical dropdowns."""
+        try:
+            db = get_db_manager()
+
+            # Get unique RO (Output) codes
+            all_dipa = db.get_all_dipa()
+
+            # Group by kode_output (RO)
+            ro_dict = {}
+            for item in all_dipa:
+                ro = item.get('kode_output', '') or 'Tanpa RO'
+                if ro not in ro_dict:
+                    ro_dict[ro] = {'total': 0, 'items': []}
+                ro_dict[ro]['total'] += item.get('total', 0) or 0
+                ro_dict[ro]['items'].append(item)
+
+            self.dipa_ro_combo.clear()
+            self.dipa_ro_combo.addItem("-- Pilih Output (RO) --", None)
+
+            for ro, data in sorted(ro_dict.items()):
+                total_text = format_rupiah(data['total'])
+                self.dipa_ro_combo.addItem(f"{ro} ({total_text})", ro)
+
+            # Store for filtering
+            self._dipa_data = all_dipa
+            self._dipa_by_ro = ro_dict
+
+        except Exception as e:
+            print(f"Error loading DIPA: {e}")
+            self._dipa_data = []
+            self._dipa_by_ro = {}
+
+    def _on_dipa_ro_changed(self, index: int):
+        """Handle RO selection change - filter akun dropdown."""
+        self.dipa_akun_combo.clear()
+        self.dipa_detail_combo.clear()
+        self.ketersediaan_label.setText("Rp 0")
+
+        ro = self.dipa_ro_combo.currentData()
+        if not ro:
+            self.dipa_akun_combo.addItem("-- Pilih Akun --", None)
+            return
+
+        # Get items for this RO and group by akun
+        ro_items = self._dipa_by_ro.get(ro, {}).get('items', [])
+        akun_dict = {}
+        for item in ro_items:
+            akun = item.get('kode_akun', '')
+            if akun not in akun_dict:
+                akun_dict[akun] = {'total': 0, 'items': []}
+            akun_dict[akun]['total'] += item.get('total', 0) or 0
+            akun_dict[akun]['items'].append(item)
+
+        self.dipa_akun_combo.addItem("-- Pilih Akun --", None)
+        for akun, data in sorted(akun_dict.items()):
+            total_text = format_rupiah(data['total'])
+            self.dipa_akun_combo.addItem(f"{akun} ({total_text})", akun)
+
+        self._dipa_by_akun = akun_dict
+
+    def _on_dipa_akun_changed(self, index: int):
+        """Handle Akun selection change - filter detail dropdown."""
+        self.dipa_detail_combo.clear()
+        self.ketersediaan_label.setText("Rp 0")
+
+        akun = self.dipa_akun_combo.currentData()
+        if not akun or not hasattr(self, '_dipa_by_akun'):
+            self.dipa_detail_combo.addItem("-- Pilih Detail --", None)
+            return
+
+        # Get items for this akun
+        akun_items = self._dipa_by_akun.get(akun, {}).get('items', [])
+
+        self.dipa_detail_combo.addItem("-- Pilih Detail --", None)
+        for item in akun_items:
+            uraian = item.get('uraian_item', '')[:50]  # Truncate long text
+            total = item.get('total', 0) or 0
+            total_text = format_rupiah(total)
+            display = f"{uraian}... ({total_text})" if len(item.get('uraian_item', '')) > 50 else f"{uraian} ({total_text})"
+            self.dipa_detail_combo.addItem(display, item)
+
+        # Also update kode akun combo in basic section
+        if hasattr(self, 'akun_input'):
+            for i in range(self.akun_input.count()):
+                if self.akun_input.itemData(i) == akun:
+                    self.akun_input.setCurrentIndex(i)
+                    break
+
+    def _on_dipa_detail_changed(self, index: int):
+        """Handle Detail selection change - show ketersediaan."""
+        item = self.dipa_detail_combo.currentData()
+        if not item or not isinstance(item, dict):
+            self.ketersediaan_label.setText("Rp 0")
+            self.ketersediaan_label.setStyleSheet("""
+                font-weight: bold; color: #7f8c8d; padding: 8px;
+                background-color: #ecf0f1; border-radius: 4px;
+            """)
+            return
+
+        total = item.get('total', 0) or 0
+        realisasi = item.get('realisasi', 0) or 0
+        ketersediaan = total - realisasi
+
+        self.ketersediaan_label.setText(format_rupiah(ketersediaan))
+
+        # Color based on availability
+        if ketersediaan > 0:
+            self.ketersediaan_label.setStyleSheet("""
+                font-weight: bold; color: #27ae60; padding: 8px;
+                background-color: #e8f8f5; border-radius: 4px;
+            """)
+        else:
+            self.ketersediaan_label.setStyleSheet("""
+                font-weight: bold; color: #e74c3c; padding: 8px;
+                background-color: #fdedec; border-radius: 4px;
+            """)
 
     def _create_financial_section_ls(self) -> QWidget:
         """Create financial section for LS with mode selection (KONTRAK vs SURAT_TUGAS)."""
@@ -458,37 +629,107 @@ class TransaksiFormPage(QWidget):
                 self.penyedia_section_widget.hide()
 
     def _create_penerima_section(self) -> QWidget:
-        """Create penerima (recipient) section for UP/TUP."""
+        """Create penerima (recipient) section for UP/TUP with compact layout."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
 
         layout.addWidget(self._create_section_title("Penerima / Pelaksana"))
 
-        form_layout = QFormLayout()
-        form_layout.setSpacing(10)
-        form_layout.setLabelAlignment(Qt.AlignRight)
+        # Grid layout for compact display
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
 
-        # Nama
+        # Row 0: Nama (full width)
+        grid.addWidget(QLabel("Nama *"), 0, 0)
         self.penerima_nama_input = QLineEdit()
         self.penerima_nama_input.setPlaceholderText("Nama lengkap dengan gelar")
         self.penerima_nama_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Nama *", self.penerima_nama_input)
+        grid.addWidget(self.penerima_nama_input, 0, 1, 1, 3)
 
-        # NIP
+        # Row 1: NIP & Jabatan (side by side)
+        grid.addWidget(QLabel("NIP"), 1, 0)
         self.penerima_nip_input = QLineEdit()
         self.penerima_nip_input.setPlaceholderText("NIP 18 digit")
         self.penerima_nip_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("NIP", self.penerima_nip_input)
+        grid.addWidget(self.penerima_nip_input, 1, 1)
 
-        # Jabatan
+        grid.addWidget(QLabel("Jabatan"), 1, 2)
         self.penerima_jabatan_input = QLineEdit()
         self.penerima_jabatan_input.setPlaceholderText("Jabatan penerima")
         self.penerima_jabatan_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Jabatan", self.penerima_jabatan_input)
+        grid.addWidget(self.penerima_jabatan_input, 1, 3)
 
-        layout.addLayout(form_layout)
+        layout.addLayout(grid)
+
+        return section
+
+    def _create_perjalanan_dinas_section(self) -> QWidget:
+        """Create Perjalanan Dinas specific fields section with compact layout."""
+        section = QWidget()
+        layout = QVBoxLayout(section)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        layout.addWidget(self._create_section_title("Detail Perjalanan Dinas"))
+
+        # Grid layout for compact display
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
+
+        # Row 0: Tujuan & Maksud (side by side)
+        grid.addWidget(QLabel("Tujuan *"), 0, 0)
+        self.perdin_tujuan_input = QLineEdit()
+        self.perdin_tujuan_input.setPlaceholderText("Kota/lokasi tujuan")
+        self.perdin_tujuan_input.setStyleSheet(self._get_input_style())
+        grid.addWidget(self.perdin_tujuan_input, 0, 1)
+
+        grid.addWidget(QLabel("Maksud"), 0, 2)
+        self.perdin_maksud_input = QLineEdit()
+        self.perdin_maksud_input.setPlaceholderText("Tujuan perjalanan")
+        self.perdin_maksud_input.setStyleSheet(self._get_input_style())
+        grid.addWidget(self.perdin_maksud_input, 0, 3)
+
+        # Row 1: Alat Angkut, Tingkat, Lama Hari (side by side)
+        grid.addWidget(QLabel("Alat Angkut"), 1, 0)
+        self.perdin_alat_angkut_combo = QComboBox()
+        self.perdin_alat_angkut_combo.addItems([
+            "Pesawat Udara", "Kereta Api", "Kapal Laut/Ferry",
+            "Mobil Dinas", "Kendaraan Umum", "Lainnya"
+        ])
+        self.perdin_alat_angkut_combo.setStyleSheet(self._get_input_style())
+        grid.addWidget(self.perdin_alat_angkut_combo, 1, 1)
+
+        # Tingkat & Lama in same column
+        tingkat_lama_layout = QHBoxLayout()
+
+        tingkat_lama_layout.addWidget(QLabel("Tingkat:"))
+        self.perdin_tingkat_combo = QComboBox()
+        self.perdin_tingkat_combo.addItems(["A", "B", "C", "D"])
+        self.perdin_tingkat_combo.setStyleSheet(self._get_input_style())
+        self.perdin_tingkat_combo.setFixedWidth(60)
+        tingkat_lama_layout.addWidget(self.perdin_tingkat_combo)
+
+        tingkat_lama_layout.addSpacing(15)
+
+        tingkat_lama_layout.addWidget(QLabel("Lama:"))
+        self.perdin_lama_hari_input = QLineEdit()
+        self.perdin_lama_hari_input.setPlaceholderText("Auto")
+        self.perdin_lama_hari_input.setReadOnly(True)
+        self.perdin_lama_hari_input.setStyleSheet(self._get_input_style() + "QLineEdit{background-color:#f5f6fa;}")
+        self.perdin_lama_hari_input.setFixedWidth(50)
+        tingkat_lama_layout.addWidget(self.perdin_lama_hari_input)
+        tingkat_lama_layout.addWidget(QLabel("hari"))
+        tingkat_lama_layout.addStretch()
+
+        grid.addLayout(tingkat_lama_layout, 1, 2, 1, 2)
+
+        layout.addLayout(grid)
 
         return section
 
@@ -521,47 +762,52 @@ class TransaksiFormPage(QWidget):
         return section
 
     def _create_dasar_section(self) -> QWidget:
-        """Create dasar hukum section."""
+        """Create dasar hukum section with compact layout."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
 
         layout.addWidget(self._create_section_title("Dasar Hukum / SK"))
 
-        form_layout = QFormLayout()
-        form_layout.setSpacing(10)
-        form_layout.setLabelAlignment(Qt.AlignRight)
+        # Grid layout for compact display
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
 
-        # Jenis dasar
+        # Row 0: Jenis, Nomor, Tanggal (side by side)
+        grid.addWidget(QLabel("Jenis"), 0, 0)
         self.dasar_jenis_combo = QComboBox()
         self.dasar_jenis_combo.addItems([
             "SK KPA", "Surat Tugas", "Nota Dinas", "Undangan", "Lainnya"
         ])
         self.dasar_jenis_combo.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Jenis Dasar", self.dasar_jenis_combo)
+        grid.addWidget(self.dasar_jenis_combo, 0, 1)
 
-        # Nomor
-        self.dasar_nomor_input = QLineEdit()
-        self.dasar_nomor_input.setPlaceholderText("Nomor SK/Surat Tugas")
-        self.dasar_nomor_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Nomor", self.dasar_nomor_input)
-
-        # Tanggal
+        grid.addWidget(QLabel("Tanggal"), 0, 2)
         self.dasar_tgl_input = QDateEdit()
         self.dasar_tgl_input.setCalendarPopup(True)
         self.dasar_tgl_input.setDate(QDate.currentDate())
         self.dasar_tgl_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Tanggal", self.dasar_tgl_input)
+        grid.addWidget(self.dasar_tgl_input, 0, 3)
 
-        # Perihal
+        # Row 1: Nomor (full width)
+        grid.addWidget(QLabel("Nomor"), 1, 0)
+        self.dasar_nomor_input = QLineEdit()
+        self.dasar_nomor_input.setPlaceholderText("Nomor SK/Surat Tugas")
+        self.dasar_nomor_input.setStyleSheet(self._get_input_style())
+        grid.addWidget(self.dasar_nomor_input, 1, 1, 1, 3)
+
+        # Row 2: Perihal (full width)
+        grid.addWidget(QLabel("Perihal"), 2, 0)
         self.dasar_perihal_input = QTextEdit()
         self.dasar_perihal_input.setPlaceholderText("Perihal/tentang...")
-        self.dasar_perihal_input.setMaximumHeight(80)
+        self.dasar_perihal_input.setMaximumHeight(60)
         self.dasar_perihal_input.setStyleSheet(self._get_input_style())
-        form_layout.addRow("Perihal", self.dasar_perihal_input)
+        grid.addWidget(self.dasar_perihal_input, 2, 1, 1, 3)
 
-        layout.addLayout(form_layout)
+        layout.addLayout(grid)
 
         return section
 
@@ -642,13 +888,75 @@ class TransaksiFormPage(QWidget):
         }
         return darken_map.get(hex_color, hex_color)
 
+    def _load_dipa_kode_akun(self):
+        """Load kode akun from DIPA data into combobox."""
+        try:
+            db = get_db_manager()
+            dipa_list = db.get_dipa_kode_akun_list()
+
+            self.akun_input.clear()
+            self.akun_input.addItem("", "")  # Empty option
+
+            for item in dipa_list:
+                kode = item.get('kode_akun', '')
+                total = item.get('total_pagu', 0) or 0
+                jumlah = item.get('jumlah_item', 0) or 0
+
+                # Format: "521111 - Rp 10.000.000 (5 item)"
+                pagu_text = f"Rp {total:,.0f}".replace(',', '.')
+                display = f"{kode} - {pagu_text} ({jumlah} item)"
+
+                self.akun_input.addItem(display, kode)
+        except Exception:
+            # If DIPA data not available, just keep empty combobox
+            pass
+
     def _on_jenis_changed(self, index: int):
-        """Handle jenis belanja change to auto-fill kode akun."""
+        """Handle jenis belanja change to auto-fill kode akun and show/hide perdin section."""
         kode = self.jenis_combo.currentData()
+
+        # Show/hide Perjalanan Dinas section (only for UP/TUP)
+        if self.mekanisme in ["UP", "TUP"] and hasattr(self, 'perdin_section_widget'):
+            is_perdin = (kode == "perdin")
+            self.perdin_section_widget.setVisible(is_perdin)
+
+            # Auto-set dasar hukum type to Surat Tugas for perjalanan dinas
+            if is_perdin and hasattr(self, 'dasar_jenis_combo'):
+                for i in range(self.dasar_jenis_combo.count()):
+                    if self.dasar_jenis_combo.itemText(i) == "Surat Tugas":
+                        self.dasar_jenis_combo.setCurrentIndex(i)
+                        break
+
+        # Auto-fill kode akun
         for jenis in JENIS_BELANJA:
             if jenis['kode'] == kode:
-                self.akun_input.setText(jenis['akun_default'])
+                akun_default = jenis['akun_default']
+                # Find and select matching item in combobox
+                for i in range(self.akun_input.count()):
+                    if self.akun_input.itemData(i) == akun_default:
+                        self.akun_input.setCurrentIndex(i)
+                        return
+                # If not found in dropdown, set as text
+                self.akun_input.setCurrentText(akun_default)
                 break
+
+    def _on_tanggal_changed(self):
+        """Handle tanggal kegiatan change to calculate lama hari."""
+        if not hasattr(self, 'tgl_mulai_input') or not hasattr(self, 'tgl_selesai_input'):
+            return
+        if not hasattr(self, 'perdin_lama_hari_input'):
+            return
+
+        tgl_mulai = self.tgl_mulai_input.date()
+        tgl_selesai = self.tgl_selesai_input.date()
+
+        # Calculate days difference (inclusive)
+        lama_hari = tgl_mulai.daysTo(tgl_selesai) + 1
+
+        if lama_hari >= 1:
+            self.perdin_lama_hari_input.setText(str(lama_hari))
+        else:
+            self.perdin_lama_hari_input.setText("1")
 
     def _on_save(self):
         """Handle save button click."""
@@ -705,7 +1013,7 @@ class TransaksiFormPage(QWidget):
             'mekanisme': self.mekanisme,
             'nama_kegiatan': self.nama_input.text().strip(),
             'jenis_belanja': self.jenis_combo.currentData(),
-            'kode_akun': self.akun_input.text().strip(),
+            'kode_akun': self.akun_input.currentData() or self.akun_input.currentText().split(' - ')[0].strip(),
             'jenis_dasar': self.dasar_jenis_combo.currentText(),
             'nomor_dasar': self.dasar_nomor_input.text().strip(),
             'tanggal_dasar': self.dasar_tgl_input.date().toString('yyyy-MM-dd'),
@@ -722,6 +1030,23 @@ class TransaksiFormPage(QWidget):
             data['penerima_nama'] = self.penerima_nama_input.text().strip()
             data['penerima_nip'] = self.penerima_nip_input.text().strip()
             data['penerima_jabatan'] = self.penerima_jabatan_input.text().strip()
+
+            # DIPA selection info
+            if hasattr(self, 'dipa_ro_combo'):
+                data['dipa_ro'] = self.dipa_ro_combo.currentData()
+                data['dipa_akun'] = self.dipa_akun_combo.currentData() if hasattr(self, 'dipa_akun_combo') else None
+                dipa_item = self.dipa_detail_combo.currentData() if hasattr(self, 'dipa_detail_combo') else None
+                if isinstance(dipa_item, dict):
+                    data['dipa_item_id'] = dipa_item.get('id')
+                    data['dipa_uraian'] = dipa_item.get('uraian_item', '')
+
+            # Perjalanan Dinas specific fields (only if jenis = perdin)
+            if self.jenis_combo.currentData() == "perdin" and hasattr(self, 'perdin_tujuan_input'):
+                data['perdin_tujuan'] = self.perdin_tujuan_input.text().strip()
+                data['perdin_maksud'] = self.perdin_maksud_input.text().strip()
+                data['perdin_alat_angkut'] = self.perdin_alat_angkut_combo.currentText()
+                data['perdin_tingkat'] = self.perdin_tingkat_combo.currentText()
+                data['perdin_lama_hari'] = self.perdin_lama_hari_input.text().strip()
         else:
             # LS mode - check which mode (KONTRAK or SURAT_TUGAS)
             data['jenis_dasar_ls'] = self._jenis_dasar_ls
@@ -765,13 +1090,43 @@ class TransaksiFormPage(QWidget):
                 self.jenis_combo.setCurrentIndex(i)
                 break
 
-        self.akun_input.setText(data.get('kode_akun', ''))
+        # Set kode akun - find in dropdown or set as text
+        kode_akun = data.get('kode_akun', '')
+        found = False
+        for i in range(self.akun_input.count()):
+            if self.akun_input.itemData(i) == kode_akun:
+                self.akun_input.setCurrentIndex(i)
+                found = True
+                break
+        if not found and kode_akun:
+            self.akun_input.setCurrentText(kode_akun)
 
         if self.mekanisme in ["UP", "TUP"]:
             self.estimasi_input.setValue(data.get('estimasi_biaya', 0) or 0)
             self.penerima_nama_input.setText(data.get('penerima_nama', ''))
             self.penerima_nip_input.setText(data.get('penerima_nip', ''))
             self.penerima_jabatan_input.setText(data.get('penerima_jabatan', ''))
+
+            # Load Perjalanan Dinas fields if available
+            if hasattr(self, 'perdin_tujuan_input'):
+                self.perdin_tujuan_input.setText(data.get('perdin_tujuan', ''))
+                self.perdin_maksud_input.setText(data.get('perdin_maksud', ''))
+
+                alat_angkut = data.get('perdin_alat_angkut', '')
+                for i in range(self.perdin_alat_angkut_combo.count()):
+                    if self.perdin_alat_angkut_combo.itemText(i) == alat_angkut:
+                        self.perdin_alat_angkut_combo.setCurrentIndex(i)
+                        break
+
+                tingkat = data.get('perdin_tingkat', 'C')
+                for i in range(self.perdin_tingkat_combo.count()):
+                    if self.perdin_tingkat_combo.itemText(i) == tingkat:
+                        self.perdin_tingkat_combo.setCurrentIndex(i)
+                        break
+
+                # Show perdin section if jenis is perdin
+                if jenis == "perdin":
+                    self.perdin_section_widget.setVisible(True)
 
         # Dasar hukum
         self.dasar_nomor_input.setText(data.get('nomor_dasar', ''))
@@ -792,7 +1147,7 @@ class TransaksiFormPage(QWidget):
 
         self.nama_input.clear()
         self.jenis_combo.setCurrentIndex(0)
-        self.akun_input.clear()
+        self.akun_input.setCurrentIndex(0)  # Reset to first (empty) option
 
         if hasattr(self, 'estimasi_input'):
             self.estimasi_input.setValue(0)

@@ -269,10 +269,60 @@ CREATE TABLE IF NOT EXISTS workflow_stage (
     completed_at TIMESTAMP,
     completed_by TEXT,
     notes TEXT,
-    
+
     FOREIGN KEY (paket_id) REFERENCES paket(id) ON DELETE CASCADE,
     UNIQUE(paket_id, stage_code)
 );
+
+-- ============================================================================
+-- WORKFLOW EVENTS (Audit trail for workflow changes)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS workflow_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_id TEXT NOT NULL,       -- ID transaksi/paket
+    transaksi_type TEXT NOT NULL,     -- UP, TUP, LS
+    event_type TEXT NOT NULL,         -- fase_changed, document_uploaded, deadline_warning, etc.
+    fase_from INTEGER,                -- Previous fase (for fase changes)
+    fase_to INTEGER,                  -- New fase (for fase changes)
+    description TEXT NOT NULL,        -- Human-readable description
+    details_json TEXT,                -- Additional JSON details
+    actor TEXT,                       -- User who triggered the event
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Performance indexes
+    FOREIGN KEY (transaksi_id) REFERENCES paket(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_events_transaksi ON workflow_events(transaksi_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_type ON workflow_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_created ON workflow_events(created_at);
+
+-- ============================================================================
+-- WORKFLOW NOTIFICATIONS (User notifications)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS workflow_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_type TEXT NOT NULL,  -- deadline_warning, fase_completed, document_required, etc.
+    priority TEXT DEFAULT 'normal',   -- low, normal, high, urgent
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    transaksi_id TEXT,               -- Related transaction (optional)
+    transaksi_type TEXT,             -- UP, TUP, LS
+    action_type TEXT,                -- open_transaksi, open_document, etc.
+    action_data TEXT,                -- JSON data for action
+    is_read INTEGER DEFAULT 0,       -- 0=unread, 1=read
+    is_dismissed INTEGER DEFAULT 0,  -- 0=active, 1=dismissed
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP,
+    expires_at TIMESTAMP             -- Optional expiration
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON workflow_notifications(is_read, is_dismissed);
+CREATE INDEX IF NOT EXISTS idx_notifications_transaksi ON workflow_notifications(transaksi_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_priority ON workflow_notifications(priority);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON workflow_notifications(created_at);
 
 -- ============================================================================
 -- DOCUMENT TRACKING
@@ -1246,7 +1296,113 @@ class DatabaseManager:
             self.add_item_barang(target_paket_id, item)
             copied += 1
         return copied
-    
+
+    # =========================================================================
+    # PAKET ITEM OPERATIONS (Rincian Barang/Jasa untuk Lembar Permintaan dll)
+    # =========================================================================
+
+    def get_paket_items(self, paket_id: int) -> List[Dict]:
+        """Get all rincian items for a paket (transaksi)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM paket_item
+                WHERE paket_id = ?
+                ORDER BY item_no
+            """, (paket_id,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def save_paket_items(self, paket_id: int, items: List[Dict]) -> int:
+        """Save/replace all rincian items for a paket.
+
+        Args:
+            paket_id: ID of the paket/transaksi
+            items: List of item dicts with keys:
+                   - nama_item (or uraian/nama_barang)
+                   - spesifikasi
+                   - satuan
+                   - volume
+                   - harga_satuan
+                   - jumlah (optional, calculated if not provided)
+                   - keterangan (optional)
+
+        Returns:
+            Number of items saved
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Clear existing items
+            cursor.execute("DELETE FROM paket_item WHERE paket_id = ?", (paket_id,))
+
+            # Insert new items
+            for i, item in enumerate(items, 1):
+                nama_item = item.get('nama_item') or item.get('uraian') or item.get('nama_barang', '')
+                spesifikasi = item.get('spesifikasi', '')
+                satuan = item.get('satuan', '')
+                volume = float(item.get('volume', 0))
+                harga_satuan = float(item.get('harga_satuan', 0))
+                jumlah = item.get('jumlah') or (volume * harga_satuan)
+                keterangan = item.get('keterangan', '')
+
+                cursor.execute("""
+                    INSERT INTO paket_item
+                    (paket_id, item_no, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (paket_id, i, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan))
+
+            conn.commit()
+            return len(items)
+
+    def add_paket_item(self, paket_id: int, item: Dict) -> int:
+        """Add a single rincian item to a paket"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get next item_no
+            cursor.execute("""
+                SELECT COALESCE(MAX(item_no), 0) + 1
+                FROM paket_item WHERE paket_id = ?
+            """, (paket_id,))
+            item_no = cursor.fetchone()[0]
+
+            nama_item = item.get('nama_item') or item.get('uraian') or item.get('nama_barang', '')
+            spesifikasi = item.get('spesifikasi', '')
+            satuan = item.get('satuan', '')
+            volume = float(item.get('volume', 0))
+            harga_satuan = float(item.get('harga_satuan', 0))
+            jumlah = item.get('jumlah') or (volume * harga_satuan)
+            keterangan = item.get('keterangan', '')
+
+            cursor.execute("""
+                INSERT INTO paket_item
+                (paket_id, item_no, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (paket_id, item_no, nama_item, spesifikasi, satuan, volume, harga_satuan, jumlah, keterangan))
+
+            conn.commit()
+            return cursor.lastrowid
+
+    def delete_paket_items(self, paket_id: int) -> bool:
+        """Delete all rincian items for a paket"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM paket_item WHERE paket_id = ?", (paket_id,))
+            conn.commit()
+            return True
+
+    def get_paket_items_summary(self, paket_id: int) -> Dict:
+        """Get summary totals for paket items (rincian)"""
+        items = self.get_paket_items(paket_id)
+
+        subtotal = sum(item.get('jumlah', 0) or 0 for item in items)
+
+        return {
+            'count': len(items),
+            'subtotal': subtotal,
+            'items': items
+        }
+
     # =========================================================================
     # TIM PEMERIKSA OPERATIONS
     # =========================================================================

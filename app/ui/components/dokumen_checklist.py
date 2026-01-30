@@ -145,12 +145,25 @@ class DokumenItem(QFrame):
                 self._add_action_btn(actions_layout, "upload", "Ganti", "#95a5a6")
         else:
             if self.status == "pending":
+                # Tombol Buat untuk generate dokumen baru (menimpa draft jika ada)
                 self._add_action_btn(actions_layout, "create", "+ Buat", "#27ae60")
-                # Add upload archive button
+                # Tombol Draft untuk membuka dokumen draft yang sudah di-generate
+                self._add_action_btn(actions_layout, "view_draft", "Draft", "#f39c12")
+                # Tombol Buka untuk membuka file yang sudah di-upload via Arsip
+                self._add_action_btn(actions_layout, "open_uploaded", "Buka", "#3498db")
+                # Tombol Arsip untuk upload dokumen
                 self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
-            else:
+            elif self.status == "draft":
+                # Draft status - bisa lanjutkan edit atau finalisasi
                 self._add_action_btn(actions_layout, "view", "Lihat", "#3498db")
                 self._add_action_btn(actions_layout, "edit", "Edit", "#f39c12")
+                self._add_action_btn(actions_layout, "finalize", "Final", "#27ae60")
+                self._add_action_btn(actions_layout, "open_folder", "Buka", "#95a5a6")
+            else:
+                # Final/Signed status
+                self._add_action_btn(actions_layout, "view", "Lihat", "#3498db")
+                self._add_action_btn(actions_layout, "edit", "Edit", "#f39c12")
+                self._add_action_btn(actions_layout, "open_folder", "Buka", "#95a5a6")
                 # Add upload archive button for existing documents
                 self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
 

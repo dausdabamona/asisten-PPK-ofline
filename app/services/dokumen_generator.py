@@ -91,6 +91,7 @@ class DokumenGenerator:
         'rupiah': format_rupiah,
         'terbilang': lambda x: terbilang(x).title() + " Rupiah",
         'tanggal': format_tanggal,
+        'tanggal_panjang': format_tanggal,  # Alias for tanggal
         'upper': lambda x: str(x).upper() if x else "",
         'lower': lambda x: str(x).lower() if x else "",
         'title': lambda x: str(x).title() if x else "",
@@ -191,9 +192,12 @@ class DokumenGenerator:
         data = {}
 
         # Data transaksi
-        data['kode_transaksi'] = transaksi.get('kode', '')
+        data['kode_transaksi'] = transaksi.get('kode', transaksi.get('kode_transaksi', ''))
+        data['nomor_kuitansi'] = data['kode_transaksi']  # Alias for kuitansi template
         data['nama_kegiatan'] = transaksi.get('nama_kegiatan', '')
         data['kode_akun'] = transaksi.get('kode_akun', '')
+        data['sumber_dana'] = transaksi.get('sumber_dana', transaksi.get('kode_akun', ''))
+        data['unit_kerja'] = transaksi.get('unit_kerja', '')
         data['estimasi_biaya'] = transaksi.get('estimasi_biaya', 0)
         data['uang_muka'] = transaksi.get('uang_muka', 0)
         data['realisasi'] = transaksi.get('realisasi', 0)
@@ -206,6 +210,7 @@ class DokumenGenerator:
         data['tanggal_pencairan'] = transaksi.get('tanggal_pencairan', '')
         data['tanggal_selesai'] = transaksi.get('tanggal_selesai', '')
         data['tanggal_hari_ini'] = datetime.now().strftime("%Y-%m-%d")
+        data['tanggal_dokumen'] = transaksi.get('tanggal_dokumen', datetime.now().strftime("%Y-%m-%d"))
 
         # Data satker
         if satker:
@@ -217,7 +222,7 @@ class DokumenGenerator:
             data['unit_organisasi'] = satker.get('unit_organisasi', '')
             data['lokasi'] = satker.get('kota', '')
 
-        # Data penerima/pegawai
+        # Data penerima/pegawai (Yang Mengajukan)
         if pegawai:
             data['penerima_nama'] = pegawai.get('nama', transaksi.get('penerima_nama', ''))
             data['penerima_nip'] = pegawai.get('nip', transaksi.get('penerima_nip', ''))
@@ -227,7 +232,12 @@ class DokumenGenerator:
             data['penerima_nip'] = transaksi.get('penerima_nip', '')
             data['penerima_jabatan'] = transaksi.get('penerima_jabatan', '')
 
-        # Data PPK dari satker
+        # Alias for template compatibility
+        data['yang_mengajukan_nama'] = data['penerima_nama']
+        data['yang_mengajukan_nip'] = data['penerima_nip']
+        data['yang_mengajukan_jabatan'] = data['penerima_jabatan']
+
+        # Data PPK, PPSPM, KPA dari satker
         if satker:
             data['ppk_nama'] = satker.get('ppk_nama', '')
             data['ppk_nip'] = satker.get('ppk_nip', '')
@@ -235,12 +245,78 @@ class DokumenGenerator:
             data['kpa_nip'] = satker.get('kpa_nip', '')
             data['bendahara_nama'] = satker.get('bendahara_nama', '')
             data['bendahara_nip'] = satker.get('bendahara_nip', '')
+            # PPSPM sebagai Verifikator
+            data['ppspm_nama'] = satker.get('ppspm_nama', '')
+            data['ppspm_nip'] = satker.get('ppspm_nip', '')
+            data['ppspm_jabatan'] = satker.get('ppspm_jabatan', '')
+            data['verifikator_nama'] = satker.get('ppspm_nama', '')
+            data['verifikator_nip'] = satker.get('ppspm_nip', '')
+
+        # Override verifikator from transaksi if provided
+        if transaksi.get('verifikator_nama'):
+            data['verifikator_nama'] = transaksi.get('verifikator_nama', '')
+            data['verifikator_nip'] = transaksi.get('verifikator_nip', '')
+            data['ppspm_nama'] = transaksi.get('verifikator_nama', '')
+            data['ppspm_nip'] = transaksi.get('verifikator_nip', '')
+
+        # Override bendahara from transaksi if provided (untuk kuitansi)
+        if transaksi.get('bendahara_nama'):
+            data['bendahara_nama'] = transaksi.get('bendahara_nama', '')
+            data['bendahara_nip'] = transaksi.get('bendahara_nip', '')
+
+        # Data kuitansi uang muka
+        data['uang_muka'] = transaksi.get('uang_muka', 0)
+        data['persentase_um'] = transaksi.get('persentase_um', '100%')
 
         # Rincian items
         if rincian:
             data['rincian_items'] = rincian
             data['total_rincian'] = sum(item.get('jumlah', 0) for item in rincian)
             data['jumlah_item'] = len(rincian)
+
+        # Data khusus Lembar Permintaan (LBR_REQ) - PPn calculation
+        if transaksi.get('subtotal') is not None:
+            data['subtotal'] = transaksi.get('subtotal', 0)
+            data['ppn_rate'] = transaksi.get('ppn_rate', 0)
+            data['ppn_amount'] = transaksi.get('ppn_amount', 0)
+            data['ppn_persen'] = transaksi.get('ppn_persen', '0%')
+            data['grand_total'] = transaksi.get('grand_total', 0)
+        elif rincian:
+            # Calculate from rincian if not provided
+            data['subtotal'] = data['total_rincian']
+            data['ppn_rate'] = 0
+            data['ppn_amount'] = 0
+            data['ppn_persen'] = '0%'
+            data['grand_total'] = data['total_rincian']
+
+        # Override KPA from transaksi if provided (untuk Lembar Permintaan)
+        if transaksi.get('kpa_nama'):
+            data['kpa_nama'] = transaksi.get('kpa_nama', '')
+            data['kpa_nip'] = transaksi.get('kpa_nip', '')
+
+        # Data Mengetahui (untuk Lembar Permintaan - 4 tanda tangan)
+        data['mengetahui_nama'] = transaksi.get('mengetahui_nama', '')
+        data['mengetahui_nip'] = transaksi.get('mengetahui_nip', '')
+        data['jabatan_mengetahui'] = transaksi.get('jabatan_mengetahui', '')
+
+        # Prepare rincian placeholders for template (up to 10 items)
+        if rincian:
+            for i, item in enumerate(rincian[:10], 1):
+                data[f'rincian_{i}_nama'] = item.get('nama_barang', item.get('uraian', ''))
+                data[f'rincian_{i}_spek'] = item.get('spesifikasi', '')
+                data[f'rincian_{i}_vol'] = str(item.get('volume', ''))
+                data[f'rincian_{i}_satuan'] = item.get('satuan', '')
+                data[f'rincian_{i}_harga'] = item.get('harga_satuan', 0)
+                data[f'rincian_{i}_total'] = item.get('jumlah', 0)
+
+            # Clear unused placeholders
+            for i in range(len(rincian) + 1, 11):
+                data[f'rincian_{i}_nama'] = ''
+                data[f'rincian_{i}_spek'] = ''
+                data[f'rincian_{i}_vol'] = ''
+                data[f'rincian_{i}_satuan'] = ''
+                data[f'rincian_{i}_harga'] = ''
+                data[f'rincian_{i}_total'] = ''
 
         return data
 

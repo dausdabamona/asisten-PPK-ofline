@@ -30,6 +30,31 @@ Components Overview:
 - FaseBadge - Workflow phase badges
 - PriorityBadge - Priority level badges
 
+**Kanban Board:**
+- KanbanCard - Draggable transaction card
+- KanbanColumn - Phase column with drop target
+- KanbanBoard - Full kanban board with filters
+
+**Workflow Timeline:**
+- WorkflowTimeline - Vertical timeline with events
+- WorkflowProgress - Compact progress bar
+- TimelineEvent - Event data class
+
+**Workflow Analytics:**
+- WorkflowAnalyticsWidget - Analytics dashboard
+- MetricCard - Single metric display
+- WorkflowMetrics - Metrics data class
+
+**Deadline Tracker:**
+- DeadlineTrackerWidget - Deadline list with urgency
+- DeadlineInfo - Deadline data class
+- CompactDeadlineWidget - Dashboard summary
+
+**Workflow Notifications:**
+- NotificationCenter - Bell icon with dropdown
+- NotificationService - Background checking service
+- WorkflowNotification - Notification data class
+
 **Workflow Components:**
 - FaseStepper - Workflow phase stepper
 - StageWidget - Stage display widget
@@ -81,6 +106,43 @@ search.search_changed.connect(self.filter_data)
 from app.ui.components import StatusBadge, MekanismeBadge
 badge = StatusBadge("Selesai", "completed")
 mek_badge = MekanismeBadge("UP")
+
+# Kanban board
+from app.ui.components import KanbanBoard, create_kanban_board
+board = create_kanban_board(mekanisme="UP")
+board.set_data([
+    {"id": "1", "nomor": "001", "nama": "Transaksi A", "nilai": 50000000,
+     "status": "Aktif", "mekanisme": "UP", "fase": 1},
+])
+board.transaksi_selected.connect(self.open_detail)
+board.transaksi_moved.connect(self.handle_move)
+
+# Workflow timeline
+from app.ui.components import WorkflowTimeline, TimelineEvent
+timeline = WorkflowTimeline(transaksi_id="TRX-001")
+timeline.add_event(TimelineEvent(
+    timestamp=datetime.now(),
+    event_type="fase_changed",
+    description="Pindah ke Fase 2"
+))
+
+# Workflow analytics
+from app.ui.components import WorkflowAnalyticsWidget
+analytics = WorkflowAnalyticsWidget()
+analytics.set_data(transaksi_list)
+
+# Deadline tracker
+from app.ui.components import DeadlineTrackerWidget
+tracker = DeadlineTrackerWidget()
+tracker.load_deadlines(transaksi_list)
+tracker.deadline_clicked.connect(self.open_transaksi)
+
+# Notification center
+from app.ui.components import NotificationCenter, NotificationService
+notif_center = NotificationCenter()
+notif_service = NotificationService()
+notif_service.notification_created.connect(notif_center.add_notification)
+notif_service.start()
 ```
 """
 
@@ -121,6 +183,82 @@ from app.ui.dashboard_components import (
 )
 
 # =============================================================================
+# KANBAN BOARD
+# =============================================================================
+
+from .kanban_board import (
+    KanbanCard,
+    KanbanColumn,
+    KanbanBoard,
+    Mekanisme,
+    Urgency,
+    MEKANISME_COLORS,
+    URGENCY_COLORS,
+    FASE_CONFIG,
+    create_kanban_board,
+)
+
+# =============================================================================
+# WORKFLOW TIMELINE
+# =============================================================================
+
+from .workflow_timeline import (
+    TimelineEvent,
+    TimelineItem,
+    WorkflowTimeline,
+    WorkflowProgress,
+    WorkflowEventLogger,
+    EventType,
+    create_timeline,
+    create_progress,
+)
+
+# =============================================================================
+# WORKFLOW ANALYTICS
+# =============================================================================
+
+from .workflow_analytics import (
+    WorkflowMetrics,
+    MetricCard,
+    FaseBarChart,
+    TrendLineChart,
+    BottleneckAlert,
+    WorkflowAnalyticsWidget,
+    create_analytics_widget,
+)
+
+# =============================================================================
+# DEADLINE TRACKER
+# =============================================================================
+
+from .deadline_tracker import (
+    DeadlineInfo,
+    DeadlineStatus,
+    DeadlineItem,
+    DeadlineSectionHeader,
+    DeadlineTrackerWidget,
+    CompactDeadlineWidget,
+    create_deadline_tracker,
+    create_compact_deadline,
+)
+
+# =============================================================================
+# WORKFLOW NOTIFICATIONS
+# =============================================================================
+
+from .workflow_notifications import (
+    WorkflowNotification,
+    NotificationType,
+    NotificationPriority,
+    NotificationItem,
+    NotificationPanel,
+    NotificationCenter,
+    NotificationService,
+    create_notification_center,
+    create_notification_service,
+)
+
+# =============================================================================
 # WORKFLOW COMPONENTS
 # =============================================================================
 
@@ -130,11 +268,53 @@ from .dokumen_checklist import DokumenChecklist
 from .countdown_widget import CountdownWidget
 
 # =============================================================================
+# WORKFLOW QUICK ACTIONS
+# =============================================================================
+
+from .workflow_quick_actions import (
+    ActionContext,
+    QuickAction,
+    QuickActionButton,
+    WorkflowQuickActionsWidget,
+    WorkflowContextMenu,
+    CompactQuickActions,
+    create_quick_actions,
+    create_context_menu,
+)
+
+# =============================================================================
 # CALCULATION WIDGETS
 # =============================================================================
 
 from .kalkulasi_widget import KalkulasiWidget
 from .rincian_kalkulasi_widget import RincianKalkulasiWidget
+
+# =============================================================================
+# LAZY LOADING
+# =============================================================================
+
+from .lazy_list import (
+    LazyListModel,
+    LazyTableModel,
+    LazyTableWidget,
+    PaginationWidget,
+    PaginatedTableWidget,
+    create_lazy_table,
+    create_paginated_table,
+)
+
+# =============================================================================
+# ERROR BOUNDARY
+# =============================================================================
+
+from .error_boundary import (
+    ErrorFallback,
+    ErrorBoundary,
+    GlobalErrorHandler,
+    catch_errors,
+    safe_slot,
+    error_context,
+)
 
 # =============================================================================
 # TOAST NOTIFICATIONS
@@ -273,6 +453,67 @@ __all__ = [
     'TransactionItemWidget',
 
     # -------------------------------------------------------------------------
+    # Kanban Board
+    # -------------------------------------------------------------------------
+    'KanbanCard',
+    'KanbanColumn',
+    'KanbanBoard',
+    'Mekanisme',
+    'Urgency',
+    'MEKANISME_COLORS',
+    'URGENCY_COLORS',
+    'FASE_CONFIG',
+    'create_kanban_board',
+
+    # -------------------------------------------------------------------------
+    # Workflow Timeline
+    # -------------------------------------------------------------------------
+    'TimelineEvent',
+    'TimelineItem',
+    'WorkflowTimeline',
+    'WorkflowProgress',
+    'WorkflowEventLogger',
+    'EventType',
+    'create_timeline',
+    'create_progress',
+
+    # -------------------------------------------------------------------------
+    # Workflow Analytics
+    # -------------------------------------------------------------------------
+    'WorkflowMetrics',
+    'MetricCard',
+    'FaseBarChart',
+    'TrendLineChart',
+    'BottleneckAlert',
+    'WorkflowAnalyticsWidget',
+    'create_analytics_widget',
+
+    # -------------------------------------------------------------------------
+    # Deadline Tracker
+    # -------------------------------------------------------------------------
+    'DeadlineInfo',
+    'DeadlineStatus',
+    'DeadlineItem',
+    'DeadlineSectionHeader',
+    'DeadlineTrackerWidget',
+    'CompactDeadlineWidget',
+    'create_deadline_tracker',
+    'create_compact_deadline',
+
+    # -------------------------------------------------------------------------
+    # Workflow Notifications
+    # -------------------------------------------------------------------------
+    'WorkflowNotification',
+    'NotificationType',
+    'NotificationPriority',
+    'NotificationItem',
+    'NotificationPanel',
+    'NotificationCenter',
+    'NotificationService',
+    'create_notification_center',
+    'create_notification_service',
+
+    # -------------------------------------------------------------------------
     # Workflow Components
     # -------------------------------------------------------------------------
     'FaseStepper',
@@ -281,10 +522,43 @@ __all__ = [
     'CountdownWidget',
 
     # -------------------------------------------------------------------------
+    # Workflow Quick Actions
+    # -------------------------------------------------------------------------
+    'ActionContext',
+    'QuickAction',
+    'QuickActionButton',
+    'WorkflowQuickActionsWidget',
+    'WorkflowContextMenu',
+    'CompactQuickActions',
+    'create_quick_actions',
+    'create_context_menu',
+
+    # -------------------------------------------------------------------------
     # Calculation Widgets
     # -------------------------------------------------------------------------
     'KalkulasiWidget',
     'RincianKalkulasiWidget',
+
+    # -------------------------------------------------------------------------
+    # Lazy Loading
+    # -------------------------------------------------------------------------
+    'LazyListModel',
+    'LazyTableModel',
+    'LazyTableWidget',
+    'PaginationWidget',
+    'PaginatedTableWidget',
+    'create_lazy_table',
+    'create_paginated_table',
+
+    # -------------------------------------------------------------------------
+    # Error Boundary
+    # -------------------------------------------------------------------------
+    'ErrorFallback',
+    'ErrorBoundary',
+    'GlobalErrorHandler',
+    'catch_errors',
+    'safe_slot',
+    'error_context',
 
     # -------------------------------------------------------------------------
     # Toast Notifications

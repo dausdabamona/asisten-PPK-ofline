@@ -52,8 +52,8 @@ worker.start()
 ```
 """
 
-# Import base classes from parent
-from ..workers import (
+# Import base classes from workers_base module
+from ..workers_base import (
     WorkerSignals,
     BaseWorker,
     FunctionWorker,

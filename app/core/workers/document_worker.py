@@ -17,7 +17,7 @@ import time
 
 from PySide6.QtCore import QObject
 
-from ..workers import BaseWorker
+from ..workers_base import BaseWorker
 
 logger = logging.getLogger(__name__)
 

@@ -127,8 +127,42 @@ class DokumenGeneratorDialog(QDialog):
         self.estimasi_spin.setPrefix("Rp ")
         self.estimasi_spin.setGroupSeparatorShown(True)
         self.estimasi_spin.setValue(self.transaksi.get('estimasi_biaya', 0))
+        self.estimasi_spin.valueChanged.connect(self._on_estimasi_changed)
         data_layout.addWidget(self.estimasi_spin, row, 1)
         row += 1
+
+        # === Khusus untuk Kuitansi Uang Muka ===
+        if self.kode_dokumen == 'KUIT_UM':
+            # Persentase Uang Muka
+            data_layout.addWidget(QLabel("Persentase UM:"), row, 0)
+            persen_layout = QHBoxLayout()
+            self.persen_combo = QComboBox()
+            self.persen_combo.addItems(["100%", "90%", "80%"])
+            self.persen_combo.currentIndexChanged.connect(self._on_persen_changed)
+            persen_layout.addWidget(self.persen_combo)
+
+            # Info label
+            self.persen_info_label = QLabel("")
+            self.persen_info_label.setStyleSheet("color: #7f8c8d; font-style: italic;")
+            persen_layout.addWidget(self.persen_info_label)
+            persen_layout.addStretch()
+
+            data_layout.addLayout(persen_layout, row, 1)
+            row += 1
+
+            # Nilai Uang Muka (calculated)
+            data_layout.addWidget(QLabel("Nilai Uang Muka:"), row, 0)
+            self.uang_muka_spin = QDoubleSpinBox()
+            self.uang_muka_spin.setRange(0, 999999999999)
+            self.uang_muka_spin.setDecimals(0)
+            self.uang_muka_spin.setPrefix("Rp ")
+            self.uang_muka_spin.setGroupSeparatorShown(True)
+            self.uang_muka_spin.setStyleSheet("font-weight: bold; color: #27ae60;")
+            data_layout.addWidget(self.uang_muka_spin, row, 1)
+            row += 1
+
+            # Auto-set percentage based on amount
+            self._auto_set_percentage()
 
         # Tanggal
         data_layout.addWidget(QLabel("Tanggal:"), row, 0)
@@ -138,9 +172,34 @@ class DokumenGeneratorDialog(QDialog):
         data_layout.addWidget(self.tanggal_edit, row, 1)
         row += 1
 
-        # Separator - Yang Mengajukan
-        data_layout.addWidget(QLabel("<b>Yang Mengajukan:</b>"), row, 0, 1, 2)
-        row += 1
+        # === Untuk Kuitansi UM: Bendahara dan Penerima saja ===
+        if self.kode_dokumen == 'KUIT_UM':
+            # Separator - Bendahara (Yang Menyerahkan)
+            data_layout.addWidget(QLabel("<b>Bendahara (Yang Menyerahkan):</b>"), row, 0, 1, 2)
+            row += 1
+
+            # Bendahara - auto-filled from satker
+            data_layout.addWidget(QLabel("Nama:"), row, 0)
+            self.bendahara_nama_edit = QLineEdit()
+            self.bendahara_nama_edit.setReadOnly(True)
+            self.bendahara_nama_edit.setStyleSheet("background-color: #f5f5f5;")
+            data_layout.addWidget(self.bendahara_nama_edit, row, 1)
+            row += 1
+
+            data_layout.addWidget(QLabel("NIP:"), row, 0)
+            self.bendahara_nip_edit = QLineEdit()
+            self.bendahara_nip_edit.setReadOnly(True)
+            self.bendahara_nip_edit.setStyleSheet("background-color: #f5f5f5;")
+            data_layout.addWidget(self.bendahara_nip_edit, row, 1)
+            row += 1
+
+            # Separator - Penerima (Yang Menerima)
+            data_layout.addWidget(QLabel("<b>Penerima (Yang Menerima):</b>"), row, 0, 1, 2)
+            row += 1
+        else:
+            # Separator - Yang Mengajukan (untuk dokumen lain)
+            data_layout.addWidget(QLabel("<b>Yang Mengajukan:</b>"), row, 0, 1, 2)
+            row += 1
 
         # Penerima - Dropdown dari daftar pegawai
         data_layout.addWidget(QLabel("Nama:"), row, 0)
@@ -167,23 +226,25 @@ class DokumenGeneratorDialog(QDialog):
         data_layout.addWidget(self.penerima_jabatan_edit, row, 1)
         row += 1
 
-        # Separator - Verifikator (PPSPM)
-        data_layout.addWidget(QLabel("<b>Verifikator (PPSPM):</b>"), row, 0, 1, 2)
-        row += 1
+        # Verifikator (PPSPM) - hanya untuk dokumen non-kuitansi UM
+        if self.kode_dokumen != 'KUIT_UM':
+            # Separator - Verifikator (PPSPM)
+            data_layout.addWidget(QLabel("<b>Verifikator (PPSPM):</b>"), row, 0, 1, 2)
+            row += 1
 
-        # Verifikator PPSPM - auto-filled from satker
-        data_layout.addWidget(QLabel("Nama:"), row, 0)
-        self.verifikator_nama_edit = QLineEdit()
-        self.verifikator_nama_edit.setReadOnly(True)
-        self.verifikator_nama_edit.setStyleSheet("background-color: #f5f5f5;")
-        data_layout.addWidget(self.verifikator_nama_edit, row, 1)
-        row += 1
+            # Verifikator PPSPM - auto-filled from satker
+            data_layout.addWidget(QLabel("Nama:"), row, 0)
+            self.verifikator_nama_edit = QLineEdit()
+            self.verifikator_nama_edit.setReadOnly(True)
+            self.verifikator_nama_edit.setStyleSheet("background-color: #f5f5f5;")
+            data_layout.addWidget(self.verifikator_nama_edit, row, 1)
+            row += 1
 
-        data_layout.addWidget(QLabel("NIP:"), row, 0)
-        self.verifikator_nip_edit = QLineEdit()
-        self.verifikator_nip_edit.setReadOnly(True)
-        self.verifikator_nip_edit.setStyleSheet("background-color: #f5f5f5;")
-        data_layout.addWidget(self.verifikator_nip_edit, row, 1)
+            data_layout.addWidget(QLabel("NIP:"), row, 0)
+            self.verifikator_nip_edit = QLineEdit()
+            self.verifikator_nip_edit.setReadOnly(True)
+            self.verifikator_nip_edit.setStyleSheet("background-color: #f5f5f5;")
+            data_layout.addWidget(self.verifikator_nip_edit, row, 1)
 
         scroll_layout.addWidget(data_group)
 
@@ -345,13 +406,22 @@ class DokumenGeneratorDialog(QDialog):
                     # Not found in list, set as editable text
                     self.penerima_nama_combo.setCurrentText(penerima_nama)
 
-            # ===== Load Verifikator (PPSPM) from satker =====
+            # ===== Load Verifikator (PPSPM) dan Bendahara from satker =====
             satker_pejabat = db.get_satker_pejabat()
             if satker_pejabat:
-                ppspm_nama = satker_pejabat.get('ppspm_nama', '')
-                ppspm_nip = satker_pejabat.get('ppspm_nip', '')
-                self.verifikator_nama_edit.setText(ppspm_nama)
-                self.verifikator_nip_edit.setText(ppspm_nip)
+                # PPSPM untuk verifikator (dokumen non-KUIT_UM)
+                if hasattr(self, 'verifikator_nama_edit'):
+                    ppspm_nama = satker_pejabat.get('ppspm_nama', '')
+                    ppspm_nip = satker_pejabat.get('ppspm_nip', '')
+                    self.verifikator_nama_edit.setText(ppspm_nama)
+                    self.verifikator_nip_edit.setText(ppspm_nip)
+
+                # Bendahara untuk kuitansi uang muka
+                if hasattr(self, 'bendahara_nama_edit'):
+                    bendahara_nama = satker_pejabat.get('bendahara_nama', '')
+                    bendahara_nip = satker_pejabat.get('bendahara_nip', '')
+                    self.bendahara_nama_edit.setText(bendahara_nama)
+                    self.bendahara_nip_edit.setText(bendahara_nip)
 
         except Exception as e:
             print(f"Error loading pegawai: {e}")
@@ -370,6 +440,62 @@ class DokumenGeneratorDialog(QDialog):
             # Clear fields if no pegawai selected
             self.penerima_nip_edit.clear()
             self.penerima_jabatan_edit.clear()
+
+    def _auto_set_percentage(self):
+        """Auto-set percentage based on estimasi biaya.
+
+        Rules:
+        - Jika nilai < 2 juta: 100%
+        - Jika nilai >= 2 juta: 80%
+        """
+        if not hasattr(self, 'persen_combo'):
+            return
+
+        estimasi = self.estimasi_spin.value()
+        batas_2_juta = 2_000_000
+
+        if estimasi < batas_2_juta:
+            # Set 100%
+            self.persen_combo.setCurrentIndex(0)  # 100%
+            self.persen_info_label.setText("(< 2 jt, otomatis 100%)")
+        else:
+            # Set 80%
+            self.persen_combo.setCurrentIndex(2)  # 80%
+            self.persen_info_label.setText("(>= 2 jt, otomatis 80%)")
+
+        self._calculate_uang_muka()
+
+    def _on_estimasi_changed(self, value: float):
+        """Handle estimasi value changed - auto recalculate percentage."""
+        if self.kode_dokumen == 'KUIT_UM':
+            self._auto_set_percentage()
+
+    def _on_persen_changed(self, index: int):
+        """Handle percentage selection changed."""
+        if hasattr(self, 'persen_info_label'):
+            self.persen_info_label.setText("(manual)")
+        self._calculate_uang_muka()
+
+    def _calculate_uang_muka(self):
+        """Calculate uang muka based on percentage."""
+        if not hasattr(self, 'uang_muka_spin') or not hasattr(self, 'persen_combo'):
+            return
+
+        estimasi = self.estimasi_spin.value()
+        persen_text = self.persen_combo.currentText()
+
+        # Parse percentage
+        if persen_text == "100%":
+            persen = 1.0
+        elif persen_text == "90%":
+            persen = 0.9
+        elif persen_text == "80%":
+            persen = 0.8
+        else:
+            persen = 1.0
+
+        uang_muka = estimasi * persen
+        self.uang_muka_spin.setValue(uang_muka)
 
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
@@ -473,12 +599,21 @@ class DokumenGeneratorDialog(QDialog):
             'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
-            # Verifikator (PPSPM)
-            'verifikator_nama': self.verifikator_nama_edit.text(),
-            'verifikator_nip': self.verifikator_nip_edit.text(),
-            'ppspm_nama': self.verifikator_nama_edit.text(),
-            'ppspm_nip': self.verifikator_nip_edit.text(),
         }
+
+        # Khusus untuk Kuitansi Uang Muka
+        if self.kode_dokumen == 'KUIT_UM':
+            data['uang_muka'] = self.uang_muka_spin.value() if hasattr(self, 'uang_muka_spin') else 0
+            data['persentase_um'] = self.persen_combo.currentText() if hasattr(self, 'persen_combo') else '100%'
+            data['bendahara_nama'] = self.bendahara_nama_edit.text() if hasattr(self, 'bendahara_nama_edit') else ''
+            data['bendahara_nip'] = self.bendahara_nip_edit.text() if hasattr(self, 'bendahara_nip_edit') else ''
+        else:
+            # Verifikator (PPSPM) untuk dokumen non-KUIT_UM
+            if hasattr(self, 'verifikator_nama_edit'):
+                data['verifikator_nama'] = self.verifikator_nama_edit.text()
+                data['verifikator_nip'] = self.verifikator_nip_edit.text()
+                data['ppspm_nama'] = self.verifikator_nama_edit.text()
+                data['ppspm_nip'] = self.verifikator_nip_edit.text()
 
         # Merge with transaksi data
         for key, value in self.transaksi.items():

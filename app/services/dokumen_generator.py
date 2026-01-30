@@ -257,6 +257,15 @@ class DokumenGenerator:
             data['ppspm_nama'] = transaksi.get('verifikator_nama', '')
             data['ppspm_nip'] = transaksi.get('verifikator_nip', '')
 
+        # Override bendahara from transaksi if provided (untuk kuitansi)
+        if transaksi.get('bendahara_nama'):
+            data['bendahara_nama'] = transaksi.get('bendahara_nama', '')
+            data['bendahara_nip'] = transaksi.get('bendahara_nip', '')
+
+        # Data kuitansi uang muka
+        data['uang_muka'] = transaksi.get('uang_muka', 0)
+        data['persentase_um'] = transaksi.get('persentase_um', '100%')
+
         # Rincian items
         if rincian:
             data['rincian_items'] = rincian

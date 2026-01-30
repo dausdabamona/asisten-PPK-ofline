@@ -30,6 +30,11 @@ Components Overview:
 - FaseBadge - Workflow phase badges
 - PriorityBadge - Priority level badges
 
+**Kanban Board:**
+- KanbanCard - Draggable transaction card
+- KanbanColumn - Phase column with drop target
+- KanbanBoard - Full kanban board with filters
+
 **Workflow Components:**
 - FaseStepper - Workflow phase stepper
 - StageWidget - Stage display widget
@@ -81,6 +86,16 @@ search.search_changed.connect(self.filter_data)
 from app.ui.components import StatusBadge, MekanismeBadge
 badge = StatusBadge("Selesai", "completed")
 mek_badge = MekanismeBadge("UP")
+
+# Kanban board
+from app.ui.components import KanbanBoard, create_kanban_board
+board = create_kanban_board(mekanisme="UP")
+board.set_data([
+    {"id": "1", "nomor": "001", "nama": "Transaksi A", "nilai": 50000000,
+     "status": "Aktif", "mekanisme": "UP", "fase": 1},
+])
+board.transaksi_selected.connect(self.open_detail)
+board.transaksi_moved.connect(self.handle_move)
 ```
 """
 
@@ -118,6 +133,22 @@ from app.ui.dashboard_components import (
     QuickActionButton,
     RecentActivityWidget,
     TransactionItemWidget,
+)
+
+# =============================================================================
+# KANBAN BOARD
+# =============================================================================
+
+from .kanban_board import (
+    KanbanCard,
+    KanbanColumn,
+    KanbanBoard,
+    Mekanisme,
+    Urgency,
+    MEKANISME_COLORS,
+    URGENCY_COLORS,
+    FASE_CONFIG,
+    create_kanban_board,
 )
 
 # =============================================================================
@@ -271,6 +302,19 @@ __all__ = [
     'QuickActionButton',
     'RecentActivityWidget',
     'TransactionItemWidget',
+
+    # -------------------------------------------------------------------------
+    # Kanban Board
+    # -------------------------------------------------------------------------
+    'KanbanCard',
+    'KanbanColumn',
+    'KanbanBoard',
+    'Mekanisme',
+    'Urgency',
+    'MEKANISME_COLORS',
+    'URGENCY_COLORS',
+    'FASE_CONFIG',
+    'create_kanban_board',
 
     # -------------------------------------------------------------------------
     # Workflow Components

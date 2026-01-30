@@ -291,19 +291,25 @@ class DokumenGeneratorDialog(QDialog):
             data_layout.addWidget(QLabel("<b>Mengetahui:</b>"), row, 0, 1, 2)
             row += 1
 
-            data_layout.addWidget(QLabel("Jabatan:"), row, 0)
-            self.mengetahui_jabatan_edit = QLineEdit()
-            self.mengetahui_jabatan_edit.setPlaceholderText("Contoh: Pudir III")
-            data_layout.addWidget(self.mengetahui_jabatan_edit, row, 1)
+            # Mengetahui - Dropdown dari daftar pegawai
+            data_layout.addWidget(QLabel("Nama:"), row, 0)
+            self.mengetahui_nama_combo = QComboBox()
+            self.mengetahui_nama_combo.setEditable(True)  # Allow manual entry if needed
+            self.mengetahui_nama_combo.setPlaceholderText("Pilih atau ketik nama...")
+            self.mengetahui_nama_combo.currentIndexChanged.connect(self._on_mengetahui_changed)
+            data_layout.addWidget(self.mengetahui_nama_combo, row, 1)
             row += 1
 
-            data_layout.addWidget(QLabel("Nama:"), row, 0)
-            self.mengetahui_nama_edit = QLineEdit()
-            data_layout.addWidget(self.mengetahui_nama_edit, row, 1)
+            data_layout.addWidget(QLabel("Jabatan:"), row, 0)
+            self.mengetahui_jabatan_edit = QLineEdit()
+            self.mengetahui_jabatan_edit.setPlaceholderText("Contoh: Wadir II, Pudir III")
+            data_layout.addWidget(self.mengetahui_jabatan_edit, row, 1)
             row += 1
 
             data_layout.addWidget(QLabel("NIP:"), row, 0)
             self.mengetahui_nip_edit = QLineEdit()
+            self.mengetahui_nip_edit.setReadOnly(True)  # Auto-filled from dropdown
+            self.mengetahui_nip_edit.setStyleSheet("background-color: #f5f5f5;")
             data_layout.addWidget(self.mengetahui_nip_edit, row, 1)
 
         scroll_layout.addWidget(data_group)
@@ -583,6 +589,17 @@ class DokumenGeneratorDialog(QDialog):
                     self.kpa_nama_edit.setText(kpa_nama)
                     self.kpa_nip_edit.setText(kpa_nip)
 
+            # ===== Load Mengetahui dropdown for Lembar Permintaan =====
+            if hasattr(self, 'mengetahui_nama_combo'):
+                self.mengetahui_nama_combo.addItem("-- Pilih Pegawai --", None)
+
+                # Add pegawai to dropdown
+                for pegawai in self.pegawai_list:
+                    nama = pegawai.get('nama', '')
+                    jabatan = pegawai.get('jabatan', '')
+                    display_text = f"{nama} - {jabatan}" if jabatan else nama
+                    self.mengetahui_nama_combo.addItem(display_text, pegawai)
+
         except Exception as e:
             print(f"Error loading pegawai: {e}")
             # Fallback - allow manual entry
@@ -600,6 +617,24 @@ class DokumenGeneratorDialog(QDialog):
             # Clear fields if no pegawai selected
             self.penerima_nip_edit.clear()
             self.penerima_jabatan_edit.clear()
+
+    def _on_mengetahui_changed(self, index: int):
+        """Handle mengetahui pegawai selection changed."""
+        if not hasattr(self, 'mengetahui_nama_combo'):
+            return
+
+        pegawai = self.mengetahui_nama_combo.itemData(index)
+
+        if pegawai:
+            # Auto-fill NIP and Jabatan from selected pegawai
+            self.mengetahui_nip_edit.setText(pegawai.get('nip', ''))
+            # Pre-fill jabatan but user can edit it
+            jabatan = pegawai.get('jabatan', '')
+            if jabatan and not self.mengetahui_jabatan_edit.text():
+                self.mengetahui_jabatan_edit.setText(jabatan)
+        else:
+            # Clear NIP if no pegawai selected
+            self.mengetahui_nip_edit.clear()
 
     def _auto_set_percentage(self):
         """Auto-set percentage based on estimasi biaya.
@@ -886,8 +921,19 @@ class DokumenGeneratorDialog(QDialog):
                 data['kpa_nip'] = self.kpa_nip_edit.text()
 
             # Mengetahui (Pejabat lain)
-            if hasattr(self, 'mengetahui_nama_edit'):
-                data['mengetahui_nama'] = self.mengetahui_nama_edit.text()
+            if hasattr(self, 'mengetahui_nama_combo'):
+                # Get mengetahui name - from selected pegawai or manual entry
+                pegawai = self.mengetahui_nama_combo.currentData()
+                if pegawai:
+                    mengetahui_nama = pegawai.get('nama', '')
+                else:
+                    # Manual entry - use the text directly
+                    mengetahui_nama = self.mengetahui_nama_combo.currentText()
+                    # Remove " - jabatan" suffix if present from display text
+                    if " - " in mengetahui_nama:
+                        mengetahui_nama = mengetahui_nama.split(" - ")[0]
+
+                data['mengetahui_nama'] = mengetahui_nama
                 data['mengetahui_nip'] = self.mengetahui_nip_edit.text()
                 data['jabatan_mengetahui'] = self.mengetahui_jabatan_edit.text()
 

@@ -560,7 +560,7 @@ class MainWindowV2(QMainWindow):
             template_name = None
 
             # Find template for this document
-            for fase_config in workflow.get('fases', []):
+            for fase_config in workflow.get('fase', {}).values():
                 for dok in fase_config.get('dokumen', []):
                     if dok.get('kode') == kode_dokumen:
                         template_name = dok.get('template')

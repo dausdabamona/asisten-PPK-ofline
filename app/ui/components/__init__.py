@@ -290,6 +290,33 @@ from .kalkulasi_widget import KalkulasiWidget
 from .rincian_kalkulasi_widget import RincianKalkulasiWidget
 
 # =============================================================================
+# LAZY LOADING
+# =============================================================================
+
+from .lazy_list import (
+    LazyListModel,
+    LazyTableModel,
+    LazyTableWidget,
+    PaginationWidget,
+    PaginatedTableWidget,
+    create_lazy_table,
+    create_paginated_table,
+)
+
+# =============================================================================
+# ERROR BOUNDARY
+# =============================================================================
+
+from .error_boundary import (
+    ErrorFallback,
+    ErrorBoundary,
+    GlobalErrorHandler,
+    catch_errors,
+    safe_slot,
+    error_context,
+)
+
+# =============================================================================
 # TOAST NOTIFICATIONS
 # =============================================================================
 
@@ -511,6 +538,27 @@ __all__ = [
     # -------------------------------------------------------------------------
     'KalkulasiWidget',
     'RincianKalkulasiWidget',
+
+    # -------------------------------------------------------------------------
+    # Lazy Loading
+    # -------------------------------------------------------------------------
+    'LazyListModel',
+    'LazyTableModel',
+    'LazyTableWidget',
+    'PaginationWidget',
+    'PaginatedTableWidget',
+    'create_lazy_table',
+    'create_paginated_table',
+
+    # -------------------------------------------------------------------------
+    # Error Boundary
+    # -------------------------------------------------------------------------
+    'ErrorFallback',
+    'ErrorBoundary',
+    'GlobalErrorHandler',
+    'catch_errors',
+    'safe_slot',
+    'error_context',
 
     # -------------------------------------------------------------------------
     # Toast Notifications

@@ -18,6 +18,9 @@ from PySide6.QtGui import QFont
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
+# Import database for pegawai data
+from ...core.database import get_db_manager
+
 
 class DokumenGeneratorDialog(QDialog):
     """Dialog untuk generate dokumen dari template."""
@@ -37,8 +40,10 @@ class DokumenGeneratorDialog(QDialog):
         self.additional_data = additional_data or {}
         self.rincian_items = self.additional_data.get('rincian_items', [])
         self.generated_path = None
+        self.pegawai_list = []  # List of pegawai for dropdown
 
         self._setup_ui()
+        self._load_pegawai()
         self._load_data()
 
     def _setup_ui(self):
@@ -118,20 +123,26 @@ class DokumenGeneratorDialog(QDialog):
         self.tanggal_edit.setCalendarPopup(True)
         data_layout.addWidget(self.tanggal_edit, 3, 1)
 
-        # Penerima
+        # Penerima - Dropdown dari daftar pegawai
         data_layout.addWidget(QLabel("Nama Penerima:"), 4, 0)
-        self.penerima_nama_edit = QLineEdit()
-        self.penerima_nama_edit.setText(self.transaksi.get('penerima_nama', ''))
-        data_layout.addWidget(self.penerima_nama_edit, 4, 1)
+        self.penerima_nama_combo = QComboBox()
+        self.penerima_nama_combo.setEditable(True)  # Allow manual entry if needed
+        self.penerima_nama_combo.setPlaceholderText("Pilih atau ketik nama penerima...")
+        self.penerima_nama_combo.currentIndexChanged.connect(self._on_penerima_changed)
+        data_layout.addWidget(self.penerima_nama_combo, 4, 1)
 
         data_layout.addWidget(QLabel("NIP Penerima:"), 5, 0)
         self.penerima_nip_edit = QLineEdit()
         self.penerima_nip_edit.setText(self.transaksi.get('penerima_nip', ''))
+        self.penerima_nip_edit.setReadOnly(True)  # Auto-filled from dropdown
+        self.penerima_nip_edit.setStyleSheet("background-color: #f5f5f5;")
         data_layout.addWidget(self.penerima_nip_edit, 5, 1)
 
         data_layout.addWidget(QLabel("Jabatan:"), 6, 0)
         self.penerima_jabatan_edit = QLineEdit()
         self.penerima_jabatan_edit.setText(self.transaksi.get('penerima_jabatan', ''))
+        self.penerima_jabatan_edit.setReadOnly(True)  # Auto-filled from dropdown
+        self.penerima_jabatan_edit.setStyleSheet("background-color: #f5f5f5;")
         data_layout.addWidget(self.penerima_jabatan_edit, 6, 1)
 
         scroll_layout.addWidget(data_group)
@@ -245,6 +256,53 @@ class DokumenGeneratorDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def _load_pegawai(self):
+        """Load pegawai data for dropdown."""
+        try:
+            db = get_db_manager()
+            self.pegawai_list = db.get_all_pegawai(active_only=True)
+
+            # Add empty option first
+            self.penerima_nama_combo.addItem("-- Pilih Pegawai --", None)
+
+            # Add pegawai to dropdown
+            for pegawai in self.pegawai_list:
+                nama = pegawai.get('nama', '')
+                jabatan = pegawai.get('jabatan', '')
+                display_text = f"{nama} - {jabatan}" if jabatan else nama
+                self.penerima_nama_combo.addItem(display_text, pegawai)
+
+            # Set current value if transaksi has penerima_nama
+            penerima_nama = self.transaksi.get('penerima_nama', '')
+            if penerima_nama:
+                # Try to find and select matching pegawai
+                for i in range(self.penerima_nama_combo.count()):
+                    pegawai = self.penerima_nama_combo.itemData(i)
+                    if pegawai and pegawai.get('nama') == penerima_nama:
+                        self.penerima_nama_combo.setCurrentIndex(i)
+                        break
+                else:
+                    # Not found in list, set as editable text
+                    self.penerima_nama_combo.setCurrentText(penerima_nama)
+
+        except Exception as e:
+            print(f"Error loading pegawai: {e}")
+            # Fallback - allow manual entry
+            self.penerima_nama_combo.addItem("-- Tidak ada data pegawai --", None)
+
+    def _on_penerima_changed(self, index: int):
+        """Handle pegawai selection changed."""
+        pegawai = self.penerima_nama_combo.itemData(index)
+
+        if pegawai:
+            # Auto-fill NIP and Jabatan from selected pegawai
+            self.penerima_nip_edit.setText(pegawai.get('nip', ''))
+            self.penerima_jabatan_edit.setText(pegawai.get('jabatan', ''))
+        else:
+            # Clear fields if no pegawai selected
+            self.penerima_nip_edit.clear()
+            self.penerima_jabatan_edit.clear()
+
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
         # Load rincian items if provided
@@ -321,12 +379,23 @@ class DokumenGeneratorDialog(QDialog):
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
+        # Get penerima name - from selected pegawai or manual entry
+        pegawai = self.penerima_nama_combo.currentData()
+        if pegawai:
+            penerima_nama = pegawai.get('nama', '')
+        else:
+            # Manual entry - use the text directly
+            penerima_nama = self.penerima_nama_combo.currentText()
+            # Remove " - jabatan" suffix if present from display text
+            if " - " in penerima_nama:
+                penerima_nama = penerima_nama.split(" - ")[0]
+
         data = {
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
             'estimasi_biaya': self.estimasi_spin.value(),
             'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
-            'penerima_nama': self.penerima_nama_edit.text(),
+            'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
         }

@@ -139,7 +139,7 @@ def create_kuitansi_um_template():
     terbilang_p = doc.add_paragraph()
     terbilang_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     set_single_spacing(terbilang_p)
-    terbilang_run = terbilang_p.add_run("({{uang_muka:terbilang}} rupiah)")
+    terbilang_run = terbilang_p.add_run("({{uang_muka:terbilang}})")
     terbilang_run.italic = True
     terbilang_run.font.size = Pt(10)
 

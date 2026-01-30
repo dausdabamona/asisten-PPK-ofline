@@ -91,6 +91,7 @@ class DokumenGenerator:
         'rupiah': format_rupiah,
         'terbilang': lambda x: terbilang(x).title() + " Rupiah",
         'tanggal': format_tanggal,
+        'tanggal_panjang': format_tanggal,  # Alias for tanggal
         'upper': lambda x: str(x).upper() if x else "",
         'lower': lambda x: str(x).lower() if x else "",
         'title': lambda x: str(x).title() if x else "",
@@ -191,7 +192,8 @@ class DokumenGenerator:
         data = {}
 
         # Data transaksi
-        data['kode_transaksi'] = transaksi.get('kode', '')
+        data['kode_transaksi'] = transaksi.get('kode', transaksi.get('kode_transaksi', ''))
+        data['nomor_kuitansi'] = data['kode_transaksi']  # Alias for kuitansi template
         data['nama_kegiatan'] = transaksi.get('nama_kegiatan', '')
         data['kode_akun'] = transaksi.get('kode_akun', '')
         data['sumber_dana'] = transaksi.get('sumber_dana', transaksi.get('kode_akun', ''))

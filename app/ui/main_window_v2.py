@@ -619,15 +619,37 @@ class MainWindowV2(QMainWindow):
                 )
                 return
 
+            # Select appropriate template for KUIT_RAMP based on jenis_belanja
+            # Perjalanan Dinas uses kuitansi_rampung.docx (existing)
+            # Non-perdin uses kuitansi_rampung_simple.docx (simpler format)
+            if kode_dokumen == "KUIT_RAMP":
+                jenis_belanja = transaksi_data.get('jenis_belanja', '')
+                if jenis_belanja != "perdin":
+                    template_name = "kuitansi_rampung_simple.docx"
+
             # Get additional data for kuitansi documents
             additional_data = {}
-            if kode_dokumen in ['KUITANSI_UM', 'KUITANSI_RAMPUNG']:
+            if kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'KUITANSI_UM', 'KUITANSI_RAMPUNG']:
                 kalkulasi_data = self._get_current_kalkulasi_data()
+                uang_muka = kalkulasi_data.get('uang_muka', 0)
+                realisasi = kalkulasi_data.get('realisasi', 0)
+                selisih = uang_muka - realisasi
+
+                # Keterangan selisih untuk template
+                if selisih > 0:
+                    keterangan_selisih = "Sisa uang muka dikembalikan ke kas negara"
+                elif selisih < 0:
+                    keterangan_selisih = "Kekurangan akan dibayarkan kemudian"
+                else:
+                    keterangan_selisih = "Nihil / Pas"
+
                 additional_data = {
                     'rincian_items': kalkulasi_data.get('rincian_items', []),
-                    'uang_muka': kalkulasi_data.get('uang_muka', 0),
-                    'realisasi': kalkulasi_data.get('realisasi', 0),
-                    'selisih': kalkulasi_data.get('selisih', 0),
+                    'uang_muka': uang_muka,
+                    'realisasi': realisasi,
+                    'total_realisasi': realisasi,
+                    'selisih': abs(selisih),
+                    'keterangan_selisih': keterangan_selisih,
                     'status_kalkulasi': kalkulasi_data.get('status', 'PAS'),
                 }
 

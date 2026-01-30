@@ -49,6 +49,9 @@ from .pages.pencairan import (
 # Import models
 from ..models.pencairan_models import PencairanManager, BATAS_UP_MAKSIMAL
 
+# Import database for satker data
+from ..core.database import get_db_manager
+
 # Import config
 from ..core.config import ROOT_DIR
 
@@ -588,8 +591,8 @@ class MainWindowV2(QMainWindow):
                     'status_kalkulasi': kalkulasi_data.get('status', 'PAS'),
                 }
 
-            # Get satker data
-            satker_data = self.db.get_satker_aktif()
+            # Get satker data from DatabaseManager
+            satker_data = get_db_manager().get_satker()
 
             # Show dialog
             dialog = DokumenGeneratorDialog(

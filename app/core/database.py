@@ -269,10 +269,60 @@ CREATE TABLE IF NOT EXISTS workflow_stage (
     completed_at TIMESTAMP,
     completed_by TEXT,
     notes TEXT,
-    
+
     FOREIGN KEY (paket_id) REFERENCES paket(id) ON DELETE CASCADE,
     UNIQUE(paket_id, stage_code)
 );
+
+-- ============================================================================
+-- WORKFLOW EVENTS (Audit trail for workflow changes)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS workflow_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_id TEXT NOT NULL,       -- ID transaksi/paket
+    transaksi_type TEXT NOT NULL,     -- UP, TUP, LS
+    event_type TEXT NOT NULL,         -- fase_changed, document_uploaded, deadline_warning, etc.
+    fase_from INTEGER,                -- Previous fase (for fase changes)
+    fase_to INTEGER,                  -- New fase (for fase changes)
+    description TEXT NOT NULL,        -- Human-readable description
+    details_json TEXT,                -- Additional JSON details
+    actor TEXT,                       -- User who triggered the event
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Performance indexes
+    FOREIGN KEY (transaksi_id) REFERENCES paket(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_events_transaksi ON workflow_events(transaksi_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_type ON workflow_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_created ON workflow_events(created_at);
+
+-- ============================================================================
+-- WORKFLOW NOTIFICATIONS (User notifications)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS workflow_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_type TEXT NOT NULL,  -- deadline_warning, fase_completed, document_required, etc.
+    priority TEXT DEFAULT 'normal',   -- low, normal, high, urgent
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    transaksi_id TEXT,               -- Related transaction (optional)
+    transaksi_type TEXT,             -- UP, TUP, LS
+    action_type TEXT,                -- open_transaksi, open_document, etc.
+    action_data TEXT,                -- JSON data for action
+    is_read INTEGER DEFAULT 0,       -- 0=unread, 1=read
+    is_dismissed INTEGER DEFAULT 0,  -- 0=active, 1=dismissed
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP,
+    expires_at TIMESTAMP             -- Optional expiration
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON workflow_notifications(is_read, is_dismissed);
+CREATE INDEX IF NOT EXISTS idx_notifications_transaksi ON workflow_notifications(transaksi_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_priority ON workflow_notifications(priority);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON workflow_notifications(created_at);
 
 -- ============================================================================
 -- DOCUMENT TRACKING

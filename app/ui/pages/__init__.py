@@ -15,7 +15,16 @@ from .pencairan import (
     TransaksiFormPage,
 )
 
+from .workflow_dashboard import (
+    ViewMode,
+    ViewModeToggle,
+    GanttTimelineView,
+    WorkflowDashboardPage,
+    create_workflow_dashboard,
+)
+
 __all__ = [
+    # Pencairan Pages
     'DashboardPencairanPage',
     'UPListPage',
     'UPDetailPage',
@@ -24,4 +33,10 @@ __all__ = [
     'LSListPage',
     'LSDetailPage',
     'TransaksiFormPage',
+    # Workflow Dashboard
+    'ViewMode',
+    'ViewModeToggle',
+    'GanttTimelineView',
+    'WorkflowDashboardPage',
+    'create_workflow_dashboard',
 ]

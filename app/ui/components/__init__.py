@@ -268,6 +268,21 @@ from .dokumen_checklist import DokumenChecklist
 from .countdown_widget import CountdownWidget
 
 # =============================================================================
+# WORKFLOW QUICK ACTIONS
+# =============================================================================
+
+from .workflow_quick_actions import (
+    ActionContext,
+    QuickAction,
+    QuickActionButton,
+    WorkflowQuickActionsWidget,
+    WorkflowContextMenu,
+    CompactQuickActions,
+    create_quick_actions,
+    create_context_menu,
+)
+
+# =============================================================================
 # CALCULATION WIDGETS
 # =============================================================================
 
@@ -478,6 +493,18 @@ __all__ = [
     'StageWidget',
     'DokumenChecklist',
     'CountdownWidget',
+
+    # -------------------------------------------------------------------------
+    # Workflow Quick Actions
+    # -------------------------------------------------------------------------
+    'ActionContext',
+    'QuickAction',
+    'QuickActionButton',
+    'WorkflowQuickActionsWidget',
+    'WorkflowContextMenu',
+    'CompactQuickActions',
+    'create_quick_actions',
+    'create_context_menu',
 
     # -------------------------------------------------------------------------
     # Calculation Widgets

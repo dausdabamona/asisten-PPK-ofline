@@ -51,6 +51,25 @@ class DokumenGeneratorDialog(QDialog):
         self.setWindowTitle(f"Buat Dokumen - {self.nama_dokumen}")
         self.setMinimumSize(700, 600)
 
+        # Set global stylesheet for better input field visibility
+        self.setStyleSheet("""
+            QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox, QDateEdit {
+                min-height: 32px;
+                padding: 4px 8px;
+                font-size: 13px;
+            }
+            QComboBox {
+                padding-right: 20px;
+            }
+            QComboBox::drop-down {
+                width: 24px;
+            }
+            QGroupBox {
+                font-weight: bold;
+                padding-top: 10px;
+            }
+        """)
+
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
 
@@ -92,7 +111,8 @@ class DokumenGeneratorDialog(QDialog):
         # Basic data
         data_group = QGroupBox("Data Dokumen")
         data_layout = QGridLayout(data_group)
-        data_layout.setSpacing(10)
+        data_layout.setSpacing(12)
+        data_layout.setContentsMargins(15, 15, 15, 15)
 
         row = 0
 
@@ -726,6 +746,22 @@ class UploadDokumenDialog(QDialog):
         """Setup dialog UI."""
         self.setWindowTitle(f"Upload Arsip - {self.nama_dokumen}")
         self.setMinimumSize(500, 300)
+
+        # Set global stylesheet for better input field visibility
+        self.setStyleSheet("""
+            QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox, QDateEdit {
+                min-height: 32px;
+                padding: 4px 8px;
+                font-size: 13px;
+            }
+            QLabel {
+                padding: 2px 0;
+            }
+            QGroupBox {
+                font-weight: bold;
+                padding-top: 10px;
+            }
+        """)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(15)

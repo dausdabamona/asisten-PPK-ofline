@@ -272,6 +272,21 @@ class DokumenGenerator:
             data['total_rincian'] = sum(item.get('jumlah', 0) for item in rincian)
             data['jumlah_item'] = len(rincian)
 
+        # Data khusus Lembar Permintaan (LBR_REQ) - PPn calculation
+        if transaksi.get('subtotal') is not None:
+            data['subtotal'] = transaksi.get('subtotal', 0)
+            data['ppn_rate'] = transaksi.get('ppn_rate', 0)
+            data['ppn_amount'] = transaksi.get('ppn_amount', 0)
+            data['ppn_persen'] = transaksi.get('ppn_persen', '0%')
+            data['grand_total'] = transaksi.get('grand_total', 0)
+        elif rincian:
+            # Calculate from rincian if not provided
+            data['subtotal'] = data['total_rincian']
+            data['ppn_rate'] = 0
+            data['ppn_amount'] = 0
+            data['ppn_persen'] = '0%'
+            data['grand_total'] = data['total_rincian']
+
         return data
 
     def _apply_format(self, value: Any, format_type: str) -> str:

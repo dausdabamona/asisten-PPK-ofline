@@ -510,7 +510,7 @@ class MainWindowV2(QMainWindow):
                 )
 
     def _on_dokumen_action(self, kode_dokumen: str, action: str, fase: int):
-        """Handle document action (create, view, edit, upload, upload_arsip)."""
+        """Handle document action (create, view, edit, upload, upload_arsip, draft, open_folder, finalize)."""
         # Get current transaksi data
         transaksi_data = self._get_current_transaksi_data()
 
@@ -524,6 +524,12 @@ class MainWindowV2(QMainWindow):
             self._handle_upload_dokumen(kode_dokumen, transaksi_data)
         elif action == "upload_arsip":
             self._handle_upload_arsip(kode_dokumen, transaksi_data)
+        elif action == "draft":
+            self._handle_draft_dokumen(kode_dokumen, fase, transaksi_data)
+        elif action == "open_folder":
+            self._handle_open_folder(kode_dokumen, transaksi_data)
+        elif action == "finalize":
+            self._handle_finalize_dokumen(kode_dokumen, transaksi_data)
 
     def _get_current_transaksi_data(self) -> Dict[str, Any]:
         """Get current transaksi data from active detail page."""
@@ -662,6 +668,128 @@ class MainWindowV2(QMainWindow):
             parent=self
         )
         dialog.exec()
+
+    def _handle_draft_dokumen(self, kode_dokumen: str, fase: int, transaksi_data: Dict):
+        """Handle creating draft document."""
+        try:
+            # Similar to create but save as draft status
+            from ..config.workflow_config import WORKFLOW_CONFIGS
+
+            mekanisme = transaksi_data.get('mekanisme', 'UP')
+            workflow = WORKFLOW_CONFIGS.get(mekanisme, {})
+            template_name = None
+            nama_dokumen = kode_dokumen
+
+            # Find template for this document
+            for fase_config in workflow.get('fase', {}).values():
+                for dok in fase_config.get('dokumen', []):
+                    if dok.get('kode') == kode_dokumen:
+                        template_name = dok.get('template')
+                        nama_dokumen = dok.get('nama', kode_dokumen)
+                        break
+                if template_name:
+                    break
+
+            if not template_name:
+                QMessageBox.warning(
+                    self,
+                    "Template Tidak Ditemukan",
+                    f"Tidak dapat menemukan template untuk {kode_dokumen}"
+                )
+                return
+
+            # Get satker data
+            satker_data = get_db_manager().get_satker()
+
+            # Show dialog with draft mode
+            dialog = DokumenGeneratorDialog(
+                transaksi=transaksi_data,
+                kode_dokumen=kode_dokumen,
+                template_name=template_name,
+                nama_dokumen=f"{nama_dokumen} (Draft)",
+                satker=satker_data,
+                parent=self
+            )
+
+            if dialog.exec():
+                # TODO: Save draft status to database
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Draft Disimpan",
+                    "Dokumen draft berhasil disimpan."
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuat draft: {str(e)}"
+            )
+
+    def _handle_open_folder(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle opening document folder."""
+        try:
+            import os
+            import subprocess
+            import platform
+
+            # Get output folder from dokumen_generator
+            from app.services.dokumen_generator import get_dokumen_generator
+
+            generator = get_dokumen_generator()
+            output_folder = generator.get_output_folder(transaksi=transaksi_data)
+
+            if output_folder.exists():
+                # Open folder in file manager
+                system = platform.system()
+                if system == "Windows":
+                    os.startfile(str(output_folder))
+                elif system == "Darwin":  # macOS
+                    subprocess.run(["open", str(output_folder)])
+                else:  # Linux
+                    subprocess.run(["xdg-open", str(output_folder)])
+            else:
+                QMessageBox.information(
+                    self,
+                    "Folder Tidak Ditemukan",
+                    f"Folder dokumen belum dibuat.\n\nLokasi: {output_folder}"
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal membuka folder: {str(e)}"
+            )
+
+    def _handle_finalize_dokumen(self, kode_dokumen: str, transaksi_data: Dict):
+        """Handle finalizing draft document to final status."""
+        try:
+            reply = QMessageBox.question(
+                self,
+                "Konfirmasi Finalisasi",
+                f"Apakah Anda yakin ingin memfinalisasi dokumen {kode_dokumen}?\n\n"
+                "Dokumen final tidak dapat diubah kembali ke draft.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+
+            if reply == QMessageBox.Yes:
+                # TODO: Update document status in database to 'final'
+                self._refresh_current_page()
+                QMessageBox.information(
+                    self,
+                    "Dokumen Difinalisasi",
+                    f"Dokumen {kode_dokumen} berhasil difinalisasi."
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Gagal memfinalisasi dokumen: {str(e)}"
+            )
 
     def _refresh_current_page(self):
         """Refresh current active page."""

@@ -268,44 +268,98 @@ class DokumenGeneratorDialog(QDialog):
 
         scroll_layout.addWidget(data_group)
 
-        # Rincian group (for Kuitansi)
+        # Rincian group (for Kuitansi and Lembar Permintaan)
         if self.kode_dokumen in ['KUIT_UM', 'KUIT_RAMP', 'LBR_REQ']:
-            rincian_group = QGroupBox("Rincian Barang/Jasa (Opsional)")
+            # For LBR_REQ, make it required instead of optional
+            group_title = "Rincian Barang/Jasa" if self.kode_dokumen == 'LBR_REQ' else "Rincian Barang/Jasa (Opsional)"
+            rincian_group = QGroupBox(group_title)
             rincian_layout = QVBoxLayout(rincian_group)
 
-            # Add item form
-            add_layout = QHBoxLayout()
-            self.uraian_edit = QLineEdit()
-            self.uraian_edit.setPlaceholderText("Uraian barang/jasa")
-            add_layout.addWidget(self.uraian_edit, 3)
+            # Add item form - use grid layout for LBR_REQ with spesifikasi
+            if self.kode_dokumen == 'LBR_REQ':
+                # Form layout for LBR_REQ with Spesifikasi
+                form_layout = QGridLayout()
+                form_layout.setSpacing(8)
 
-            self.volume_spin = QSpinBox()
-            self.volume_spin.setRange(1, 9999)
-            self.volume_spin.setValue(1)
-            add_layout.addWidget(self.volume_spin)
+                # Row 1: Nama Barang
+                form_layout.addWidget(QLabel("Nama Barang:"), 0, 0)
+                self.uraian_edit = QLineEdit()
+                self.uraian_edit.setPlaceholderText("Nama barang/jasa")
+                form_layout.addWidget(self.uraian_edit, 0, 1, 1, 3)
 
-            self.satuan_combo = QComboBox()
-            self.satuan_combo.setEditable(True)
-            self.satuan_combo.addItems(["paket", "unit", "buah", "lembar", "orang", "set"])
-            add_layout.addWidget(self.satuan_combo)
+                # Row 2: Spesifikasi
+                form_layout.addWidget(QLabel("Spesifikasi:"), 1, 0)
+                self.spesifikasi_edit = QLineEdit()
+                self.spesifikasi_edit.setPlaceholderText("Spesifikasi (opsional)")
+                form_layout.addWidget(self.spesifikasi_edit, 1, 1, 1, 3)
 
-            self.harga_spin = QDoubleSpinBox()
-            self.harga_spin.setRange(0, 999999999)
-            self.harga_spin.setDecimals(0)
-            self.harga_spin.setPrefix("Rp ")
-            add_layout.addWidget(self.harga_spin)
+                # Row 3: Volume, Satuan, Harga
+                form_layout.addWidget(QLabel("Volume:"), 2, 0)
+                self.volume_spin = QSpinBox()
+                self.volume_spin.setRange(1, 9999)
+                self.volume_spin.setValue(1)
+                form_layout.addWidget(self.volume_spin, 2, 1)
 
-            add_btn = QPushButton("+ Tambah")
-            add_btn.clicked.connect(self._add_rincian_item)
-            add_layout.addWidget(add_btn)
+                form_layout.addWidget(QLabel("Satuan:"), 2, 2)
+                self.satuan_combo = QComboBox()
+                self.satuan_combo.setEditable(True)
+                self.satuan_combo.addItems(["Buah", "Unit", "Paket", "Lembar", "Orang", "Set", "Kg", "Meter"])
+                form_layout.addWidget(self.satuan_combo, 2, 3)
 
-            rincian_layout.addLayout(add_layout)
+                # Row 4: Harga and button
+                form_layout.addWidget(QLabel("Harga Satuan:"), 3, 0)
+                self.harga_spin = QDoubleSpinBox()
+                self.harga_spin.setRange(0, 999999999)
+                self.harga_spin.setDecimals(0)
+                self.harga_spin.setPrefix("Rp ")
+                self.harga_spin.setGroupSeparatorShown(True)
+                form_layout.addWidget(self.harga_spin, 3, 1, 1, 2)
 
-            # Table
+                add_btn = QPushButton("+ Tambah")
+                add_btn.clicked.connect(self._add_rincian_item)
+                form_layout.addWidget(add_btn, 3, 3)
+
+                rincian_layout.addLayout(form_layout)
+            else:
+                # Original horizontal layout for Kuitansi
+                add_layout = QHBoxLayout()
+                self.uraian_edit = QLineEdit()
+                self.uraian_edit.setPlaceholderText("Uraian barang/jasa")
+                add_layout.addWidget(self.uraian_edit, 3)
+
+                self.volume_spin = QSpinBox()
+                self.volume_spin.setRange(1, 9999)
+                self.volume_spin.setValue(1)
+                add_layout.addWidget(self.volume_spin)
+
+                self.satuan_combo = QComboBox()
+                self.satuan_combo.setEditable(True)
+                self.satuan_combo.addItems(["paket", "unit", "buah", "lembar", "orang", "set"])
+                add_layout.addWidget(self.satuan_combo)
+
+                self.harga_spin = QDoubleSpinBox()
+                self.harga_spin.setRange(0, 999999999)
+                self.harga_spin.setDecimals(0)
+                self.harga_spin.setPrefix("Rp ")
+                add_layout.addWidget(self.harga_spin)
+
+                add_btn = QPushButton("+ Tambah")
+                add_btn.clicked.connect(self._add_rincian_item)
+                add_layout.addWidget(add_btn)
+
+                rincian_layout.addLayout(add_layout)
+
+            # Table - 6 columns for LBR_REQ (with Spesifikasi), 5 for others
             self.rincian_table = QTableWidget()
-            self.rincian_table.setColumnCount(5)
-            self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga", "Jumlah"])
-            self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            if self.kode_dokumen == 'LBR_REQ':
+                self.rincian_table.setColumnCount(6)
+                self.rincian_table.setHorizontalHeaderLabels(["Nama Barang", "Spesifikasi", "Volume", "Satuan", "Harga Satuan", "Total"])
+                self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+                self.rincian_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+            else:
+                self.rincian_table.setColumnCount(5)
+                self.rincian_table.setHorizontalHeaderLabels(["Uraian", "Volume", "Satuan", "Harga", "Jumlah"])
+                self.rincian_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
             self.rincian_table.setSelectionBehavior(QAbstractItemView.SelectRows)
             self.rincian_table.setMinimumHeight(150)
             rincian_layout.addWidget(self.rincian_table)
@@ -315,14 +369,53 @@ class DokumenGeneratorDialog(QDialog):
             del_btn.clicked.connect(self._delete_rincian_item)
             rincian_layout.addWidget(del_btn)
 
-            # Total
-            total_layout = QHBoxLayout()
-            total_layout.addStretch()
-            total_layout.addWidget(QLabel("TOTAL:"))
-            self.total_label = QLabel("Rp 0")
-            self.total_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            total_layout.addWidget(self.total_label)
-            rincian_layout.addLayout(total_layout)
+            # Total section - different for LBR_REQ (with PPn)
+            if self.kode_dokumen == 'LBR_REQ':
+                # PPn checkbox
+                ppn_layout = QHBoxLayout()
+                self.ppn_checkbox = QComboBox()
+                self.ppn_checkbox.addItems(["Tanpa PPn", "PPn 10%", "PPn 11%"])
+                self.ppn_checkbox.currentIndexChanged.connect(self._update_total)
+                ppn_layout.addWidget(QLabel("Perhitungan PPn:"))
+                ppn_layout.addWidget(self.ppn_checkbox)
+                ppn_layout.addStretch()
+                rincian_layout.addLayout(ppn_layout)
+
+                # Total grid for LBR_REQ
+                total_grid = QGridLayout()
+                total_grid.setColumnStretch(0, 1)
+
+                # Sub Total
+                total_grid.addWidget(QLabel("SUB TOTAL:"), 0, 1)
+                self.subtotal_label = QLabel("Rp 0")
+                self.subtotal_label.setStyleSheet("font-weight: bold;")
+                self.subtotal_label.setAlignment(Qt.AlignRight)
+                total_grid.addWidget(self.subtotal_label, 0, 2)
+
+                # PPn
+                self.ppn_label_text = QLabel("PPn 0%:")
+                total_grid.addWidget(self.ppn_label_text, 1, 1)
+                self.ppn_label = QLabel("Rp 0")
+                self.ppn_label.setAlignment(Qt.AlignRight)
+                total_grid.addWidget(self.ppn_label, 1, 2)
+
+                # Grand Total
+                total_grid.addWidget(QLabel("TOTAL:"), 2, 1)
+                self.total_label = QLabel("Rp 0")
+                self.total_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #27ae60;")
+                self.total_label.setAlignment(Qt.AlignRight)
+                total_grid.addWidget(self.total_label, 2, 2)
+
+                rincian_layout.addLayout(total_grid)
+            else:
+                # Simple total for Kuitansi
+                total_layout = QHBoxLayout()
+                total_layout.addStretch()
+                total_layout.addWidget(QLabel("TOTAL:"))
+                self.total_label = QLabel("Rp 0")
+                self.total_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+                total_layout.addWidget(self.total_label)
+                rincian_layout.addLayout(total_layout)
 
             scroll_layout.addWidget(rincian_group)
 
@@ -525,13 +618,25 @@ class DokumenGeneratorDialog(QDialog):
                 row = self.rincian_table.rowCount()
                 self.rincian_table.insertRow(row)
 
-                self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
-                self.rincian_table.setItem(row, 1, QTableWidgetItem(str(item.get('volume', 1))))
-                self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
-                harga = item.get('harga_satuan', 0)
-                jumlah = item.get('jumlah', 0)
-                self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-                self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+                if self.kode_dokumen == 'LBR_REQ':
+                    # 6 columns: Nama Barang, Spesifikasi, Volume, Satuan, Harga Satuan, Total
+                    self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', item.get('nama_barang', ''))))
+                    self.rincian_table.setItem(row, 1, QTableWidgetItem(item.get('spesifikasi', '')))
+                    self.rincian_table.setItem(row, 2, QTableWidgetItem(str(item.get('volume', 1))))
+                    self.rincian_table.setItem(row, 3, QTableWidgetItem(item.get('satuan', '')))
+                    harga = item.get('harga_satuan', 0)
+                    jumlah = item.get('jumlah', 0)
+                    self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
+                    self.rincian_table.setItem(row, 5, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+                else:
+                    # 5 columns: Uraian, Volume, Satuan, Harga, Jumlah
+                    self.rincian_table.setItem(row, 0, QTableWidgetItem(item.get('uraian', '')))
+                    self.rincian_table.setItem(row, 1, QTableWidgetItem(str(item.get('volume', 1))))
+                    self.rincian_table.setItem(row, 2, QTableWidgetItem(item.get('satuan', '')))
+                    harga = item.get('harga_satuan', 0)
+                    jumlah = item.get('jumlah', 0)
+                    self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
+                    self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
 
             self._update_total()
 
@@ -546,27 +651,49 @@ class DokumenGeneratorDialog(QDialog):
         harga = self.harga_spin.value()
         jumlah = volume * harga
 
+        # Get spesifikasi for LBR_REQ
+        spesifikasi = ""
+        if self.kode_dokumen == 'LBR_REQ' and hasattr(self, 'spesifikasi_edit'):
+            spesifikasi = self.spesifikasi_edit.text().strip()
+
         # Add to table
         row = self.rincian_table.rowCount()
         self.rincian_table.insertRow(row)
 
-        self.rincian_table.setItem(row, 0, QTableWidgetItem(uraian))
-        self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
-        self.rincian_table.setItem(row, 2, QTableWidgetItem(satuan))
-        self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
-        self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+        if self.kode_dokumen == 'LBR_REQ':
+            # 6 columns: Nama Barang, Spesifikasi, Volume, Satuan, Harga Satuan, Total
+            self.rincian_table.setItem(row, 0, QTableWidgetItem(uraian))
+            self.rincian_table.setItem(row, 1, QTableWidgetItem(spesifikasi))
+            self.rincian_table.setItem(row, 2, QTableWidgetItem(str(volume)))
+            self.rincian_table.setItem(row, 3, QTableWidgetItem(satuan))
+            self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
+            self.rincian_table.setItem(row, 5, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
+        else:
+            # 5 columns: Uraian, Volume, Satuan, Harga, Jumlah
+            self.rincian_table.setItem(row, 0, QTableWidgetItem(uraian))
+            self.rincian_table.setItem(row, 1, QTableWidgetItem(str(volume)))
+            self.rincian_table.setItem(row, 2, QTableWidgetItem(satuan))
+            self.rincian_table.setItem(row, 3, QTableWidgetItem(f"Rp {harga:,.0f}".replace(",", ".")))
+            self.rincian_table.setItem(row, 4, QTableWidgetItem(f"Rp {jumlah:,.0f}".replace(",", ".")))
 
         # Add to list
-        self.rincian_items.append({
+        item_data = {
             'uraian': uraian,
+            'nama_barang': uraian,  # Alias for LBR_REQ
             'volume': volume,
             'satuan': satuan,
             'harga_satuan': harga,
             'jumlah': jumlah,
-        })
+        }
+        if self.kode_dokumen == 'LBR_REQ':
+            item_data['spesifikasi'] = spesifikasi
+
+        self.rincian_items.append(item_data)
 
         # Clear inputs
         self.uraian_edit.clear()
+        if hasattr(self, 'spesifikasi_edit'):
+            self.spesifikasi_edit.clear()
         self.volume_spin.setValue(1)
         self.harga_spin.setValue(0)
 
@@ -587,9 +714,38 @@ class DokumenGeneratorDialog(QDialog):
         self._update_total()
 
     def _update_total(self):
-        """Update total label."""
-        total = sum(item['jumlah'] for item in self.rincian_items)
-        self.total_label.setText(f"Rp {total:,.0f}".replace(",", "."))
+        """Update total label with PPn calculation for LBR_REQ."""
+        subtotal = sum(item['jumlah'] for item in self.rincian_items)
+
+        if self.kode_dokumen == 'LBR_REQ' and hasattr(self, 'ppn_checkbox'):
+            # Calculate PPn based on selection
+            ppn_selection = self.ppn_checkbox.currentText()
+            if ppn_selection == "PPn 10%":
+                ppn_rate = 0.10
+                self.ppn_label_text.setText("PPn 10%:")
+            elif ppn_selection == "PPn 11%":
+                ppn_rate = 0.11
+                self.ppn_label_text.setText("PPn 11%:")
+            else:
+                ppn_rate = 0.0
+                self.ppn_label_text.setText("PPn 0%:")
+
+            ppn_amount = subtotal * ppn_rate
+            grand_total = subtotal + ppn_amount
+
+            # Update labels
+            self.subtotal_label.setText(f"Rp {subtotal:,.0f}".replace(",", "."))
+            self.ppn_label.setText(f"Rp {ppn_amount:,.0f}".replace(",", "."))
+            self.total_label.setText(f"Rp {grand_total:,.0f}".replace(",", "."))
+
+            # Store for later use in _collect_data
+            self._ppn_rate = ppn_rate
+            self._ppn_amount = ppn_amount
+            self._subtotal = subtotal
+            self._grand_total = grand_total
+        else:
+            # Simple total for Kuitansi
+            self.total_label.setText(f"Rp {subtotal:,.0f}".replace(",", "."))
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
@@ -627,8 +783,24 @@ class DokumenGeneratorDialog(QDialog):
             data['persentase_um'] = self.persen_combo.currentText() if hasattr(self, 'persen_combo') else '100%'
             data['bendahara_nama'] = self.bendahara_nama_edit.text() if hasattr(self, 'bendahara_nama_edit') else ''
             data['bendahara_nip'] = self.bendahara_nip_edit.text() if hasattr(self, 'bendahara_nip_edit') else ''
-        else:
-            # Verifikator (PPSPM) untuk dokumen non-KUIT_UM
+
+        # Khusus untuk Lembar Permintaan - include PPn data
+        if self.kode_dokumen == 'LBR_REQ':
+            if hasattr(self, '_subtotal'):
+                data['subtotal'] = self._subtotal
+                data['ppn_rate'] = self._ppn_rate
+                data['ppn_amount'] = self._ppn_amount
+                data['grand_total'] = self._grand_total
+                # PPn percentage text for template
+                if self._ppn_rate == 0.10:
+                    data['ppn_persen'] = "10%"
+                elif self._ppn_rate == 0.11:
+                    data['ppn_persen'] = "11%"
+                else:
+                    data['ppn_persen'] = "0%"
+
+        # Verifikator (PPSPM) untuk dokumen non-KUIT_UM
+        if self.kode_dokumen != 'KUIT_UM':
             if hasattr(self, 'verifikator_nama_edit'):
                 data['verifikator_nama'] = self.verifikator_nama_edit.text()
                 data['verifikator_nip'] = self.verifikator_nip_edit.text()

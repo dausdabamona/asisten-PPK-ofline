@@ -534,9 +534,17 @@ class DokumenGenerator:
         output_path = output_folder / output_filename
 
         # Remove existing file if exists (overwrite)
+        file_locked = False
         if output_path.exists():
             try:
                 os.remove(output_path)
+            except PermissionError:
+                # File sedang dibuka, gunakan nama alternatif dengan timestamp
+                file_locked = True
+                timestamp = datetime.now().strftime("%H%M%S")
+                output_filename = f"{kode_dokumen}{status_suffix}_{timestamp}{ext}"
+                output_path = output_folder / output_filename
+                print(f"Info: File lama sedang dibuka, menyimpan ke: {output_filename}")
             except Exception as e:
                 print(f"Warning: Could not remove existing file: {e}")
 
@@ -549,6 +557,8 @@ class DokumenGenerator:
             return None, f"Format template '{ext}' tidak didukung"
 
         if success:
+            if file_locked:
+                return str(output_path), f"File lama sedang dibuka. Disimpan sebagai: {output_filename}"
             return str(output_path), None
         else:
             return None, "Gagal generate dokumen"

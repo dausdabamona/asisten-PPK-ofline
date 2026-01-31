@@ -31,6 +31,7 @@ class DokumenGeneratorDialog(QDialog):
                  additional_data: Dict[str, Any] = None, parent=None):
         super().__init__(parent)
         self.transaksi = transaksi
+        self.transaksi_id = transaksi.get('id')  # Store transaksi_id for saving
         self.kode_dokumen = kode_dokumen
         self.nama_dokumen = nama_dokumen or kode_dokumen
         self.template_name = template_name
@@ -43,11 +44,16 @@ class DokumenGeneratorDialog(QDialog):
         from app.core.config import DATABASE_PATH
         self.db_path = DATABASE_PATH
         
+        # PencairanManager for saving/loading items
+        from app.models.pencairan_models import PencairanManager
+        self.db_manager = PencairanManager()
+        
         # Pegawai data cache
         self.pegawai_data = {}  # nip -> {nama, jabatan, ...}
 
         self._setup_ui()
         self._load_pegawai_data()
+        self._load_existing_items()  # Load existing items from database first
         self._load_data()
 
     def _setup_ui(self):
@@ -316,6 +322,34 @@ class DokumenGeneratorDialog(QDialog):
             self.penerima_nip_edit.clear()
             self.penerima_jabatan_edit.clear()
 
+    def _load_existing_items(self):
+        """Load existing rincian items from transaksi_item table."""
+        if not self.transaksi_id:
+            return
+        
+        try:
+            # Get items from transaksi_item (master data)
+            items = self.db_manager.get_transaksi_items(self.transaksi_id)
+            
+            if items:
+                # Convert to rincian_items format
+                self.rincian_items = []
+                for item in items:
+                    self.rincian_items.append({
+                        'id': item.get('id'),  # Store ID for updates
+                        'uraian': item.get('nama_barang', ''),
+                        'nama_barang': item.get('nama_barang', ''),
+                        'spesifikasi': item.get('spesifikasi', ''),
+                        'volume': item.get('volume', 0),
+                        'satuan': item.get('satuan', ''),
+                        'harga_satuan': item.get('harga_satuan', 0),
+                        'jumlah': item.get('total_item', 0),
+                        'keterangan': item.get('keterangan', ''),
+                    })
+                print(f"Loaded {len(self.rincian_items)} existing items from database")
+        except Exception as e:
+            print(f"Error loading existing items: {e}")
+
     def _load_data(self):
         """Load initial data including pre-filled rincian items."""
         # Load rincian items if provided
@@ -531,6 +565,9 @@ class DokumenGeneratorDialog(QDialog):
                 self.status_label.setText(f"Dokumen {status_text} berhasil dibuat: {output_path}")
                 self.status_label.setStyleSheet("color: #27ae60;")
 
+                # Save items to database
+                self._save_items_to_database()
+
                 # Show open buttons
                 self.open_folder_btn.setVisible(True)
                 self.open_doc_btn.setVisible(True)
@@ -569,6 +606,36 @@ class DokumenGeneratorDialog(QDialog):
             from app.services.dokumen_generator import get_dokumen_generator
             generator = get_dokumen_generator()
             generator.open_document(folder)
+
+    def _save_items_to_database(self):
+        """Save rincian items to transaksi_item table."""
+        if not self.transaksi_id or not self.rincian_items:
+            return
+        
+        try:
+            # Clear existing items for this transaksi first
+            existing_items = self.db_manager.get_transaksi_items(self.transaksi_id)
+            for item in existing_items:
+                self.db_manager.delete_transaksi_item(item['id'])
+            
+            # Insert new items
+            for idx, item in enumerate(self.rincian_items, 1):
+                item_data = {
+                    'nomor_urut': idx,
+                    'nama_barang': item.get('uraian', item.get('nama_barang', '')),
+                    'spesifikasi': item.get('spesifikasi', ''),
+                    'volume': item.get('volume', 0),
+                    'satuan': item.get('satuan', ''),
+                    'harga_satuan': item.get('harga_satuan', 0),
+                    'total_item': item.get('jumlah', 0),
+                    'keterangan': item.get('keterangan', ''),
+                    'status': 'diminta',
+                }
+                self.db_manager.create_transaksi_item(self.transaksi_id, item_data)
+            
+            print(f"Saved {len(self.rincian_items)} items to database for transaksi {self.transaksi_id}")
+        except Exception as e:
+            print(f"Error saving items to database: {e}")
 
 
 class UploadDokumenDialog(QDialog):

@@ -520,6 +520,9 @@ class BaseDetailPage(QWidget):
         """Load transaksi data into page."""
         self._transaksi_id = transaksi_id
         self._transaksi_data = data
+        
+        # Pastikan ID selalu ada di transaksi_data untuk dialog
+        self._transaksi_data['id'] = transaksi_id
 
         # Update header info
         self.kode_value.setText(data.get('kode_transaksi', '-'))

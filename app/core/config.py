@@ -522,10 +522,22 @@ DOCUMENT_TEMPLATES = {
         'template': 'survey_harga.xlsx',
         'placeholders': ['paket', 'survey'],
     },
+    'SURVEY_HARGA_WORD': {
+        'name': 'Survey Harga (Word)',
+        'type': 'word',
+        'template': 'survey_harga.docx',
+        'placeholders': ['paket', 'survey'],
+    },
     'HPS': {
         'name': 'Harga Perkiraan Sendiri',
         'type': 'excel',
         'template': 'hps.xlsx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk'],
+    },
+    'HPS_WORD': {
+        'name': 'Harga Perkiraan Sendiri (Word)',
+        'type': 'word',
+        'template': 'hps.docx',
         'placeholders': ['paket', 'nilai', 'waktu', 'satker', 'ppk'],
     },
     'KAK': {
@@ -599,6 +611,12 @@ DOCUMENT_TEMPLATES = {
         'type': 'word',
         'template': 'spp_ls.docx',
         'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'ppk', 'ppspm', 'penyedia'],
+    },
+    'SPM_LS': {
+        'name': 'SPM Langsung',
+        'type': 'word',
+        'template': 'spm_ls.docx',
+        'placeholders': ['paket', 'nilai', 'waktu', 'nomor', 'satker', 'bendahara'],
     },
     'DRPP': {
         'name': 'Daftar Rincian Permintaan Pembayaran',
@@ -764,6 +782,12 @@ DOCUMENT_TEMPLATES = {
         'template': 'surat_tugas.docx',
         'placeholders': ['satker', 'ppk', 'perjalanan_dinas'],
     },
+    'SURAT_PERMOHONAN_TUP': {
+        'name': 'Surat Permohonan TUP',
+        'type': 'word',
+        'template': 'surat_permohonan_tup.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
     'SPPD': {
         'name': 'Surat Perintah Perjalanan Dinas',
         'type': 'word',
@@ -839,6 +863,182 @@ DOCUMENT_TEMPLATES = {
         'type': 'word',
         'template': 'bast_swakelola.docx',
         'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
+
+    # ========================================================================
+    # JAMUAN TAMU / RAPAT
+    # ========================================================================
+    'DAFTAR_HADIR_JAMUAN_TAMU': {
+        'name': 'Daftar Hadir Jamuan Tamu',
+        'type': 'word',
+        'template': 'daftar_hadir_jamuan_tamu.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'NOTA_DINAS_JAMUAN_TAMU': {
+        'name': 'Nota Dinas Jamuan Tamu',
+        'type': 'word',
+        'template': 'nota_dinas_jamuan_tamu.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'SK_KPA_JAMUAN_TAMU': {
+        'name': 'SK KPA Jamuan Tamu',
+        'type': 'word',
+        'template': 'sk_kpa_jamuan_tamu.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'KUITANSI_JAMUAN_TAMU': {
+        'name': 'Kuitansi Jamuan Tamu',
+        'type': 'word',
+        'template': 'kuitansi_jamuan_tamu.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara'],
+    },
+    'LAPORAN_JAMUAN_TAMU': {
+        'name': 'Laporan Jamuan Tamu',
+        'type': 'word',
+        'template': 'laporan_jamuan_tamu.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+
+    # ========================================================================
+    # DAFTAR HADIR (UMUM)
+    # ========================================================================
+    'DAFTAR_HADIR_SWAKELOLA': {
+        'name': 'Daftar Hadir Swakelola',
+        'type': 'word',
+        'template': 'daftar_hadir_swakelola.docx',
+        'placeholders': ['satker', 'ppk', 'swakelola'],
+    },
+
+    # ========================================================================
+    # KUITANSI TAMBAHAN
+    # ========================================================================
+    'KUITANSI_HONORARIUM': {
+        'name': 'Kuitansi Honorarium',
+        'type': 'word',
+        'template': 'kuitansi_honorarium.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara'],
+    },
+    'KUITANSI_HONOR_PENGELOLA': {
+        'name': 'Kuitansi Honor Pengelola',
+        'type': 'word',
+        'template': 'kuitansi_honor_pengelola.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara'],
+    },
+
+    # ========================================================================
+    # DOKUMEN LAINNYA
+    # ========================================================================
+    'BUKTI_SERAH_TERIMA_UM': {
+        'name': 'Bukti Serah Terima Uang Muka',
+        'type': 'word',
+        'template': 'bukti_serah_terima_um.docx',
+        'placeholders': ['satker', 'ppk', 'penyedia'],
+    },
+    'BA_MC': {
+        'name': 'Berita Acara Monitoring dan Evaluasi',
+        'type': 'word',
+        'template': 'ba_mc.docx',
+        'placeholders': ['satker', 'ppk', 'paket'],
+    },
+    'LEMBAR_PERMINTAAN': {
+        'name': 'Lembar Permintaan/Order',
+        'type': 'word',
+        'template': 'lembar_permintaan.docx',
+        'placeholders': ['satker', 'ppk', 'penyedia'],
+    },
+    'NOTULEN': {
+        'name': 'Notulen Rapat',
+        'type': 'word',
+        'template': 'notulen.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'SK_KPA': {
+        'name': 'Surat Keputusan KPA',
+        'type': 'word',
+        'template': 'sk_kpa.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'SPBY': {
+        'name': 'Surat Penawaran Barang/Jasa',
+        'type': 'word',
+        'template': 'spby.docx',
+        'placeholders': ['satker', 'ppk', 'penyedia'],
+    },
+    'SSKK': {
+        'name': 'Surat Setoran Kemasan/Karung',
+        'type': 'word',
+        'template': 'sskk.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'SSUK': {
+        'name': 'Surat Setoran Uang Kembalian',
+        'type': 'word',
+        'template': 'ssuk.docx',
+        'placeholders': ['satker', 'ppk', 'bendahara'],
+    },
+    'LPJ': {
+        'name': 'Laporan Pertanggungjawaban',
+        'type': 'word',
+        'template': 'lpj.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+    'MONEV': {
+        'name': 'Laporan Monitoring dan Evaluasi',
+        'type': 'word',
+        'template': 'monev.docx',
+        'placeholders': ['satker', 'ppk', 'paket'],
+    },
+    'LAPORAN_KEGIATAN': {
+        'name': 'Laporan Kegiatan',
+        'type': 'word',
+        'template': 'laporan_kegiatan.docx',
+        'placeholders': ['satker', 'ppk'],
+    },
+
+    # ========================================================================
+    # EXCEL - LAPORAN DAN REKAPITULASI
+    # ========================================================================
+    'PERHITUNGAN_TAMBAH_KURANG': {
+        'name': 'Perhitungan Tambah/Kurang',
+        'type': 'excel',
+        'template': 'perhitungan_tambah_kurang.xlsx',
+        'placeholders': ['paket', 'nilai'],
+    },
+    'RAB_SPPD': {
+        'name': 'RAB SPPD',
+        'type': 'excel',
+        'template': 'rab_sppd.xlsx',
+        'placeholders': ['paket', 'perjalanan_dinas'],
+    },
+    'REKAP_BUKTI_PENGELUARAN': {
+        'name': 'Rekap Bukti Pengeluaran',
+        'type': 'excel',
+        'template': 'rekap_bukti_pengeluaran.xlsx',
+        'placeholders': ['paket'],
+    },
+    'REKAP_FINAL': {
+        'name': 'Rekapitulasi Final',
+        'type': 'excel',
+        'template': 'rekap_final.xlsx',
+        'placeholders': ['paket'],
+    },
+    'REKAP_TUP': {
+        'name': 'Rekapitulasi TUP',
+        'type': 'excel',
+        'template': 'rekap_tup.xlsx',
+        'placeholders': ['paket'],
+    },
+    'RINCIAN_TUP': {
+        'name': 'Rincian TUP',
+        'type': 'excel',
+        'template': 'rincian_tup.xlsx',
+        'placeholders': ['paket'],
+    },
+    'SSBP': {
+        'name': 'Surat Setoran Barang Persediaan',
+        'type': 'excel',
+        'template': 'ssbp.xlsx',
+        'placeholders': ['satker'],
     },
 }
 

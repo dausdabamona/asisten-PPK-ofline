@@ -1,0 +1,120 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    FORMAT LEMBAR PERMINTAAN REALISASI KEGIATAN
+                      POLITEKNIK KELAUTAN DAN PERIKANAN SORONG
+═══════════════════════════════════════════════════════════════════════════════
+
+BAGIAN 1: HEADER INFORMASI
+──────────────────────────────────────────────────────────────────────────────
+Hari/Tanggal   : {{hari_tanggal}}          (Contoh: Rabu, 01 September 2021)
+Unit Kerja     : {{unit_kerja}}             (Contoh: Pusbinka)
+Sumber Dana    : {{sumber_dana}}            (Contoh: DIPA POLTEK KP TA. 2021)
+
+
+BAGIAN 2: TABEL RINCIAN BARANG/JASA - 5 ITEM
+──────────────────────────────────────────────────────────────────────────────
+┌────┬─────────────────────┬────────────────────┬────────┬────────┬──────────┬─────────┐
+│No  │ Nama Barang         │ Spesifikasi        │ Volume │ Satuan │ Hg.Satuan│  Total  │
+├────┼─────────────────────┼────────────────────┼────────┼────────┼──────────┼─────────┤
+│ 1  │ {{item_1_nama}}     │ {{item_1_spek}}    │  {{1_v}}  │{{1_s}} │{{1_harga}}│{{1_tot}}│
+│ 2  │ {{item_2_nama}}     │ {{item_2_spek}}    │  {{2_v}}  │{{2_s}} │{{2_harga}}│{{2_tot}}│
+│ 3  │ {{item_3_nama}}     │ {{item_3_spek}}    │  {{3_v}}  │{{3_s}} │{{3_harga}}│{{3_tot}}│
+│ 4  │ {{item_4_nama}}     │ {{item_4_spek}}    │  {{4_v}}  │{{4_s}} │{{4_harga}}│{{4_tot}}│
+│ 5  │ {{item_5_nama}}     │ {{item_5_spek}}    │  {{5_v}}  │{{5_s}} │{{5_harga}}│{{5_tot}}│
+├────┴─────────────────────┴────────────────────┴────────┴────────┼──────────┼─────────┤
+│                                   SUB TOTAL                  │{{subtotal}}        │
+├──────────────────────────────────────────────────────────────┼──────────┼─────────┤
+│                                   PPN 10%                    │  {{ppn}}  │         │
+├──────────────────────────────────────────────────────────────┼──────────┼─────────┤
+│                                   TOTAL                      │ {{total}} │         │
+└──────────────────────────────────────────────────────────────┴──────────┴─────────┘
+
+Catatan: Kolom Keterangan juga tersedia untuk informasi tambahan
+
+Contoh Data (dari attachment):
+────────────────────────────────
+Item 1: Siempang Perwira (Kuning Biru), 2 Buah, Rp 100.000, Rp 200.000
+Item 2: Siempang Bintara (Merah Biru), 2 Buah, Rp 100.000, Rp 200.000
+Item 3: Ban Piket, 21 Buah, Rp 130.000, Rp 2.730.000
+Item 4: Tali Kat/Senat, 60 Buah, Rp 150.000, Rp 9.000.000
+
+SUB TOTAL: Rp 12.130.000
+PPN 10%: Rp 1.213.000
+TOTAL: Rp 13.343.000
+
+
+BAGIAN 3: TANDA TANGAN
+──────────────────────────────────────────────────────────────────────────────
+Yang mengajukan                    |    Verifikator
+
+
+        [Ruang untuk TTD]         |    [Ruang untuk TTD]
+
+
+{{nama_pengajuan}}                 |    {{nama_verifikator}}
+(Contoh: Fataha Ilyas Hasan, A.Md., S.Pi)  (Contoh: Abdullah Sidiq, A.Md.)
+
+Mengetahui dan Menyetujui         |    Mengetahui
+Kuasa Pengguna Anggaran           |    Pejabat Pembuat Komitmen
+(Contoh: Muhammad Ali Ulat, S.Pi., M.Si)  (Contoh: Dr. Handayani, S.Pi, M)
+
+
+BAGIAN 4: CATATAN BAGIAN KEUANGAN
+──────────────────────────────────────────────────────────────────────────────
+• Jumlah dana sesuai MAK
+• Realisasi s/d
+• Sisa Dana
+• Catatan: *Curet yang tidak perlu
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                              DAFTAR PLACEHOLDER
+═══════════════════════════════════════════════════════════════════════════════
+
+HEADER (3):
+──────────
+{{hari_tanggal}}         - Tanggal pengajuan (Contoh: Rabu, 01 September 2021)
+{{unit_kerja}}           - Unit kerja pengajuan (Contoh: Pusbinka)
+{{sumber_dana}}          - DIPA/Sumber Dana (Contoh: DIPA POLTEK KP TA. 2021)
+
+
+ITEM DATA - 5 ITEM (masing-masing memiliki 4 field):
+────────────────────────────────────────────────────
+Item 1:
+  {{item_1_no}}         - Nomor urut (1)
+  {{item_1_nama}}       - Nama barang/jasa
+  {{item_1_spek}}       - Spesifikasi / deskripsi
+  {{item_1_volume}}     - Jumlah/volume
+  {{item_1_satuan}}     - Satuan (Buah, Liter, Kg, dll)
+  {{item_1_harga}}      - Harga satuan
+  {{item_1_total}}      - Total (volume × harga)
+  {{item_1_ket}}        - Keterangan tambahan
+
+Item 2-5: Mengikuti pola yang sama dengan nomor 2-5
+
+
+SUMMARY (3):
+────────────
+{{subtotal}}            - Jumlah total sebelum PPN
+{{ppn}}                 - Biaya PPN 10% dari subtotal
+{{total}}               - Grand total (subtotal + PPN)
+
+
+SIGNATURE (2):
+──────────────
+{{nama_pengajuan}}      - Nama lengkap yang mengajukan
+{{nama_verifikator}}    - Nama lengkap verifikator
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                          FITUR DAN KARAKTERISTIK
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ Format Resmi: Sesuai standar formulir permintaan di lingkungan kemenkeu
+✓ Layout: Header info - Tabel data (5 item) - Summary (subtotal, PPN, total) - TTD
+✓ Styling: Professional dengan background abu-abu (#D3D3D3) untuk header dan total
+✓ Flexible: Mendukung hingga 5 item barang/jasa
+✓ Numerik: Kolom harga dan total automatically right-aligned untuk tampilan rapi
+✓ Catatan: Bidang keterangan untuk informasi tambahan per item
+✓ Signature Block: Area untuk tanda tangan dengan 4 penandatangan (pengajuan + verifikasi)
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,192 @@
+================================================================================
+PERBAIKAN: RINCIAN BARANG TIDAK TAMPIL DI DOKUMEN HASIL GENERATE
+================================================================================
+
+MASALAH:
+--------
+Ketika generate dokumen lembar permintaan dari form, rincian barang/jasa yang 
+sudah diinput di form tidak tampil di dokumen Word hasil generate.
+
+ROOT CAUSE:
+-----------
+1. Data rincian items dikumpulkan di form (dokumen_dialog.py)
+2. Tetapi saat merge ke template Word, data rincian tidak diproses dengan benar
+3. Template Word memiliki table dengan placeholder rows (item_1_nama, dll)
+4. Tetapi dokumen generator tidak mengerti cara mengisi table dengan multiple items
+
+SOLUSI YANG DIIMPLEMENTASIKAN:
+-------------------------------
+
+1. ✓ Improved dokumen_generator.py:
+   - Tambah method _is_rincian_table() untuk detect tabel rincian
+   - Tambah method _fill_rincian_table() untuk fill data rincian ke table
+   - Update merge_word_document() untuk special handling table rincian
+   - Sekarang dapat mapping kolom secara otomatis dari header table
+   
+2. ✓ Improved dokumen_dialog.py:
+   - Update _collect_data() untuk transform rincian items ke format yang proper
+   - Add field: rincian_items, subtotal, ppn, total
+   - Prepare data dengan format yang siap untuk template
+   - Pass rincian_items ke generate_document()
+
+3. ✓ Lembar Permintaan Helper:
+   - File app/services/lembar_permintaan_helper.py sudah ada
+   - Menyediakan helper functions untuk akses data
+   - Transformasi data ke format dokumen berikutnya (SPJ, Kuitansi, dll)
+
+================================================================================
+FLOW ALUR YANG SUDAH DIPERBAIKI
+================================================================================
+
+A. GENERATE DOKUMEN DENGAN RINCIAN:
+
+   1. User input rincian barang di form (dokumen_dialog.py)
+      └─ Fields: uraian, volume, satuan, harga_satuan
+      
+   2. Form collect data via _collect_data()
+      └─ Transform rincian_items ke format siap pakai
+      └─ Calculate subtotal, ppn, total
+      
+   3. Kirim ke dokumen_generator.generate_document()
+      └─ Pass: rincian=rincian_items
+      
+   4. Dokumen generator process template
+      └─ Detect rincian table (via _is_rincian_table)
+      └─ Fill table rows dengan data items (via _fill_rincian_table)
+      └─ Map kolom otomatis dari header
+      
+   5. Dokumen Word result:
+      ✓ Rincian barang sudah terisi di table
+      ✓ Kolom otomatis align dengan data
+      ✓ Format angka (harga, jumlah) sudah benar
+      ✓ Subtotal, PPN, Total sudah dihitung
+
+B. DATA UNTUK PROSES SELANJUTNYA:
+
+   Data lembar permintaan otomatis tersimpan di database (table):
+   - lembar_permintaan: header, penandatangan, nilai finansial
+   - lembar_permintaan_item: detail setiap barang
+   
+   Untuk fase berikutnya, gunakan lembar_permintaan_helper:
+   
+   from app.services.lembar_permintaan_helper import *
+   
+   # Get data lengkap
+   data = get_lembar_data_complete(db, lembar_id)
+   items = get_rincian_barang(db, lembar_id)
+   
+   # Transform untuk dokumen berikutnya
+   spj_data = transform_to_spj_format(db, lembar_id)
+   kuitansi_data = transform_to_kuitansi_format(db, lembar_id)
+   realisasi_data = transform_to_realisasi_format(db, lembar_id)
+
+================================================================================
+FILE YANG DIMODIFIKASI
+================================================================================
+
+1. app/services/dokumen_generator.py
+   - merge_word_document(): Tambah special handling untuk rincian table
+   - _is_rincian_table(): New method - detect rincian table
+   - _fill_rincian_table(): New method - fill rincian items ke table rows
+   - _process_table(): Improved untuk conditional processing
+
+2. app/ui/dialogs/dokumen_dialog.py
+   - _collect_data(): Transform rincian_items ke format proper
+   - _generate(): Pass rincian_items yang sudah prepared
+   - Additional fields: subtotal, ppn, total, rincian_items
+
+3. app/services/lembar_permintaan_helper.py
+   - (Sudah ada, tidak perlu perubahan)
+   - Provides helper functions untuk fase berikutnya
+
+================================================================================
+CARA TEST
+================================================================================
+
+Jalankan test script:
+```bash
+cd e:\gdrive\0. aplikasi\asisten-PPK-ofline
+python test_lembar_with_rincian.py
+```
+
+Test akan:
+1. Generate dokumen dengan 3 items rincian barang
+2. Verify bahwa rincian terisi di table di dokumen
+3. Verify data dapat ditransform ke SPJ dan Kuitansi
+
+================================================================================
+FITUR TAMBAHAN
+================================================================================
+
+✓ Auto-detect kolom rincian dari header table:
+  - Kolom "no" untuk nomor
+  - Kolom "uraian/barang/nama" untuk nama barang
+  - Kolom "volume/vol" untuk volume
+  - Kolom "harga/price" untuk harga satuan
+  - Kolom "jumlah/total" untuk total
+
+✓ Auto-format angka:
+  - Harga: Format ke "Rp XXX.XXX" (dengan titik ribuan)
+  - Jumlah: Format ke "Rp XXX.XXX"
+
+✓ Dynamic row creation:
+  - Jika jumlah items > placeholder rows, akan create baris baru
+  - Jika jumlah items < placeholder rows, akan hapus baris kosong
+
+✓ Database integration:
+  - Semua data rincian otomatis tersimpan di database
+  - Dapat diakses untuk fase berikutnya
+
+================================================================================
+CONTOH PENGGUNAAN
+================================================================================
+
+1. Generate Lembar Permintaan dari Form:
+   
+   User membuka dialog generate dokumen LBR_REQ
+   ↓
+   Input data di form:
+   - Nama Kegiatan: "Belanja ATK Kantor"
+   - Rincian: [Kertas, Tinta, Binder, dll]
+   ↓
+   Click "Generate Dokumen"
+   ↓
+   Hasil: Dokumen Word dengan rincian barang terisi lengkap ✓
+
+2. Gunakan Data untuk Dokumen Berikutnya:
+
+   from app.services.lembar_permintaan_helper import transform_to_spj_format
+   
+   # Get lembar_id dari generate sebelumnya
+   lembar_id = 123
+   
+   # Transform untuk SPJ
+   spj_data = transform_to_spj_format(db, lembar_id)
+   # spj_data now contains all rincian items dan nilai dari lembar
+   
+   # Generate SPJ dokumen dengan data yang sama
+   output_path, error = generator.generate_document(
+       transaksi=spj_data,
+       kode_dokumen='SPJ',
+       template_name='spj_template.docx',
+       rincian=spj_data['rincian_items']  # Rincian dari lembar
+   )
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Test generate dokumen dengan form yang ada:
+   python test_lembar_with_rincian.py
+
+2. Verify dokumen hasil generate:
+   - Cek table rincian barang terisi semua
+   - Cek format angka sudah benar
+   - Cek subtotal, ppn, total terhitung
+
+3. Gunakan data untuk fase berikutnya:
+   - Generate SPJ dari lembar permintaan
+   - Generate Kuitansi dari lembar permintaan
+   - Generate Realisasi dari lembar permintaan
+
+================================================================================

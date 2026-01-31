@@ -576,20 +576,23 @@ class MainWindowV2(QMainWindow):
         """Handle document creation."""
         try:
             # Get template name from workflow config
-            from ..config.workflow_config import WORKFLOW_CONFIGS
+            from ..config.workflow_config import get_workflow
 
             mekanisme = transaksi_data.get('mekanisme', 'UP')
-            workflow = WORKFLOW_CONFIGS.get(mekanisme, {})
+            workflow = get_workflow(mekanisme)
             template_name = None
 
             # Find template for this document
-            for fase_config in workflow.get('fases', []):
-                for dok in fase_config.get('dokumen', []):
-                    if dok.get('kode') == kode_dokumen:
-                        template_name = dok.get('template')
+            if workflow:
+                found = False
+                for fase_num, fase_config in workflow.get('fase', {}).items():
+                    if found:
                         break
-                if template_name:
-                    break
+                    for dok in fase_config.get('dokumen', []):
+                        if dok.get('kode') == kode_dokumen:
+                            template_name = dok.get('template')
+                            found = True
+                            break
 
             if not template_name:
                 QMessageBox.warning(

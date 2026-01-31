@@ -218,14 +218,12 @@ class TransaksiFormPage(QWidget):
         self.jenis_combo.setStyleSheet(self._get_input_style())
         form_layout.addRow("Jenis Belanja *", self.jenis_combo)
 
-        # Kode Akun
+        # Kode Akun (read-only, auto-fill dari MAK DIPA)
         self.akun_input = QLineEdit()
-        self.akun_input.setPlaceholderText("Contoh: 5.2.2.03")
-        self.akun_input.setStyleSheet(self._get_input_style())
+        self.akun_input.setReadOnly(True)
+        self.akun_input.setPlaceholderText("MAK akan terisi otomatis dari DIPA...")
+        self.akun_input.setStyleSheet("background-color: #ecf0f1; padding: 5px; border: 1px solid #bdc3c7;")
         form_layout.addRow("Kode Akun", self.akun_input)
-
-        # Auto-fill kode akun when jenis changes
-        self.jenis_combo.currentIndexChanged.connect(self._on_jenis_changed)
 
         layout.addLayout(form_layout)
 
@@ -695,7 +693,7 @@ class TransaksiFormPage(QWidget):
             cursor.execute("""
                 SELECT id, nama, nip, jabatan, unit_kerja
                 FROM pegawai
-                WHERE aktif = 1 OR aktif IS NULL
+                WHERE is_active = 1
                 ORDER BY nama ASC
             """)
             
@@ -739,13 +737,6 @@ class TransaksiFormPage(QWidget):
                 self.penerima_nip_input.setText(data['nip'] or '')
                 self.penerima_jabatan_input.setText(data['jabatan'] or '')
 
-    def _on_jenis_changed(self, index: int):
-        """Handle jenis belanja change to auto-fill kode akun."""
-        kode = self.jenis_combo.currentData()
-        for jenis in JENIS_BELANJA:
-            if jenis['kode'] == kode:
-                self.akun_input.setText(jenis['akun_default'])
-                break
 
     def _on_dipa_selection_changed(self):
         """Handle DIPA selection changed."""
@@ -759,6 +750,9 @@ class TransaksiFormPage(QWidget):
         # Update MAK codes
         mak_codes = self.dipa_selector.get_mak_string()
         self.kode_mak_input.setText(mak_codes)
+        
+        # Update Kode Akun in Informasi Dasar (auto-fill dari MAK DIPA)
+        self.akun_input.setText(mak_codes)
         
         # Populate uraian with selected items description
         items = self.dipa_selector.selected_items

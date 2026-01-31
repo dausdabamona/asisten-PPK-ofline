@@ -204,12 +204,43 @@ class TransactionItemWidget(QFrame):
         """)
         right_container.addWidget(status_label, 0, Qt.AlignmentFlag.AlignRight)
 
+        # Tombol Edit
+        edit_btn = QPushButton("Edit")
+        edit_btn.setFixedWidth(60)
+        edit_btn.setFixedHeight(28)
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 500;
+                padding: 4px 8px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #1f618d;
+            }
+        """)
+        edit_btn.clicked.connect(self._on_edit_clicked)
+        layout.addWidget(edit_btn)
+
         layout.addLayout(right_container)
+
+    def _on_edit_clicked(self) -> None:
+        """Handle edit button click."""
+        # Emit clicked signal - the parent will handle opening edit dialog
+        self.clicked.emit(self._transaction_id)
 
     def mousePressEvent(self, event) -> None:
         """Handle mouse press to emit clicked signal."""
         if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit(self._transaction_id)
+            # Only emit if clicking on the item content, not on buttons
+            if not self.childAt(event.pos()) or not isinstance(self.childAt(event.pos()), QPushButton):
+                self.clicked.emit(self._transaction_id)
         super().mousePressEvent(event)
 
     def get_transaction_id(self) -> str:

@@ -1,0 +1,201 @@
+================================================================================
+PENGGUNAAN DATA LEMBAR PERMINTAAN DI WORKFLOW SELANJUTNYA
+================================================================================
+
+Struktur data yang sekarang tersimpan di database:
+- Table: lembar_permintaan (header data)
+- Table: lembar_permintaan_item (rincian barang/jasa)
+
+AKSES DATA DARI KODE:
+
+1. IMPORT MODULES:
+   from app.models.pencairan_models import PencairanManager
+   from app.services.lembar_permintaan_helper import *
+   
+   db = PencairanManager()
+
+2. GET DATA LENGKAP:
+   data = get_lembar_data_complete(db, lembar_id)
+   # Returns: {'lembar': {...}, 'items': [...], 'summary': {...}}
+
+3. GET RINCIAN BARANG:
+   items = get_rincian_barang(db, lembar_id)
+   # Returns: List of items dengan format siap pakai
+
+4. GET NILAI FINANSIAL:
+   values = get_nilai_finansial(db, lembar_id)
+   # Returns: {'subtotal': X, 'ppn': X, 'total': X}
+
+5. GET DATA PENANDATANGAN:
+   signers = get_penandatangan(db, lembar_id)
+   # Returns: {'nama_pengajuan': X, 'nama_ppk': X, ...}
+
+================================================================================
+TRANSFORMASI DATA UNTUK DOKUMEN BERIKUTNYA:
+
+1. UNTUK SPJ (Surat Pertanggung Jawaban):
+   spj_data = transform_to_spj_format(db, lembar_id)
+   # Includes: ref_lembar_id, penandatangan, rincian, nilai
+
+2. UNTUK KUITANSI:
+   kuitansi_data = transform_to_kuitansi_format(db, lembar_id)
+   # Includes: nomor_kuitansi, penerima, rincian, nilai
+
+3. UNTUK REALISASI:
+   realisasi_data = transform_to_realisasi_format(db, lembar_id)
+   # Includes: volume rencana, realisasi, keterangan
+
+================================================================================
+GENERATE DOKUMEN DARI DATA LEMBAR:
+
+from app.services.dokumen_generator import generate_dokumen_from_lembar
+
+# Generate SPJ dari lembar_permintaan
+path, error = generate_dokumen_from_lembar(
+    db=db_manager,
+    lembar_id=lembar_id,
+    dokumen_type='SPJ',
+    template_name='spj_template.docx',
+    output_dir='output/dokumen'
+)
+
+# Generate Kuitansi dari lembar_permintaan
+path, error = generate_dokumen_from_lembar(
+    db=db_manager,
+    lembar_id=lembar_id,
+    dokumen_type='KUITANSI',
+    template_name='kuitansi_template.docx'
+)
+
+================================================================================
+VALIDASI SEBELUM LANJUT KE FASE BERIKUTNYA:
+
+is_valid, error_msg = validate_lembar_for_next_phase(db, lembar_id)
+if not is_valid:
+    print(f"Validasi gagal: {error_msg}")
+else:
+    # Lanjutkan ke fase berikutnya
+
+================================================================================
+UPDATE STATUS LEMBAR:
+
+# Mark as final setelah approval
+update_lembar_status(db, lembar_id, 'final')
+
+# Mark as signed setelah ditanda-tangani
+update_lembar_status(db, lembar_id, 'signed')
+
+# Mark as used ketika sudah dipakai di fase berikutnya
+mark_as_used_in_next_phase(db, lembar_id, fase_target=2)
+
+Status yang tersedia: draft, final, signed, uploaded, used, archived
+
+================================================================================
+QUERY LANGSUNG KE DATABASE:
+
+# Get satu lembar
+lembar = db.get_lembar_permintaan(lembar_id)
+
+# Get lembar dengan semua items
+lembar_complete = db.get_lembar_permintaan_with_items(lembar_id)
+
+# Get semua lembar di tahun tertentu
+all_lembar = db.list_lembar_permintaan(tahun=2026, status='final', limit=50)
+
+# Get by kode_transaksi
+lembar = db.get_lembar_permintaan_by_kode_transaksi('UP-001/2026')
+
+# Get items dari lembar
+items = db.get_lembar_permintaan_items(lembar_id)
+
+# Get formatted rincian
+rincian = db.get_rincian_from_lembar(lembar_id)
+
+================================================================================
+INTEGRASI DENGAN WORKFLOW PHASE:
+
+1. Ketika create dokumen di fase 2 (SPJ, Kuitansi):
+   - Reference lembar_permintaan_id
+   - Copy data dari lembar_permintaan
+   - Jaga referensi untuk audit trail
+
+2. Ketika approve/sign dokumen:
+   - Update status lembar menjadi 'signed'
+   - Record user & timestamp
+   - Link ke dokumen yang di-generate
+
+3. Ketika finalize transaksi:
+   - Archive lembar (status='archived')
+   - Simpan final version dokumen
+
+================================================================================
+CONTOH LENGKAP - GENERATE SPJ DARI LEMBAR:
+
+from app.models.pencairan_models import PencairanManager
+from app.services.lembar_permintaan_helper import (
+    get_lembar_data_complete,
+    transform_to_spj_format,
+    validate_lembar_for_next_phase
+)
+from app.services.dokumen_generator import generate_dokumen_from_lembar
+
+# Initialize
+db = PencairanManager()
+lembar_id = 123  # ID lembar yang sudah di-generate sebelumnya
+
+# Validasi
+is_valid, error = validate_lembar_for_next_phase(db, lembar_id)
+if not is_valid:
+    print(f"Error: {error}")
+    exit(1)
+
+# Get data dengan transformasi SPJ
+spj_data = transform_to_spj_format(db, lembar_id)
+
+# Generate dokumen SPJ
+doc_path, doc_error = generate_dokumen_from_lembar(
+    db=db,
+    lembar_id=lembar_id,
+    dokumen_type='SPJ',
+    template_name='spj_template.docx',
+    output_dir='output/dokumen'
+)
+
+if doc_error:
+    print(f"Error generate: {doc_error}")
+else:
+    print(f"SPJ generated: {doc_path}")
+    # Update status lembar
+    db.update_lembar_permintaan(lembar_id, {'status': 'used'})
+
+================================================================================
+DATABASE SCHEMA REFERENCES:
+
+Table lembar_permintaan:
+- id (INTEGER PRIMARY KEY)
+- kode_transaksi (TEXT)
+- hari_tanggal (DATE)
+- unit_kerja (TEXT)
+- sumber_dana (TEXT)
+- subtotal, ppn, total (REAL)
+- nama_pengajuan, nama_verifikator, nama_ppk, nama_atasan, nama_kpa (TEXT)
+- file_path (TEXT)
+- status (TEXT: draft, final, signed, uploaded, used, archived)
+- tahun_anggaran (INTEGER)
+- created_at, updated_at (TIMESTAMP)
+- created_by, updated_by (TEXT)
+
+Table lembar_permintaan_item:
+- id (INTEGER PRIMARY KEY)
+- lembar_permintaan_id (INTEGER - FK)
+- item_no (INTEGER)
+- nama_barang (TEXT)
+- spesifikasi (TEXT)
+- volume (REAL)
+- satuan (TEXT)
+- harga_satuan (REAL)
+- total_item (REAL)
+- keterangan (TEXT)
+- created_at (TIMESTAMP)
+
+================================================================================

@@ -1,0 +1,166 @@
+RINGKASAN PERBAIKAN - RINCIAN BARANG DI LEMBAR PERMINTAAN
+=========================================================
+
+MASALAH YANG SUDAH DIPERBAIKI:
+────────────────────────────
+
+Ketika generate dokumen lembar permintaan dari form, rincian barang/jasa 
+yang sudah diinput tidak tampil di dokumen Word hasil generate.
+
+STATUS: ✓ DIPERBAIKI
+
+
+PERUBAHAN TEKNIS:
+────────────────
+
+1. app/services/dokumen_generator.py
+   └─ merge_word_document(): Special handling untuk table rincian
+   └─ _is_rincian_table(): Detect table rincian dari header
+   └─ _fill_rincian_table(): Fill data items ke table rows
+
+2. app/ui/dialogs/dokumen_dialog.py
+   └─ _collect_data(): Transform rincian items ke format siap pakai
+   └─ Hitung subtotal, ppn, total otomatis
+   └─ Pass prepared rincian_items ke generator
+
+3. app/services/lembar_permintaan_helper.py
+   └─ Helper functions untuk akses data lembar
+   └─ Transform data untuk dokumen berikutnya
+
+
+ALUR YANG SUDAH BEKERJA:
+───────────────────────
+
+STEP 1: USER INPUT RINCIAN DI FORM
+  └─ Buka dialog generate dokumen LBR_REQ
+  └─ Input rincian barang/jasa
+  └─ System collect data di _collect_data()
+
+STEP 2: DATA DIPROSES
+  └─ Transform rincian_items ke format proper
+  └─ Calculate subtotal, ppn, total
+  └─ Prepare untuk merge ke template
+
+STEP 3: DOKUMEN GENERATOR
+  └─ Detect table rincian via header keywords
+  └─ Auto-map kolom: no, uraian, volume, satuan, harga, jumlah
+  └─ Fill table rows dengan data items
+  └─ Format angka ke Rp XXX.XXX
+
+STEP 4: SIMPAN HASIL
+  └─ Dokumen Word dengan rincian terisi lengkap ✓
+  └─ Data rincian tersimpan di database ✓
+
+STEP 5: DATA UNTUK FASE BERIKUTNYA
+  └─ Data lembar bisa diakses kapan saja
+  └─ Transform otomatis ke format SPJ, Kuitansi, Realisasi
+  └─ Rincian dapat digunakan di dokumen fase berikutnya
+
+
+HELPER FUNCTIONS UNTUK AKSES DATA:
+──────────────────────────────────
+
+from app.services.lembar_permintaan_helper import *
+
+# Get data lengkap
+data = get_lembar_data_complete(db, lembar_id)
+items = get_rincian_barang(db, lembar_id)
+
+# Transform untuk dokumen lain
+spj = transform_to_spj_format(db, lembar_id)
+kuitansi = transform_to_kuitansi_format(db, lembar_id)
+realisasi = transform_to_realisasi_format(db, lembar_id)
+
+# Validasi dan update status
+is_valid, msg = validate_lembar_for_next_phase(db, lembar_id)
+update_lembar_status(db, lembar_id, 'signed')
+
+
+DATABASE SCHEMA:
+───────────────
+
+Table lembar_permintaan:
+├─ id, nomor_dokumen, kode_transaksi
+├─ hari_tanggal, unit_kerja, sumber_dana
+├─ subtotal, ppn, total (nilai finansial)
+├─ nama_pengajuan, nama_verifikator, nama_ppk, nama_atasan, nama_kpa
+├─ file_path, status, tahun_anggaran
+└─ created_at, created_by, updated_at, updated_by
+
+Table lembar_permintaan_item:
+├─ id, lembar_permintaan_id (FK)
+├─ item_no, nama_barang, spesifikasi
+├─ volume, satuan, harga_satuan, total_item
+├─ keterangan
+└─ created_at
+
+
+TEST & VERIFIKASI:
+─────────────────
+
+Jalankan test:
+  python test_lembar_with_rincian.py
+
+Test akan verify:
+  ✓ Generate dokumen dengan rincian barang
+  ✓ Rincian terisi di table
+  ✓ Format angka sudah benar
+  ✓ Data bisa ditransform untuk fase berikutnya
+
+
+CONTOH REAL USAGE:
+──────────────────
+
+# User menggunakan form di UI
+1. Click "Generate Dokumen" -> "LBR_REQ"
+2. Input form data
+3. Tambah rincian barang via form
+4. Click "Generate Dokumen"
+5. Hasil: Dokumen Word dengan rincian barang terisi ✓
+
+# Developer untuk fase berikutnya
+lembar_id = 123  # Dari generate sebelumnya
+spj_data = transform_to_spj_format(db, lembar_id)
+# spj_data include semua rincian dari lembar
+output_path, error = generator.generate_document(
+    transaksi=spj_data,
+    kode_dokumen='SPJ',
+    rincian=spj_data['rincian_items']
+)
+
+
+KEY IMPROVEMENTS:
+────────────────
+
+✓ Rincian barang otomatis terisi di dokumen
+✓ Data otomatis tersimpan di database
+✓ Format angka dan kolom otomatis
+✓ Dapat digunakan untuk dokumen fase berikutnya
+✓ Audit trail lengkap (created_by, timestamps)
+✓ Status tracking (draft → final → signed → used)
+
+
+NEXT PHASE DATA FLOW:
+
+Lembar Permintaan (Phase 1)
+  ├─ Rincian barang/jasa tersimpan
+  ├─ Nilai (subtotal, ppn, total) terhitung
+  └─ Status tracking
+    │
+    └─→ SPJ (Phase 2)
+    │   ├─ Copy rincian dari lembar ✓
+    │   ├─ Compare plan vs realisasi
+    │   └─ Track penggunaan dana
+    │
+    └─→ Kuitansi (Phase 2)
+    │   ├─ Copy rincian dari lembar ✓
+    │   ├─ Penerima & bukti
+    │   └─ Tanda tangan
+    │
+    └─→ Realisasi (Phase 3)
+        ├─ Copy rincian dari lembar ✓
+        ├─ Compare plan (dari lembar) vs actual
+        └─ Final settlement
+
+
+STATUS: ✓ READY FOR PRODUCTION

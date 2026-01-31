@@ -8,6 +8,7 @@ Features:
 - Status dokumen (pending, draft, final, signed, uploaded)
 - Tombol aksi per dokumen (Buat, Lihat, Edit, Upload)
 - Progress indicator per fase
+- Responsive button layout (wraps when window is resized)
 """
 
 from PySide6.QtWidgets import (
@@ -19,6 +20,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 
 from typing import Dict, Any, List, Optional
+
+from .flow_layout import FlowLayout
 
 
 class DokumenItem(QFrame):
@@ -49,6 +52,8 @@ class DokumenItem(QFrame):
         status: str = "pending",
         deskripsi: str = None,
         template: str = None,
+        fase: int = 1,
+        file_path: str = None,
         parent=None
     ):
         super().__init__(parent)
@@ -58,6 +63,8 @@ class DokumenItem(QFrame):
         self.status = status
         self.deskripsi = deskripsi
         self.template = template
+        self.fase = fase
+        self.file_path = file_path  # Path to generated/uploaded file
 
         self._setup_ui()
 
@@ -73,24 +80,28 @@ class DokumenItem(QFrame):
             }
         """)
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 12, 15, 12)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
+
+        # Top row: Status icon + Document info
+        top_layout = QHBoxLayout()
+        top_layout.setSpacing(12)
 
         # Status icon
         status_style = self.STATUS_STYLES.get(self.status, self.STATUS_STYLES["pending"])
-        status_icon = QLabel(status_style["icon"])
-        status_icon.setFixedSize(28, 28)
-        status_icon.setAlignment(Qt.AlignCenter)
-        status_icon.setStyleSheet(f"""
+        self.status_icon = QLabel(status_style["icon"])
+        self.status_icon.setFixedSize(28, 28)
+        self.status_icon.setAlignment(Qt.AlignCenter)
+        self.status_icon.setStyleSheet(f"""
             background-color: {status_style['color']};
             color: white;
             border-radius: 14px;
             font-weight: bold;
             font-size: 12px;
         """)
-        status_icon.setToolTip(status_style["text"])
-        layout.addWidget(status_icon)
+        self.status_icon.setToolTip(status_style["text"])
+        top_layout.addWidget(self.status_icon)
 
         # Document info
         info_layout = QVBoxLayout()
@@ -107,6 +118,19 @@ class DokumenItem(QFrame):
             font-weight: 500;
         """)
         name_layout.addWidget(name_label)
+
+        # Status badge (draft, final, signed, etc.)
+        if self.status != "pending":
+            status_badge = QLabel(status_style["text"])
+            status_badge.setStyleSheet(f"""
+                background-color: {status_style['color']}20;
+                color: {status_style['color']};
+                border-radius: 8px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: 500;
+            """)
+            name_layout.addWidget(status_badge)
 
         # Kategori badge
         kat_style = self.KATEGORI_STYLES.get(self.kategori, self.KATEGORI_STYLES["wajib"])
@@ -130,34 +154,60 @@ class DokumenItem(QFrame):
             desc_label.setStyleSheet("font-size: 11px; color: #7f8c8d;")
             info_layout.addWidget(desc_label)
 
-        layout.addLayout(info_layout, 1)
+        top_layout.addLayout(info_layout, 1)
+        layout.addLayout(top_layout)
 
-        # Action buttons
-        actions_layout = QHBoxLayout()
-        actions_layout.setSpacing(5)
+        # Action buttons container (uses FlowLayout for responsive wrapping)
+        self.actions_widget = QWidget()
+        self.actions_layout = FlowLayout(self.actions_widget, margin=0, h_spacing=5, v_spacing=5)
+        
+        self._populate_action_buttons()
+        
+        layout.addWidget(self.actions_widget)
+
+    def _populate_action_buttons(self):
+        """Populate action buttons based on status and kategori."""
+        # Clear existing buttons
+        while self.actions_layout.count():
+            item = self.actions_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
         # Determine which actions to show based on status and kategori
         if self.kategori == "upload" or self.template is None:
+            # Upload-only documents
             if self.status == "pending":
-                self._add_action_btn(actions_layout, "upload", "Upload", "#9b59b6")
+                self._add_action_btn("upload", "📤 Upload", "#9b59b6")
             else:
-                self._add_action_btn(actions_layout, "view", "Lihat", "#3498db")
-                self._add_action_btn(actions_layout, "upload", "Ganti", "#95a5a6")
+                self._add_action_btn("open", "📂 Buka", "#3498db")
+                self._add_action_btn("upload", "🔄 Ganti", "#95a5a6")
         else:
+            # Template-based documents
             if self.status == "pending":
-                self._add_action_btn(actions_layout, "create", "+ Buat", "#27ae60")
-                # Add upload archive button
-                self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
-            else:
-                self._add_action_btn(actions_layout, "view", "Lihat", "#3498db")
-                self._add_action_btn(actions_layout, "edit", "Edit", "#f39c12")
-                # Add upload archive button for existing documents
-                self._add_action_btn(actions_layout, "upload_arsip", "Arsip", "#9b59b6")
+                # Belum dibuat - tombol Buat (akan jadi draft)
+                self._add_action_btn("create", "✏️ Buat Draft", "#27ae60")
+                self._add_action_btn("upload_arsip", "📁 Arsip", "#9b59b6")
+            elif self.status == "draft":
+                # Draft - tombol Buka, Edit/Generate Ulang, Upload TTD
+                self._add_action_btn("open", "📂 Buka", "#3498db")
+                self._add_action_btn("edit", "✏️ Edit", "#f39c12")
+                self._add_action_btn("upload_signed", "📝 Upload TTD", "#27ae60")
+            elif self.status == "signed":
+                # Sudah di-TTD - tombol Buka, Upload Final
+                self._add_action_btn("open", "📂 Buka", "#3498db")
+                self._add_action_btn("upload_final", "📤 Upload Final", "#9b59b6")
+            elif self.status == "uploaded":
+                # Sudah diupload - tombol Buka saja
+                self._add_action_btn("open", "📂 Buka", "#3498db")
+                self._add_action_btn("open_folder", "📁 Folder", "#7f8c8d")
+            else:  # final
+                # Final - tombol Buka, Edit
+                self._add_action_btn("open", "📂 Buka", "#3498db")
+                self._add_action_btn("edit", "✏️ Edit", "#f39c12")
+                self._add_action_btn("upload_arsip", "📁 Arsip", "#9b59b6")
 
-        layout.addLayout(actions_layout)
-
-    def _add_action_btn(self, layout, action: str, text: str, color: str):
-        """Add action button."""
+    def _add_action_btn(self, action: str, text: str, color: str):
+        """Add action button to FlowLayout."""
         btn = QPushButton(text)
         btn.setFixedHeight(28)
         btn.setCursor(Qt.PointingHandCursor)
@@ -175,8 +225,8 @@ class DokumenItem(QFrame):
                 background-color: {self._darken_color(color)};
             }}
         """)
-        btn.clicked.connect(lambda: self.action_clicked.emit(self.kode, action))
-        layout.addWidget(btn)
+        btn.clicked.connect(lambda checked, a=action: self.action_clicked.emit(self.kode, a))
+        self.actions_layout.addWidget(btn)
 
     def _darken_color(self, hex_color: str) -> str:
         """Darken a hex color."""
@@ -186,13 +236,30 @@ class DokumenItem(QFrame):
             "#3498db": "#2980b9",
             "#9b59b6": "#7d3c98",
             "#95a5a6": "#7f8c8d",
+            "#7f8c8d": "#6c7a7d",
         }
         return darken_map.get(hex_color, hex_color)
 
-    def set_status(self, status: str):
-        """Update document status."""
+    def set_status(self, status: str, file_path: str = None):
+        """Update document status and refresh buttons."""
         self.status = status
-        # Would need to rebuild UI or update specific widgets
+        if file_path:
+            self.file_path = file_path
+        
+        # Update status icon
+        status_style = self.STATUS_STYLES.get(self.status, self.STATUS_STYLES["pending"])
+        self.status_icon.setText(status_style["icon"])
+        self.status_icon.setStyleSheet(f"""
+            background-color: {status_style['color']};
+            color: white;
+            border-radius: 14px;
+            font-weight: bold;
+            font-size: 12px;
+        """)
+        self.status_icon.setToolTip(status_style["text"])
+        
+        # Refresh action buttons
+        self._populate_action_buttons()
 
 
 class DokumenChecklist(QFrame):
@@ -353,14 +420,16 @@ class DokumenChecklist(QFrame):
                 status=dok.get('status', 'pending'),
                 deskripsi=dok.get('deskripsi'),
                 template=dok.get('template'),
+                fase=self.fase,
+                file_path=dok.get('file_path'),
             )
             item.action_clicked.connect(
-                lambda kode, action: self.dokumen_action.emit(kode, action, self.fase)
+                lambda kode, action, f=self.fase: self.dokumen_action.emit(kode, action, f)
             )
             self._items.append(item)
             self.items_layout.addWidget(item)
 
-            # Count completed
+            # Count completed (draft counts as in-progress, not completed)
             if dok.get('status') in ['final', 'signed', 'uploaded']:
                 selesai += 1
 

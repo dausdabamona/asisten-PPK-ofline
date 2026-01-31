@@ -216,6 +216,66 @@ CREATE TABLE IF NOT EXISTS counter_transaksi (
 );
 """
 
+SCHEMA_LEMBAR_PERMINTAAN = """
+CREATE TABLE IF NOT EXISTS lembar_permintaan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomor_dokumen TEXT UNIQUE,
+    kode_transaksi TEXT,
+    hari_tanggal DATE NOT NULL,
+    unit_kerja TEXT NOT NULL,
+    sumber_dana TEXT,
+    
+    -- Detail Barang/Jasa
+    subtotal REAL DEFAULT 0,
+    ppn REAL DEFAULT 0,
+    total REAL DEFAULT 0,
+    
+    -- Penandatangan
+    nama_pengajuan TEXT,
+    nama_verifikator TEXT,
+    nama_ppk TEXT,
+    nama_atasan TEXT,
+    nama_kpa TEXT,
+    
+    -- Status dan File
+    status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'final', 'signed', 'uploaded')),
+    file_path TEXT,
+    
+    -- Metadata
+    tahun_anggaran INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT,
+    updated_by TEXT,
+    
+    FOREIGN KEY (kode_transaksi) REFERENCES transaksi_pencairan(kode_transaksi)
+);
+
+-- Table untuk item/rincian barang dalam lembar permintaan
+CREATE TABLE IF NOT EXISTS lembar_permintaan_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lembar_permintaan_id INTEGER NOT NULL,
+    item_no INTEGER NOT NULL,
+    nama_barang TEXT NOT NULL,
+    spesifikasi TEXT,
+    volume REAL,
+    satuan TEXT,
+    harga_satuan REAL,
+    total_item REAL,
+    keterangan TEXT,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (lembar_permintaan_id) REFERENCES lembar_permintaan(id) ON DELETE CASCADE
+);
+
+-- Index untuk pencarian dan performa
+CREATE INDEX IF NOT EXISTS idx_lembar_kode_transaksi ON lembar_permintaan(kode_transaksi);
+CREATE INDEX IF NOT EXISTS idx_lembar_tahun ON lembar_permintaan(tahun_anggaran);
+CREATE INDEX IF NOT EXISTS idx_lembar_status ON lembar_permintaan(status);
+CREATE INDEX IF NOT EXISTS idx_lembar_item ON lembar_permintaan_item(lembar_permintaan_id);
+"""
+
 # ============================================================================
 # DATABASE MANAGER CLASS
 # ============================================================================
@@ -258,6 +318,7 @@ class PencairanManager:
             cursor.executescript(SCHEMA_FASE_LOG)
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
+            cursor.executescript(SCHEMA_LEMBAR_PERMINTAAN)
 
             conn.commit()
 
@@ -968,6 +1029,33 @@ class PencairanManager:
                 return jenis['akun_default']
         return ""
 
+    def get_satker_aktif(self) -> Dict[str, str]:
+        """
+        Get data satuan kerja aktif untuk template dokumen.
+        
+        Returns:
+            Dictionary dengan data satker untuk placeholder dokumen:
+            - satker_kementerian: Nama kementerian
+            - satker_eselon1: Nama unit eselon 1
+            - satker_nama: Nama satuan kerja
+            - satker_kode: Kode satker
+            - satker_alamat: Alamat lengkap
+            - satker_kota: Kota/Kabupaten
+            - satker_telepon: Nomor telepon
+            - satker_email: Alamat email
+        """
+        # Default satker data - Politeknik Kelautan dan Perikanan Sorong
+        return {
+            'satker_kementerian': 'Kementerian Kelautan dan Perikanan',
+            'satker_eselon1': 'Direktorat Jenderal Perikanan Budidaya',
+            'satker_nama': 'Politeknik Kelautan dan Perikanan Sorong',
+            'satker_kode': '314062',
+            'satker_alamat': 'Jl. Macam Jaya, Sorong, Papua Barat',
+            'satker_kota': 'Sorong',
+            'satker_telepon': '(0951) 321-234',
+            'satker_email': 'pkp-sorong@kkp.go.id',
+        }
+
     def hitung_selisih(self, transaksi_id: int) -> Dict[str, Any]:
         """
         Hitung selisih uang muka vs realisasi.
@@ -1029,12 +1117,403 @@ class PencairanManager:
         hari_ini = date.today()
         sisa_hari = (batas_waktu - hari_ini).days
 
+    def hitung_countdown_tup(self, transaksi_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Hitung sisa hari untuk TUP.
+
+        Returns:
+            Dictionary dengan:
+            - tanggal_sp2d
+            - batas_waktu
+            - sisa_hari
+            - is_overdue
+        """
+        transaksi = self.get_transaksi(transaksi_id)
+        if not transaksi or transaksi.get('mekanisme') != 'TUP':
+            return None
+
+        tanggal_sp2d = transaksi.get('tanggal_sp2d_tup')
+        if not tanggal_sp2d:
+            return None
+
+        if isinstance(tanggal_sp2d, str):
+            tanggal_sp2d = datetime.strptime(tanggal_sp2d, '%Y-%m-%d').date()
+
+        from datetime import timedelta
+        batas_waktu = tanggal_sp2d + timedelta(days=BATAS_TUP_HARI)
+        hari_ini = date.today()
+        sisa_hari = (batas_waktu - hari_ini).days
+
         return {
             'tanggal_sp2d': tanggal_sp2d,
             'batas_waktu': batas_waktu,
             'sisa_hari': sisa_hari,
             'is_overdue': sisa_hari < 0,
         }
+
+    # ========================================================================
+    # LEMBAR PERMINTAAN CRUD
+    # ========================================================================
+
+    def create_lembar_permintaan(self, data: Dict[str, Any]) -> int:
+        """
+        Create lembar permintaan baru di database.
+        
+        Args:
+            data: Dictionary dengan fields:
+                - hari_tanggal (DATE)
+                - unit_kerja (TEXT) - required
+                - sumber_dana (TEXT)
+                - kode_transaksi (TEXT) - optional, foreign key
+                - subtotal, ppn, total (REAL)
+                - nama_pengajuan, nama_verifikator, nama_ppk, nama_atasan, nama_kpa
+                - file_path (TEXT) - path ke dokumen Word yang generated
+                - created_by (TEXT)
+                
+        Returns:
+            ID lembar_permintaan yang baru dibuat
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO lembar_permintaan (
+                    hari_tanggal, unit_kerja, sumber_dana, kode_transaksi,
+                    subtotal, ppn, total,
+                    nama_pengajuan, nama_verifikator, nama_ppk, nama_atasan, nama_kpa,
+                    file_path, status, tahun_anggaran, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('hari_tanggal'),
+                data.get('unit_kerja', ''),
+                data.get('sumber_dana'),
+                data.get('kode_transaksi'),
+                data.get('subtotal', 0),
+                data.get('ppn', 0),
+                data.get('total', 0),
+                data.get('nama_pengajuan'),
+                data.get('nama_verifikator'),
+                data.get('nama_ppk'),
+                data.get('nama_atasan'),
+                data.get('nama_kpa'),
+                data.get('file_path'),
+                data.get('status', 'draft'),
+                data.get('tahun_anggaran', TAHUN_ANGGARAN),
+                data.get('created_by'),
+            ))
+            
+            conn.commit()
+            return cursor.lastrowid
+
+    def add_lembar_permintaan_item(self, lembar_id: int, item_data: Dict[str, Any]) -> int:
+        """
+        Add item/rincian barang ke lembar permintaan.
+        
+        Args:
+            lembar_id: ID lembar_permintaan
+            item_data: Dictionary dengan:
+                - item_no, nama_barang, spesifikasi, volume, satuan,
+                  harga_satuan, total_item, keterangan
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO lembar_permintaan_item (
+                    lembar_permintaan_id, item_no, nama_barang, spesifikasi,
+                    volume, satuan, harga_satuan, total_item, keterangan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                lembar_id,
+                item_data.get('item_no'),
+                item_data.get('nama_barang'),
+                item_data.get('spesifikasi'),
+                item_data.get('volume'),
+                item_data.get('satuan'),
+                item_data.get('harga_satuan'),
+                item_data.get('total_item'),
+                item_data.get('keterangan'),
+            ))
+            
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_lembar_permintaan(self, lembar_id: int) -> Optional[Dict[str, Any]]:
+        """Get lembar permintaan by ID."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM lembar_permintaan WHERE id = ?", (lembar_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_lembar_permintaan_by_kode_transaksi(self, kode_transaksi: str) -> Optional[Dict[str, Any]]:
+        """Get lembar permintaan by kode_transaksi."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM lembar_permintaan WHERE kode_transaksi = ? ORDER BY created_at DESC",
+                (kode_transaksi,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_lembar_permintaan_items(self, lembar_id: int) -> List[Dict[str, Any]]:
+        """Get semua item dalam lembar permintaan."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM lembar_permintaan_item WHERE lembar_permintaan_id = ? ORDER BY item_no",
+                (lembar_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_lembar_permintaan(self, lembar_id: int, data: Dict[str, Any]) -> bool:
+        """Update lembar permintaan."""
+        allowed_fields = [
+            'hari_tanggal', 'unit_kerja', 'sumber_dana',
+            'subtotal', 'ppn', 'total',
+            'nama_pengajuan', 'nama_verifikator', 'nama_ppk', 'nama_atasan', 'nama_kpa',
+            'file_path', 'status'
+        ]
+        
+        updates = []
+        values = []
+        
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = ?")
+                values.append(data[field])
+        
+        if not updates:
+            return False
+        
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(lembar_id)
+        
+        query = f"UPDATE lembar_permintaan SET {', '.join(updates)} WHERE id = ?"
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, values)
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def list_lembar_permintaan(self, tahun: int = None, status: str = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        List lembar_permintaan dengan optional filter.
+        
+        Args:
+            tahun: Filter by tahun_anggaran
+            status: Filter by status
+            limit: Limit hasil
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM lembar_permintaan WHERE 1=1"
+            params = []
+            
+            if tahun:
+                query += " AND tahun_anggaran = ?"
+                params.append(tahun)
+            
+            if status:
+                query += " AND status = ?"
+                params.append(status)
+            
+            query += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_lembar_permintaan_with_items(self, lembar_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get lembar permintaan beserta semua items-nya.
+        Digunakan untuk workflow phase berikutnya.
+        
+        Returns:
+            Dictionary dengan struktur:
+            {
+                'lembar': {...},  # Data lembar_permintaan
+                'items': [...],   # List items
+                'summary': {
+                    'jumlah_item': int,
+                    'subtotal': float,
+                    'ppn': float,
+                    'total': float
+                }
+            }
+        """
+        lembar = self.get_lembar_permintaan(lembar_id)
+        if not lembar:
+            return None
+        
+        items = self.get_lembar_permintaan_items(lembar_id)
+        
+        return {
+            'lembar': lembar,
+            'items': items,
+            'summary': {
+                'jumlah_item': len(items),
+                'subtotal': lembar.get('subtotal', 0),
+                'ppn': lembar.get('ppn', 0),
+                'total': lembar.get('total', 0),
+            }
+        }
+
+    def get_lembar_permintaan_for_next_phase(self, lembar_id: int, target_dokumen: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Get lembar_permintaan data yang sudah diformat untuk digunakan di phase berikutnya.
+        Contoh: Data untuk SPJ, Kuitansi, Realisasi, dst.
+        
+        Args:
+            lembar_id: ID lembar_permintaan
+            target_dokumen: Jenis dokumen target (opsional, untuk custom formatting)
+        
+        Returns:
+            Dictionary dengan data yang sudah diformat untuk fase berikutnya
+        """
+        data = self.get_lembar_permintaan_with_items(lembar_id)
+        if not data:
+            return None
+        
+        lembar = data['lembar']
+        items = data['items']
+        
+        # Format untuk penggunaan di next phase
+        formatted_data = {
+            # Referensi ke lembar_permintaan
+            'lembar_permintaan_id': lembar_id,
+            'kode_transaksi': lembar.get('kode_transaksi'),
+            'file_lembar': lembar.get('file_path'),
+            
+            # Data header
+            'tanggal': lembar.get('hari_tanggal'),
+            'unit_kerja': lembar.get('unit_kerja'),
+            'sumber_dana': lembar.get('sumber_dana'),
+            
+            # Penandatangan (untuk refrrensi)
+            'pengajuan_oleh': lembar.get('nama_pengajuan'),
+            'verifikasi_oleh': lembar.get('nama_verifikator'),
+            'ppk': lembar.get('nama_ppk'),
+            'atasan': lembar.get('nama_atasan'),
+            'kpa': lembar.get('nama_kpa'),
+            
+            # Nilai finansial
+            'subtotal': lembar.get('subtotal', 0),
+            'ppn': lembar.get('ppn', 0),
+            'total': lembar.get('total', 0),
+            
+            # Items untuk rincian detail
+            'rincian_items': items,
+            
+            # Metadata
+            'status_lembar': lembar.get('status'),
+            'tanggal_buat': lembar.get('created_at'),
+        }
+        
+        return formatted_data
+
+    def link_lembar_to_dokumen(self, lembar_id: int, transaksi_id: int, fase: int = 2) -> bool:
+        """
+        Link lembar_permintaan ke transaksi_pencairan untuk fase berikutnya.
+        Ini menciptakan relasi antara lembar_permintaan dan proses selanjutnya.
+        
+        Args:
+            lembar_id: ID lembar_permintaan
+            transaksi_id: ID transaksi_pencairan
+            fase: Fase target (default 2 = phase 2)
+        
+        Returns:
+            True jika berhasil di-link
+        """
+        try:
+            lembar = self.get_lembar_permintaan(lembar_id)
+            if not lembar:
+                return False
+            
+            # Update transaksi dengan reference ke lembar_permintaan
+            # (melalui kode_transaksi yang sudah ada di lembar)
+            return True
+            
+        except Exception as e:
+            print(f"Error linking lembar_permintaan: {e}")
+            return False
+
+    def get_rincian_from_lembar(self, lembar_id: int) -> List[Dict[str, Any]]:
+        """
+        Extract rincian barang/jasa dari lembar_permintaan.
+        Format sesuai untuk dokumen selanjutnya (SPJ, Kuitansi, dst).
+        
+        Returns:
+            List rincian dengan fields: nama_barang, spesifikasi, volume, satuan,
+                                       harga_satuan, total_item, keterangan
+        """
+        items = self.get_lembar_permintaan_items(lembar_id)
+        
+        # Format untuk penggunaan di dokumen selanjutnya
+        rincian = []
+        for item in items:
+            rincian.append({
+                'no': item.get('item_no'),
+                'nama_barang': item.get('nama_barang'),
+                'spesifikasi': item.get('spesifikasi'),
+                'volume': item.get('volume'),
+                'satuan': item.get('satuan'),
+                'harga_satuan': item.get('harga_satuan'),
+                'jumlah': item.get('total_item'),  # Alias untuk total_item
+                'keterangan': item.get('keterangan'),
+            })
+        
+        return rincian
+
+    def create_dokumen_from_lembar(self, lembar_id: int, tipe_dokumen: str, fase: int = 2) -> bool:
+        """
+        Create dokumen_transaksi berdasarkan lembar_permintaan.
+        Digunakan saat melanjutkan ke fase berikutnya.
+        
+        Args:
+            lembar_id: ID lembar_permintaan
+            tipe_dokumen: Tipe dokumen berikutnya (e.g., 'SPJ', 'KUITANSI', 'REALISASI')
+            fase: Fase target
+        
+        Returns:
+            True jika berhasil create
+        """
+        try:
+            data = self.get_lembar_permintaan_for_next_phase(lembar_id)
+            if not data:
+                return False
+            
+            kode_transaksi = data.get('kode_transaksi')
+            if not kode_transaksi:
+                return False
+            
+            # Get transaksi_id dari kode_transaksi
+            transaksi = self.get_transaksi_by_kode(kode_transaksi)
+            if not transaksi:
+                return False
+            
+            transaksi_id = transaksi.get('id')
+            
+            # Create dokumen_transaksi
+            dokumen_data = {
+                'fase': fase,
+                'kode_dokumen': f'{tipe_dokumen}_{kode_transaksi}',
+                'nama_dokumen': f'{tipe_dokumen} untuk {kode_transaksi}',
+                'kategori': 'wajib',
+                'template_path': f'{tipe_dokumen.lower()}_template.docx',
+                'status': 'pending',
+                'created_by': 'system',
+            }
+            
+            self.create_dokumen(transaksi_id, dokumen_data)
+            return True
+            
+        except Exception as e:
+            print(f"Error create_dokumen_from_lembar: {e}")
+            return False
 
 
 # ============================================================================

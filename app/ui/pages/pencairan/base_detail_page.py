@@ -35,12 +35,14 @@ class BaseDetailPage(QWidget):
         save_clicked(dict): Emitted when save button is clicked
         next_fase_clicked(): Emitted when next fase button is clicked
         dokumen_action(str, str, int): kode_dokumen, action, fase
+        edit_transaksi_clicked(int): Emitted when edit button is clicked with transaksi_id
     """
 
     back_clicked = Signal()
     save_clicked = Signal(dict)
     next_fase_clicked = Signal()
     dokumen_action = Signal(str, str, int)
+    edit_transaksi_clicked = Signal(int)  # transaksi_id
 
     # Override in subclasses
     MEKANISME = "UP"
@@ -216,9 +218,27 @@ class BaseDetailPage(QWidget):
 
         layout.addLayout(nilai_layout)
 
-        return bar
+        # Edit button
+        self.edit_transaksi_btn = QPushButton("✏️ Edit")
+        self.edit_transaksi_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_transaksi_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 5px;
+                font-weight: 500;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.edit_transaksi_btn.clicked.connect(self._on_edit_transaksi)
+        layout.addWidget(self.edit_transaksi_btn)
 
-    def _create_detail_panel(self) -> QWidget:
+        return bar
         """Create right detail panel."""
         panel = QFrame()
         panel.setStyleSheet("""
@@ -463,6 +483,11 @@ class BaseDetailPage(QWidget):
         """Handle save button click."""
         data = self._collect_form_data()
         self.save_clicked.emit(data)
+
+    def _on_edit_transaksi(self):
+        """Handle edit transaksi button click."""
+        if self._transaksi_id:
+            self.edit_transaksi_clicked.emit(self._transaksi_id)
 
     def _on_next_fase(self):
         """Handle next fase button click."""

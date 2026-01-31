@@ -392,29 +392,100 @@ class DokumenGeneratorDialog(QDialog):
 
     def _collect_data(self) -> Dict[str, Any]:
         """Collect all form data."""
+        from datetime import datetime
+        
         # Get penerima nama from combo display text (remove NIP in parentheses)
         penerima_display = self.penerima_nama_combo.currentText()
         penerima_nama = penerima_display.split(" (")[0] if "(" in penerima_display else penerima_display
         
+        # Prepare rincian items for table filling
+        prepared_rincian = []
+        if self.rincian_items:
+            for idx, item in enumerate(self.rincian_items, 1):
+                prepared_rincian.append({
+                    'no': idx,
+                    'item_no': idx,
+                    'uraian': item.get('uraian', ''),
+                    'nama_barang': item.get('uraian', ''),  # Use uraian as nama_barang
+                    'spesifikasi': item.get('spesifikasi', ''),
+                    'volume': item.get('volume', 0),
+                    'satuan': item.get('satuan', ''),
+                    'harga_satuan': item.get('harga_satuan', 0),
+                    'jumlah': item.get('jumlah', 0),
+                    'total_item': item.get('jumlah', 0),
+                    'keterangan': item.get('keterangan', ''),
+                })
+        
+        # Calculate totals
+        subtotal = sum(item.get('jumlah', 0) for item in prepared_rincian)
+        ppn = subtotal * 0.10  # Assume PPN 10%
+        total = subtotal + ppn
+        
+        # Format tanggal
+        tanggal_obj = self.tanggal_edit.date()
+        hari_tanggal_str = self._format_tanggal_indonesia(tanggal_obj)
+        
         data = {
+            # From form
             'nama_kegiatan': self.nama_kegiatan_edit.text(),
             'kode_akun': self.kode_akun_edit.text(),
             'estimasi_biaya': self.estimasi_spin.value(),
-            'tanggal_dokumen': self.tanggal_edit.date().toString("yyyy-MM-dd"),
+            'tanggal_dokumen': tanggal_obj.toString("yyyy-MM-dd"),
+            'hari_tanggal': hari_tanggal_str,  # Template expects this format
             'penerima_nama': penerima_nama,
             'penerima_nip': self.penerima_nip_edit.text(),
             'penerima_jabatan': self.penerima_jabatan_edit.text(),
+            
+            # Add prepared rincian
+            'rincian_items': prepared_rincian,
+            'subtotal': subtotal,
+            'ppn': ppn,
+            'total': total,
         }
+        
+        # Add satker data (unit_kerja, sumber_dana, names for penandatangan)
+        if self.satker:
+            data['unit_kerja'] = self.satker.get('nama', '')
+            data['sumber_dana'] = self.satker.get('sumber_dana', 'APBD')
+            
+            # Penandatangan names from satker
+            data['nama_pengajuan'] = penerima_nama  # Penerima adalah pengajuan
+            data['nama_verifikator'] = self.satker.get('ppk_nama', '')
+            data['nama_ppk'] = self.satker.get('ppk_nama', '')
+            data['nama_atasan'] = self.satker.get('pimpinan_nama', '') or self.satker.get('kpa_nama', '')
+            data['nama_kpa'] = self.satker.get('kpa_nama', '')
+        else:
+            # Default values if satker not available
+            data['unit_kerja'] = ''
+            data['sumber_dana'] = ''
+            data['nama_pengajuan'] = penerima_nama
+            data['nama_verifikator'] = ''
+            data['nama_ppk'] = ''
+            data['nama_atasan'] = ''
+            data['nama_kpa'] = ''
 
-        # Merge with transaksi data
+        # Merge with transaksi data (transaksi data is lower priority)
         for key, value in self.transaksi.items():
             if key not in data:
                 data[key] = value
 
         return data
+    
+    def _format_tanggal_indonesia(self, qdate) -> str:
+        """Format QDate to Indonesian date format (d Bulan yyyy)."""
+        bulan = [
+            "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ]
+        return f"{qdate.day()} {bulan[qdate.month()]} {qdate.year()}"
 
-    def _generate(self):
-        """Generate the document."""
+    def _generate(self, is_draft: bool = True):
+        """Generate the document.
+        
+        Args:
+            is_draft: If True, document is generated as draft (default for fase 1).
+                      If False, document is generated as final.
+        """
         try:
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(20)
@@ -435,16 +506,18 @@ class DokumenGeneratorDialog(QDialog):
             merged_transaksi = {**self.transaksi, **form_data}
 
             self.progress_bar.setValue(60)
-            self.status_label.setText("Generating dokumen...")
+            status_text = "Draft" if is_draft else "Final"
+            self.status_label.setText(f"Generating dokumen {status_text}...")
 
-            # Generate document
+            # Generate document (will overwrite existing file)
             output_path, error = generator.generate_document(
                 transaksi=merged_transaksi,
                 kode_dokumen=self.kode_dokumen,
                 template_name=self.template_name,
                 satker=self.satker,
-                rincian=self.rincian_items if self.rincian_items else None,
-                additional_data=form_data
+                rincian=form_data.get('rincian_items') or (self.rincian_items if self.rincian_items else None),
+                additional_data=form_data,
+                is_draft=is_draft
             )
 
             self.progress_bar.setValue(100)
@@ -455,7 +528,7 @@ class DokumenGeneratorDialog(QDialog):
                 QMessageBox.critical(self, "Error", error)
             else:
                 self.generated_path = output_path
-                self.status_label.setText(f"Dokumen berhasil dibuat: {output_path}")
+                self.status_label.setText(f"Dokumen {status_text} berhasil dibuat: {output_path}")
                 self.status_label.setStyleSheet("color: #27ae60;")
 
                 # Show open buttons
@@ -463,13 +536,14 @@ class DokumenGeneratorDialog(QDialog):
                 self.open_doc_btn.setVisible(True)
                 self.generate_btn.setText("Generate Ulang")
 
-                # Emit signal
+                # Emit signal with path
                 self.dokumen_generated.emit(output_path)
 
                 QMessageBox.information(
                     self,
                     "Sukses",
-                    f"Dokumen berhasil dibuat:\n{output_path}"
+                    f"Dokumen {status_text} berhasil dibuat:\n{output_path}\n\n"
+                    f"File lama telah ditimpa (jika ada)."
                 )
 
         except Exception as e:

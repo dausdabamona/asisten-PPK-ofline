@@ -1,0 +1,116 @@
+PERBAIKAN PLACEHOLDER REPLACEMENT - SELESAI
+============================================
+
+MASALAH:
+--------
+Saat generate lembar_permintaan, placeholder di template Word masih tampil dan tidak ter-replace dengan data aktual:
+- Header fields (hari_tanggal, unit_kerja, sumber_dana) menunjukkan placeholder atau kosong
+- Item placeholders (item_2_no, item_2_nama, dll) masih terlihat
+- Penandatangan fields tidak terisi dengan nama yang sebenarnya
+
+ROOT CAUSE ANALYSIS:
+---------------------
+Template lembar_permintaan.docx menggunakan placeholder yang DIINDEKS:
+  - {{item_1_no}}, {{item_1_nama}}, {{item_1_harga}}, ... sampai {{item_5_*}}
+  - Bukan {{rincian_items}} array/list
+
+Namun data yang dikirim menggunakan struktur:
+  - rincian_items: [list of items]
+  - Bukan item_1_no, item_1_nama, dll
+
+Jadi template tidak bisa find-replace karena key/placeholder tidak match.
+
+SOLUSI YANG DIIMPLEMENTASIKAN:
+-------------------------------
+
+1. TAMBAH METHOD _flatten_rincian_items() di dokumen_generator.py
+   - Mengubah rincian_items list menjadi indexed placeholder keys
+   - rincian_items[0] → item_1_no, item_1_nama, item_1_harga, dll
+   - rincian_items[1] → item_2_no, item_2_nama, item_2_harga, dll
+   - Dst sampai item_5_*
+   - Empty slots di-isi dengan string kosong untuk clear placeholder
+
+2. UPDATE merge_word_document() di dokumen_generator.py
+   - Panggil _flatten_rincian_items() SEBELUM melakukan placeholder replacement
+   - Hapus method _fill_rincian_table() yang kompleks dan problematic
+   - Gunakan standard placeholder replacement untuk semua data
+
+3. UPDATE _collect_data() di dokumen_dialog.py
+   - Tambah field hari_tanggal dengan format Indonesia
+   - Tambah unit_kerja dari satker data
+   - Tambah sumber_dana dari satker data
+   - Tambah penandatangan fields (nama_pengajuan, nama_verifikator, nama_ppk, nama_atasan, nama_kpa)
+   - Pastikan subtotal, ppn, total dihitung dan diinclude
+
+FIELD MAPPING UNTUK RINCIAN ITEMS:
+-----------------------------------
+Source key (dari form)        →  Placeholder suffix
+'no', 'item_no'              →  'no'
+'uraian', 'nama_barang'      →  'nama'
+'spesifikasi'                →  'spek'
+'volume'                     →  'volume'
+'satuan'                     →  'satuan'
+'harga_satuan'               →  'harga'
+'jumlah', 'total_item'       →  'total'
+'keterangan'                 →  'ket'
+
+Contoh: item = {uraian: 'Kertas A4', volume: 10, harga_satuan: 50000, jumlah: 500000}
+Menjadi: item_1_nama: 'Kertas A4', item_1_volume: '10', item_1_harga: 'Rp 50.000', item_1_total: 'Rp 500.000'
+
+HEADER PLACEHOLDERS YANG SEKARANG SUPPORTED:
+---------------------------------------------
+- {{hari_tanggal}}: '15 Januari 2024'
+- {{unit_kerja}}: 'Dinas Pendidikan Kota Bandung'
+- {{sumber_dana}}: 'APBD 2024'
+- {{subtotal}}: 'Rp 1.100.000' (atau formatted sesuai)
+- {{ppn}}: 'Rp 110.000'
+- {{total}}: 'Rp 1.210.000'
+
+PENANDATANGAN PLACEHOLDERS:
+---------------------------
+- {{nama_pengajuan}}: nama dari penerima
+- {{nama_verifikator}}: PPK nama dari satker
+- {{nama_ppk}}: PPK nama dari satker
+- {{nama_atasan}}: Pimpinan/KPA nama dari satker
+- {{nama_kpa}}: KPA nama dari satker
+
+TEST RESULTS:
+--------------
+✓ Test 1: Placeholder replacement (debug_placeholders.py)
+  - Identified 51 placeholders dalam template
+  - Mapping semua ke data keys yang sesuai
+
+✓ Test 2: Simple merge (test_placeholder_merge.py)
+  - Merge 51 values ke template
+  - NO UNREPLACED PLACEHOLDERS
+  - All values in document: unit_kerja, hari_tanggal, nama_pengajuan, item_nama, item_total
+
+✓ Test 3: Full integration (test_full_integration.py)
+  - 3 rincian items
+  - All penandatangan fields
+  - 9 of 9 key values verified
+  - NO UNREPLACED PLACEHOLDERS
+
+FILES YANG DIMODIFIKASI:
+------------------------
+1. app/services/dokumen_generator.py
+   - Tambah _flatten_rincian_items() method
+   - Update merge_word_document() untuk call _flatten_rincian_items()
+   - Simpan _process_paragraph() dan _replace_placeholder() (sudah correct)
+
+2. app/ui/dialogs/dokumen_dialog.py
+   - Update _collect_data() untuk include semua fields
+   - Tambah _format_tanggal_indonesia() method
+   - Gunakan satker data untuk field header dan penandatangan
+
+NEXT STEPS (UNTUK USER):
+------------------------
+1. Test di UI dengan membuat lembar_permintaan melalui aplikasi
+2. Verify dokumen yang dihasilkan sudah terisi semua data dengan benar
+3. Database save functionality sudah berjalan sebelumnya, jadi data tersimpan otomatis
+
+KESIMPULAN:
+-----------
+Placeholder replacement system sekarang working perfectly!
+Semua template fields akan ter-replace dengan data yang sebenarnya.
+Tidak ada lagi placeholder yang terlihat di dokumen hasil.

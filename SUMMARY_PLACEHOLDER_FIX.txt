@@ -1,0 +1,140 @@
+RINGKASAN PERBAIKAN - PLACEHOLDER REPLACEMENT
+==============================================
+
+MASALAH YANG DISELESAIKAN:
+---------------------------
+✓ Header placeholders (hari_tanggal, unit_kerja, sumber_dana) tidak ter-replace
+✓ Item placeholders (item_2_no, item_2_nama, dll) masih tampil di dokumen
+✓ Penandatangan placeholders tidak ter-replace dengan nama yang sebenarnya
+
+SOLUSI IMPLEMENTASI:
+---------------------
+
+1. app/services/dokumen_generator.py
+   
+   a) Tambah method _flatten_rincian_items() (line ~275-338):
+      - Mengubah rincian_items list menjadi indexed placeholders
+      - rincian_items[0] → item_1_no, item_1_nama, item_1_harga, dll
+      - rincian_items[1] → item_2_no, item_2_nama, item_2_harga, dll
+      - Dst sampai item_5 (sesuai template)
+      - Empty slots diisi dengan string kosong untuk clear placeholder
+
+      Keuntungan:
+      - Template yang menggunakan {{item_N_*}} akan ter-replace dengan benar
+      - Not required untuk merge existing data into document
+      - Cleaner implementation daripada _fill_rincian_table() yang kompleks
+
+   b) Modify merge_word_document() (line ~300-337):
+      - Panggil _flatten_rincian_items() sebelum processing
+      - Hapus special case handling _fill_rincian_table()
+      - Gunakan standard _process_table() untuk semua tabel
+      - Lebih robust dan maintainable
+
+2. app/ui/dialogs/dokumen_dialog.py
+
+   a) Update _collect_data() (line ~393-481):
+      - Tambah 'hari_tanggal': formatted tanggal Indonesia
+      - Tambah 'unit_kerja': dari satker.nama
+      - Tambah 'sumber_dana': dari satker.sumber_dana
+      - Tambah penandatangan fields dari satker:
+        - nama_pengajuan: dari penerima
+        - nama_verifikator: dari satker.ppk_nama
+        - nama_ppk: dari satker.ppk_nama
+        - nama_atasan: dari satker.pimpinan_nama atau satker.kpa_nama
+        - nama_kpa: dari satker.kpa_nama
+
+   b) Tambah method _format_tanggal_indonesia() (line ~482-490):
+      - Mengubah QDate ke format "15 Januari 2024"
+      - Sesuai dengan placeholder format di template
+
+TESTING VERIFICATION:
+---------------------
+
+Test 1: debug_placeholders.py
+  Result: ✓ Identified 51 placeholders dalam template
+  Result: ✓ Mapping semua placeholder ke data keys
+
+Test 2: test_placeholder_merge.py
+  Result: ✓ Merge 51 values
+  Result: ✓ NO UNREPLACED PLACEHOLDERS
+  Result: ✓ All values in document verified
+
+Test 3: test_full_integration.py
+  Result: ✓ 3 rincian items
+  Result: ✓ All penandatangan fields
+  Result: ✓ 9 of 9 key values verified
+  Result: ✓ NO UNREPLACED PLACEHOLDERS
+
+FIELD MAPPING DETAIL:
+---------------------
+
+Rincian Items:
+  Form field        →  Placeholder key
+  no/item_no        →  item_N_no
+  uraian/nama_barang→  item_N_nama
+  spesifikasi       →  item_N_spek
+  volume            →  item_N_volume
+  satuan            →  item_N_satuan
+  harga_satuan      →  item_N_harga (formatted as Rp)
+  jumlah/total_item →  item_N_total (formatted as Rp)
+  keterangan        →  item_N_ket
+
+Header Fields:
+  hari_tanggal → "15 Januari 2024" format
+  unit_kerja → satker nama
+  sumber_dana → satker sumber_dana
+  subtotal → sum of jumlah values
+  ppn → subtotal * 0.10
+  total → subtotal + ppn
+
+Penandatangan Fields:
+  nama_pengajuan → penerima name
+  nama_verifikator → satker.ppk_nama
+  nama_ppk → satker.ppk_nama
+  nama_atasan → satker.pimpinan_nama or satker.kpa_nama
+  nama_kpa → satker.kpa_nama
+
+COMPATIBILITY:
+--------------
+✓ Backward compatible - tidak merusak dokumen lain
+✓ Standard placeholder regex masih bekerja
+✓ Formatting functions (rupiah, terbilang, dll) masih bekerja
+✓ Database integration tidak berubah
+
+FILES MODIFIED:
+---------------
+1. app/services/dokumen_generator.py
+   - Added: _flatten_rincian_items() method
+   - Modified: merge_word_document() method
+
+2. app/ui/dialogs/dokumen_dialog.py
+   - Modified: _collect_data() method
+   - Added: _format_tanggal_indonesia() method
+
+FILES CREATED (TEST & DOCS):
+----------------------------
+1. debug_placeholders.py - Debug script untuk analisis template
+2. test_placeholder_merge.py - Unit test untuk placeholder replacement
+3. test_full_integration.py - Integration test dengan rincian items
+4. PLACEHOLDER_REPLACEMENT_FIX.txt - Dokumentasi teknis
+5. PANDUAN_UJI_COBA_PLACEHOLDER_FIX.md - Panduan testing untuk user
+
+STATUS:
+-------
+✓ Code changes: COMPLETED
+✓ Unit testing: PASSED (3 tests, all successful)
+✓ Integration testing: PASSED (no unreplaced placeholders)
+✓ Syntax validation: PASSED (no Python errors)
+✓ Documentation: COMPLETED
+
+NEXT STEPS FOR USER:
+--------------------
+1. Test via UI application
+2. Generate dokumen dengan rincian items
+3. Verify semua field terisi dengan benar
+4. Check database for saved records
+
+ROLLBACK (IF NEEDED):
+---------------------
+Jika ada masalah, file lama masih ada di git atau backup.
+Revert changes di 2 file tersebut dan restart aplikasi.

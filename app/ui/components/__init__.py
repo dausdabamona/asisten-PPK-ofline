@@ -126,8 +126,9 @@ from app.ui.dashboard_components import (
 
 from .fase_stepper import FaseStepper
 from .stage_widget import StageWidget
-from .dokumen_checklist import DokumenChecklist
+from .dokumen_checklist import DokumenChecklist, DokumenItem
 from .countdown_widget import CountdownWidget
+from .flow_layout import FlowLayout
 
 # =============================================================================
 # CALCULATION WIDGETS
@@ -278,7 +279,9 @@ __all__ = [
     'FaseStepper',
     'StageWidget',
     'DokumenChecklist',
+    'DokumenItem',
     'CountdownWidget',
+    'FlowLayout',
 
     # -------------------------------------------------------------------------
     # Calculation Widgets

@@ -277,6 +277,91 @@ CREATE INDEX IF NOT EXISTS idx_lembar_item ON lembar_permintaan_item(lembar_perm
 """
 
 # ============================================================================
+# TRANSAKSI ITEM - Master rincian barang/jasa per transaksi
+# ============================================================================
+
+SCHEMA_TRANSAKSI_ITEM = """
+-- Master table untuk rincian barang/jasa yang persistent sepanjang workflow
+-- Ini adalah SINGLE SOURCE OF TRUTH untuk semua item dalam transaksi
+CREATE TABLE IF NOT EXISTS transaksi_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_id INTEGER NOT NULL,
+    
+    -- Identitas Item
+    nomor_urut INTEGER NOT NULL,
+    nama_barang TEXT NOT NULL,
+    spesifikasi TEXT,
+    
+    -- Kuantitas & Harga Awal (dari Lembar Permintaan)
+    volume REAL DEFAULT 0,
+    satuan TEXT,
+    harga_satuan REAL DEFAULT 0,
+    total_item REAL DEFAULT 0,
+    
+    -- Status Progress Item
+    -- diminta: dari lembar permintaan
+    -- disetujui: approved oleh PPK
+    -- dipesan: sudah ada di SPK/Kontrak
+    -- diterima: sudah BAST dari penyedia
+    -- diserahterimakan: sudah BAST ke KPA
+    status TEXT DEFAULT 'diminta' 
+        CHECK (status IN ('diminta', 'disetujui', 'dipesan', 'diterima', 'diserahterimakan')),
+    
+    -- Tracking Volume (berubah seiring progress)
+    volume_disetujui REAL DEFAULT 0,    -- Volume yang disetujui PPK
+    volume_dipesan REAL DEFAULT 0,      -- Volume di SPK/Kontrak
+    volume_diterima REAL DEFAULT 0,     -- Volume saat BAST dari penyedia
+    volume_diserahkan REAL DEFAULT 0,   -- Volume saat BAST ke KPA
+    
+    -- Harga Realisasi (setelah negosiasi/kontrak)
+    harga_survey_1 REAL,                -- Harga survey toko 1
+    harga_survey_2 REAL,                -- Harga survey toko 2  
+    harga_survey_3 REAL,                -- Harga survey toko 3
+    harga_rata REAL,                    -- Harga rata-rata survey
+    harga_hps REAL,                     -- Harga HPS final
+    harga_negosiasi REAL,               -- Harga hasil negosiasi
+    harga_realisasi REAL DEFAULT 0,     -- Harga aktual pembayaran
+    total_realisasi REAL DEFAULT 0,     -- Total aktual
+    
+    -- Relasi ke Dokumen Asal
+    lembar_permintaan_id INTEGER,       -- Link ke lembar permintaan asal
+    paket_id INTEGER,                   -- Link ke paket (jika via LS/Kontrak)
+    
+    -- Metadata
+    keterangan TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (transaksi_id) REFERENCES transaksi_pencairan(id) ON DELETE CASCADE,
+    FOREIGN KEY (lembar_permintaan_id) REFERENCES lembar_permintaan(id) ON DELETE SET NULL,
+    FOREIGN KEY (paket_id) REFERENCES paket(id) ON DELETE SET NULL
+);
+
+-- Index untuk performa
+CREATE INDEX IF NOT EXISTS idx_transaksi_item_transaksi ON transaksi_item(transaksi_id);
+CREATE INDEX IF NOT EXISTS idx_transaksi_item_status ON transaksi_item(status);
+CREATE INDEX IF NOT EXISTS idx_transaksi_item_lembar ON transaksi_item(lembar_permintaan_id);
+
+-- History/Log perubahan item (opsional, untuk audit trail)
+CREATE TABLE IF NOT EXISTS transaksi_item_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaksi_item_id INTEGER NOT NULL,
+    aksi TEXT NOT NULL,                 -- CREATE, UPDATE, STATUS_CHANGE
+    field_changed TEXT,                 -- Field yang berubah
+    old_value TEXT,
+    new_value TEXT,
+    fase INTEGER,                       -- Fase saat perubahan terjadi
+    dokumen_ref TEXT,                   -- Referensi dokumen (nomor SPK, BAST, dll)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT,
+    
+    FOREIGN KEY (transaksi_item_id) REFERENCES transaksi_item(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_log_item ON transaksi_item_log(transaksi_item_id);
+"""
+
+# ============================================================================
 # DATABASE MANAGER CLASS
 # ============================================================================
 
@@ -319,6 +404,7 @@ class PencairanManager:
             cursor.executescript(SCHEMA_SALDO_UP)
             cursor.executescript(SCHEMA_COUNTER_TRANSAKSI)
             cursor.executescript(SCHEMA_LEMBAR_PERMINTAAN)
+            cursor.executescript(SCHEMA_TRANSAKSI_ITEM)
 
             conn.commit()
 
@@ -1514,6 +1600,328 @@ class PencairanManager:
         except Exception as e:
             print(f"Error create_dokumen_from_lembar: {e}")
             return False
+
+    # ========================================================================
+    # TRANSAKSI ITEM CRUD - Master rincian barang/jasa per transaksi
+    # ========================================================================
+
+    def create_transaksi_item(self, transaksi_id: int, item_data: Dict[str, Any]) -> int:
+        """
+        Create item baru untuk transaksi.
+        
+        Args:
+            transaksi_id: ID transaksi pencairan
+            item_data: Data item dengan keys:
+                - nomor_urut: Nomor urut item
+                - nama_barang: Nama barang/jasa
+                - spesifikasi: Spesifikasi teknis
+                - volume: Jumlah
+                - satuan: Unit satuan
+                - harga_satuan: Harga per unit
+                - total_item: Total harga
+                - keterangan: Catatan tambahan
+                - lembar_permintaan_id: Optional, referensi ke lembar asal
+        
+        Returns:
+            ID item yang baru dibuat
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO transaksi_item (
+                    transaksi_id, nomor_urut, nama_barang, spesifikasi,
+                    volume, satuan, harga_satuan, total_item,
+                    status, volume_disetujui, keterangan, lembar_permintaan_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                transaksi_id,
+                item_data.get('nomor_urut', 1),
+                item_data.get('nama_barang', ''),
+                item_data.get('spesifikasi'),
+                item_data.get('volume', 0),
+                item_data.get('satuan'),
+                item_data.get('harga_satuan', 0),
+                item_data.get('total_item', 0),
+                item_data.get('status', 'diminta'),
+                item_data.get('volume', 0),  # volume_disetujui = volume awal
+                item_data.get('keterangan'),
+                item_data.get('lembar_permintaan_id'),
+            ))
+            
+            conn.commit()
+            item_id = cursor.lastrowid
+            
+            # Log creation
+            self._log_item_change(conn, item_id, 'CREATE', None, None, 
+                                  str(item_data), 1, None)
+            
+            return item_id
+
+    def get_transaksi_items(self, transaksi_id: int) -> List[Dict[str, Any]]:
+        """Get semua item untuk transaksi tertentu."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM transaksi_item 
+                WHERE transaksi_id = ? 
+                ORDER BY nomor_urut ASC
+            """, (transaksi_id,))
+            
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_transaksi_item(self, item_id: int) -> Optional[Dict[str, Any]]:
+        """Get single item by ID."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM transaksi_item WHERE id = ?", (item_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def update_transaksi_item(self, item_id: int, data: Dict[str, Any], 
+                              fase: int = None, dokumen_ref: str = None) -> bool:
+        """
+        Update item transaksi.
+        
+        Args:
+            item_id: ID item
+            data: Data yang akan diupdate
+            fase: Fase saat perubahan (untuk logging)
+            dokumen_ref: Referensi dokumen (untuk logging)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get old data for logging
+            old_item = self.get_transaksi_item(item_id)
+            
+            # Build update query
+            update_fields = []
+            values = []
+            
+            allowed_fields = [
+                'nama_barang', 'spesifikasi', 'volume', 'satuan', 
+                'harga_satuan', 'total_item', 'status',
+                'volume_disetujui', 'volume_dipesan', 'volume_diterima', 'volume_diserahkan',
+                'harga_survey_1', 'harga_survey_2', 'harga_survey_3', 'harga_rata',
+                'harga_hps', 'harga_negosiasi', 'harga_realisasi', 'total_realisasi',
+                'keterangan', 'paket_id'
+            ]
+            
+            for field in allowed_fields:
+                if field in data:
+                    update_fields.append(f"{field} = ?")
+                    values.append(data[field])
+            
+            if not update_fields:
+                return False
+            
+            # Add updated_at
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            values.append(item_id)
+            
+            cursor.execute(f"""
+                UPDATE transaksi_item 
+                SET {', '.join(update_fields)}
+                WHERE id = ?
+            """, values)
+            
+            conn.commit()
+            
+            # Log changes
+            if old_item:
+                for field in data:
+                    if field in allowed_fields and old_item.get(field) != data.get(field):
+                        self._log_item_change(
+                            conn, item_id, 'UPDATE', field,
+                            str(old_item.get(field)), str(data.get(field)),
+                            fase, dokumen_ref
+                        )
+            
+            return cursor.rowcount > 0
+
+    def update_item_status(self, item_id: int, new_status: str, 
+                           fase: int = None, dokumen_ref: str = None,
+                           volume_field: str = None, volume_value: float = None) -> bool:
+        """
+        Update status item dan optionally volume terkait.
+        
+        Args:
+            item_id: ID item
+            new_status: Status baru (diminta/disetujui/dipesan/diterima/diserahterimakan)
+            fase: Fase saat perubahan
+            dokumen_ref: Nomor dokumen referensi
+            volume_field: Field volume yang diupdate (volume_dipesan, dll)
+            volume_value: Nilai volume baru
+        """
+        data = {'status': new_status}
+        if volume_field and volume_value is not None:
+            data[volume_field] = volume_value
+        
+        return self.update_transaksi_item(item_id, data, fase, dokumen_ref)
+
+    def delete_transaksi_item(self, item_id: int) -> bool:
+        """Delete item transaksi."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM transaksi_item WHERE id = ?", (item_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def copy_items_from_lembar(self, transaksi_id: int, lembar_id: int) -> int:
+        """
+        Copy items dari lembar_permintaan ke transaksi_item.
+        Ini adalah entry point utama saat lembar permintaan disetujui.
+        
+        Args:
+            transaksi_id: ID transaksi target
+            lembar_id: ID lembar_permintaan sumber
+        
+        Returns:
+            Jumlah item yang di-copy
+        """
+        items = self.get_lembar_permintaan_items(lembar_id)
+        count = 0
+        
+        for item in items:
+            item_data = {
+                'nomor_urut': item.get('item_no'),
+                'nama_barang': item.get('nama_barang'),
+                'spesifikasi': item.get('spesifikasi'),
+                'volume': item.get('volume'),
+                'satuan': item.get('satuan'),
+                'harga_satuan': item.get('harga_satuan'),
+                'total_item': item.get('total_item'),
+                'keterangan': item.get('keterangan'),
+                'lembar_permintaan_id': lembar_id,
+                'status': 'diminta',
+            }
+            self.create_transaksi_item(transaksi_id, item_data)
+            count += 1
+        
+        return count
+
+    def sync_items_to_transaksi(self, transaksi_id: int, lembar_id: int) -> int:
+        """
+        Sync items dari lembar_permintaan ke transaksi_item.
+        Menghapus items lama dan copy ulang dari lembar.
+        
+        Args:
+            transaksi_id: ID transaksi
+            lembar_id: ID lembar_permintaan
+        
+        Returns:
+            Jumlah item yang di-sync
+        """
+        # Hapus items lama dari lembar ini
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                DELETE FROM transaksi_item 
+                WHERE transaksi_id = ? AND lembar_permintaan_id = ?
+            """, (transaksi_id, lembar_id))
+            conn.commit()
+        
+        # Copy items baru
+        return self.copy_items_from_lembar(transaksi_id, lembar_id)
+
+    def get_items_summary(self, transaksi_id: int) -> Dict[str, Any]:
+        """
+        Get ringkasan items untuk transaksi.
+        
+        Returns:
+            Dictionary dengan:
+            - total_items: Jumlah item
+            - total_nilai: Total nilai semua item
+            - by_status: Jumlah per status
+        """
+        items = self.get_transaksi_items(transaksi_id)
+        
+        total_nilai = sum(item.get('total_item', 0) or 0 for item in items)
+        total_realisasi = sum(item.get('total_realisasi', 0) or 0 for item in items)
+        
+        by_status = {}
+        for item in items:
+            status = item.get('status', 'diminta')
+            by_status[status] = by_status.get(status, 0) + 1
+        
+        return {
+            'total_items': len(items),
+            'total_nilai': total_nilai,
+            'total_realisasi': total_realisasi,
+            'by_status': by_status,
+            'items': items,
+        }
+
+    def get_items_for_dokumen(self, transaksi_id: int, 
+                               tipe_dokumen: str = None) -> List[Dict[str, Any]]:
+        """
+        Get items dalam format yang sesuai untuk dokumen tertentu.
+        
+        Args:
+            transaksi_id: ID transaksi
+            tipe_dokumen: Tipe dokumen (HPS, SPK, BAST, KUITANSI, dll)
+        
+        Returns:
+            List items dengan field yang sesuai untuk dokumen
+        """
+        items = self.get_transaksi_items(transaksi_id)
+        
+        result = []
+        for idx, item in enumerate(items, 1):
+            formatted = {
+                'no': idx,
+                'nama_barang': item.get('nama_barang', ''),
+                'spesifikasi': item.get('spesifikasi', ''),
+                'volume': item.get('volume', 0),
+                'satuan': item.get('satuan', ''),
+                'harga_satuan': item.get('harga_satuan', 0),
+                'jumlah': item.get('total_item', 0),
+                'keterangan': item.get('keterangan', ''),
+            }
+            
+            # Tambahan field sesuai tipe dokumen
+            if tipe_dokumen == 'HPS':
+                formatted['harga_survey_1'] = item.get('harga_survey_1')
+                formatted['harga_survey_2'] = item.get('harga_survey_2')
+                formatted['harga_survey_3'] = item.get('harga_survey_3')
+                formatted['harga_rata'] = item.get('harga_rata')
+                formatted['harga_hps'] = item.get('harga_hps', item.get('harga_satuan', 0))
+            
+            elif tipe_dokumen in ('SPK', 'KONTRAK'):
+                formatted['volume_dipesan'] = item.get('volume_dipesan', item.get('volume', 0))
+                formatted['harga_negosiasi'] = item.get('harga_negosiasi', item.get('harga_satuan', 0))
+            
+            elif tipe_dokumen == 'BAST':
+                formatted['volume_dipesan'] = item.get('volume_dipesan', 0)
+                formatted['volume_diterima'] = item.get('volume_diterima', 0)
+            
+            elif tipe_dokumen == 'BAST_KPA':
+                formatted['volume_diterima'] = item.get('volume_diterima', 0)
+                formatted['volume_diserahkan'] = item.get('volume_diserahkan', 0)
+            
+            elif tipe_dokumen in ('KUITANSI', 'SPP'):
+                formatted['harga_realisasi'] = item.get('harga_realisasi', item.get('harga_satuan', 0))
+                formatted['total_realisasi'] = item.get('total_realisasi', item.get('total_item', 0))
+            
+            result.append(formatted)
+        
+        return result
+
+    def _log_item_change(self, conn, item_id: int, aksi: str, 
+                         field: str, old_value: str, new_value: str,
+                         fase: int = None, dokumen_ref: str = None):
+        """Internal method untuk log perubahan item."""
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO transaksi_item_log 
+                (transaksi_item_id, aksi, field_changed, old_value, new_value, fase, dokumen_ref)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (item_id, aksi, field, old_value, new_value, fase, dokumen_ref))
+            conn.commit()
+        except Exception:
+            pass  # Logging is optional, don't break main operation
 
 
 # ============================================================================

@@ -239,6 +239,8 @@ class BaseDetailPage(QWidget):
         layout.addWidget(self.edit_transaksi_btn)
 
         return bar
+
+    def _create_detail_panel(self) -> QWidget:
         """Create right detail panel."""
         panel = QFrame()
         panel.setStyleSheet("""

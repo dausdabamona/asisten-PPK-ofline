@@ -594,12 +594,31 @@ CREATE TABLE IF NOT EXISTS perjalanan_dinas (
     sumber_dana TEXT DEFAULT 'DIPA',
     kode_akun TEXT,
 
-    -- Biaya
-    biaya_transport REAL DEFAULT 0,
-    biaya_uang_harian REAL DEFAULT 0,
-    biaya_penginapan REAL DEFAULT 0,
+    -- Biaya Transport (Detail)
+    jenis_transport TEXT DEFAULT 'DARAT',  -- PESAWAT, KERETA, BUS, DARAT
+    tiket_pergi REAL DEFAULT 0,
+    tiket_pulang REAL DEFAULT 0,
+    transport_bandara_pergi REAL DEFAULT 0,
+    transport_bandara_pulang REAL DEFAULT 0,
+    transport_lokal REAL DEFAULT 0,
+    biaya_transport REAL DEFAULT 0,        -- Total transport (auto-calculated)
+
+    -- Biaya Harian & Penginapan (Detail)
+    tarif_uang_harian REAL DEFAULT 0,      -- Tarif per hari
+    jumlah_hari_uang_harian INTEGER DEFAULT 1,
+    biaya_uang_harian REAL DEFAULT 0,      -- Total uang harian
+
+    tarif_penginapan REAL DEFAULT 0,       -- Tarif per malam
+    jumlah_malam INTEGER DEFAULT 0,
+    biaya_penginapan REAL DEFAULT 0,       -- Total penginapan
+
+    -- Biaya Lainnya
     biaya_representasi REAL DEFAULT 0,
     biaya_lain_lain REAL DEFAULT 0,
+    keterangan_biaya_lain TEXT,
+
+    -- Total & Uang Muka
+    total_biaya REAL DEFAULT 0,            -- Grand total
     uang_muka REAL DEFAULT 0,
 
     -- Pejabat
@@ -1030,7 +1049,7 @@ CREATE TABLE IF NOT EXISTS pagu_anggaran (
 
 CREATE INDEX IF NOT EXISTS idx_pagu_tahun ON pagu_anggaran(tahun_anggaran);
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_full ON pagu_anggaran(kode_full);
-CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak);
+-- idx_pagu_nomor_mak dibuat di _run_migrations setelah migrasi kolom
 CREATE INDEX IF NOT EXISTS idx_pagu_kode_akun ON pagu_anggaran(kode_akun);
 CREATE INDEX IF NOT EXISTS idx_pagu_level ON pagu_anggaran(level_kode);
 CREATE INDEX IF NOT EXISTS idx_pagu_parent ON pagu_anggaran(parent_id);
@@ -1080,6 +1099,46 @@ CREATE TABLE IF NOT EXISTS honorarium_pengelola (
 
 CREATE INDEX IF NOT EXISTS idx_hon_pengelola_tahun_bulan ON honorarium_pengelola(tahun, bulan);
 CREATE INDEX IF NOT EXISTS idx_hon_pengelola_jabatan ON honorarium_pengelola(jabatan);
+
+-- ============================================================================
+-- CHECKLIST PERJALANAN DINAS (Travel Document Checklist)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS checklist_perjalanan_dinas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    perjalanan_dinas_id INTEGER NOT NULL,
+    doc_type TEXT NOT NULL,
+    doc_name TEXT,
+    kategori TEXT,
+    is_wajib INTEGER DEFAULT 1,
+    is_kondisional INTEGER DEFAULT 0,
+    kondisi_field TEXT,
+
+    -- Status tracking
+    status TEXT DEFAULT 'BELUM',  -- BELUM, DRAFT, SIGNED, UPLOADED, VERIFIED
+
+    -- File upload
+    filepath_signed TEXT,
+    filename TEXT,
+    filesize INTEGER,
+
+    -- Metadata
+    catatan TEXT,
+    uploaded_at TIMESTAMP,
+    uploaded_by TEXT,
+    verified_at TIMESTAMP,
+    verified_by TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (perjalanan_dinas_id) REFERENCES perjalanan_dinas(id) ON DELETE CASCADE,
+    UNIQUE(perjalanan_dinas_id, doc_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_pd_id ON checklist_perjalanan_dinas(perjalanan_dinas_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_pd_status ON checklist_perjalanan_dinas(status);
+CREATE INDEX IF NOT EXISTS idx_checklist_pd_kategori ON checklist_perjalanan_dinas(kategori);
 """
 
 # ============================================================================
@@ -1266,6 +1325,22 @@ class DatabaseManagerV4:
             ('pelaksana_id', "ALTER TABLE perjalanan_dinas ADD COLUMN pelaksana_id INTEGER REFERENCES pegawai(id)"),
             ('ppk_id', "ALTER TABLE perjalanan_dinas ADD COLUMN ppk_id INTEGER REFERENCES pegawai(id)"),
             ('bendahara_id', "ALTER TABLE perjalanan_dinas ADD COLUMN bendahara_id INTEGER REFERENCES pegawai(id)"),
+            # Biaya Transport Detail
+            ('jenis_transport', "ALTER TABLE perjalanan_dinas ADD COLUMN jenis_transport TEXT DEFAULT 'DARAT'"),
+            ('tiket_pergi', "ALTER TABLE perjalanan_dinas ADD COLUMN tiket_pergi REAL DEFAULT 0"),
+            ('tiket_pulang', "ALTER TABLE perjalanan_dinas ADD COLUMN tiket_pulang REAL DEFAULT 0"),
+            ('transport_bandara_pergi', "ALTER TABLE perjalanan_dinas ADD COLUMN transport_bandara_pergi REAL DEFAULT 0"),
+            ('transport_bandara_pulang', "ALTER TABLE perjalanan_dinas ADD COLUMN transport_bandara_pulang REAL DEFAULT 0"),
+            ('transport_lokal', "ALTER TABLE perjalanan_dinas ADD COLUMN transport_lokal REAL DEFAULT 0"),
+            # Uang Harian Detail
+            ('tarif_uang_harian', "ALTER TABLE perjalanan_dinas ADD COLUMN tarif_uang_harian REAL DEFAULT 0"),
+            ('jumlah_hari_uang_harian', "ALTER TABLE perjalanan_dinas ADD COLUMN jumlah_hari_uang_harian INTEGER DEFAULT 1"),
+            # Penginapan Detail
+            ('tarif_penginapan', "ALTER TABLE perjalanan_dinas ADD COLUMN tarif_penginapan REAL DEFAULT 0"),
+            ('jumlah_malam', "ALTER TABLE perjalanan_dinas ADD COLUMN jumlah_malam INTEGER DEFAULT 0"),
+            # Biaya Lainnya
+            ('keterangan_biaya_lain', "ALTER TABLE perjalanan_dinas ADD COLUMN keterangan_biaya_lain TEXT"),
+            ('total_biaya', "ALTER TABLE perjalanan_dinas ADD COLUMN total_biaya REAL DEFAULT 0"),
         ]
 
         for col, sql in pd_migrations:
@@ -1402,6 +1477,12 @@ class DatabaseManagerV4:
                     cursor.execute(sql)
                 except:
                     pass
+
+        # Create index for nomor_mak after migration ensures column exists
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_pagu_nomor_mak ON pagu_anggaran(nomor_mak)")
+        except:
+            pass
 
     def _insert_default_satker(self, cursor):
         """Insert default satker data"""
@@ -2449,12 +2530,17 @@ class DatabaseManagerV4:
                     kota_asal, kota_tujuan, provinsi_tujuan, alamat_tujuan,
                     tanggal_surat_tugas, tanggal_berangkat, tanggal_kembali, lama_perjalanan,
                     sumber_dana, kode_akun,
-                    biaya_transport, biaya_uang_harian, biaya_penginapan,
-                    biaya_representasi, biaya_lain_lain, uang_muka,
+                    jenis_transport, tiket_pergi, tiket_pulang,
+                    transport_bandara_pergi, transport_bandara_pulang, transport_lokal,
+                    biaya_transport,
+                    tarif_uang_harian, jumlah_hari_uang_harian, biaya_uang_harian,
+                    tarif_penginapan, jumlah_malam, biaya_penginapan,
+                    biaya_representasi, biaya_lain_lain, keterangan_biaya_lain,
+                    total_biaya, uang_muka,
                     ppk_id, ppk_nama, ppk_nip, ppk_jabatan,
                     bendahara_id, bendahara_nama, bendahara_nip,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('tahun_anggaran', TAHUN_ANGGARAN),
                 data.get('nama_kegiatan'),
@@ -2477,11 +2563,23 @@ class DatabaseManagerV4:
                 data.get('lama_perjalanan', 1),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('jenis_transport', 'DARAT'),
+                data.get('tiket_pergi', 0),
+                data.get('tiket_pulang', 0),
+                data.get('transport_bandara_pergi', 0),
+                data.get('transport_bandara_pulang', 0),
+                data.get('transport_lokal', 0),
                 data.get('biaya_transport', 0),
+                data.get('tarif_uang_harian', 0),
+                data.get('jumlah_hari_uang_harian', 1),
                 data.get('biaya_uang_harian', 0),
+                data.get('tarif_penginapan', 0),
+                data.get('jumlah_malam', 0),
                 data.get('biaya_penginapan', 0),
                 data.get('biaya_representasi', 0),
                 data.get('biaya_lain_lain', 0),
+                data.get('keterangan_biaya_lain'),
+                data.get('total_biaya', 0),
                 data.get('uang_muka', 0),
                 data.get('ppk_id'),
                 data.get('ppk_nama'),
@@ -2508,8 +2606,13 @@ class DatabaseManagerV4:
                     kota_asal = ?, kota_tujuan = ?, provinsi_tujuan = ?, alamat_tujuan = ?,
                     tanggal_surat_tugas = ?, tanggal_berangkat = ?, tanggal_kembali = ?, lama_perjalanan = ?,
                     sumber_dana = ?, kode_akun = ?,
-                    biaya_transport = ?, biaya_uang_harian = ?, biaya_penginapan = ?,
-                    biaya_representasi = ?, biaya_lain_lain = ?, uang_muka = ?,
+                    jenis_transport = ?, tiket_pergi = ?, tiket_pulang = ?,
+                    transport_bandara_pergi = ?, transport_bandara_pulang = ?, transport_lokal = ?,
+                    biaya_transport = ?,
+                    tarif_uang_harian = ?, jumlah_hari_uang_harian = ?, biaya_uang_harian = ?,
+                    tarif_penginapan = ?, jumlah_malam = ?, biaya_penginapan = ?,
+                    biaya_representasi = ?, biaya_lain_lain = ?, keterangan_biaya_lain = ?,
+                    total_biaya = ?, uang_muka = ?,
                     ppk_id = ?, ppk_nama = ?, ppk_nip = ?, ppk_jabatan = ?,
                     bendahara_id = ?, bendahara_nama = ?, bendahara_nip = ?,
                     status = ?, updated_at = CURRENT_TIMESTAMP
@@ -2535,11 +2638,23 @@ class DatabaseManagerV4:
                 data.get('lama_perjalanan', 1),
                 data.get('sumber_dana', 'DIPA'),
                 data.get('kode_akun'),
+                data.get('jenis_transport', 'DARAT'),
+                data.get('tiket_pergi', 0),
+                data.get('tiket_pulang', 0),
+                data.get('transport_bandara_pergi', 0),
+                data.get('transport_bandara_pulang', 0),
+                data.get('transport_lokal', 0),
                 data.get('biaya_transport', 0),
+                data.get('tarif_uang_harian', 0),
+                data.get('jumlah_hari_uang_harian', 1),
                 data.get('biaya_uang_harian', 0),
+                data.get('tarif_penginapan', 0),
+                data.get('jumlah_malam', 0),
                 data.get('biaya_penginapan', 0),
                 data.get('biaya_representasi', 0),
                 data.get('biaya_lain_lain', 0),
+                data.get('keterangan_biaya_lain'),
+                data.get('total_biaya', 0),
                 data.get('uang_muka', 0),
                 data.get('ppk_id'),
                 data.get('ppk_nama'),
@@ -2610,6 +2725,215 @@ class DatabaseManagerV4:
             cursor.execute("DELETE FROM perjalanan_dinas WHERE id = ?", (pd_id,))
             conn.commit()
             return cursor.rowcount > 0
+
+    # =========================================================================
+    # CHECKLIST PERJALANAN DINAS
+    # =========================================================================
+
+    def get_checklist_perjalanan_dinas(self, pd_id: int) -> List[Dict]:
+        """Get all checklist items for a perjalanan dinas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ?
+                ORDER BY id
+            """, (pd_id,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_checklist_item(self, pd_id: int, doc_type: str) -> Optional[Dict]:
+        """Get specific checklist item"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND doc_type = ?
+            """, (pd_id, doc_type))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def save_checklist_item(self, pd_id: int, doc_type: str, data: Dict) -> int:
+        """Save or update checklist item (upsert)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if exists
+            cursor.execute("""
+                SELECT id FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND doc_type = ?
+            """, (pd_id, doc_type))
+            existing = cursor.fetchone()
+
+            if existing:
+                # Update
+                cursor.execute("""
+                    UPDATE checklist_perjalanan_dinas SET
+                        doc_name = ?, kategori = ?, is_wajib = ?, is_kondisional = ?,
+                        kondisi_field = ?, status = ?, filepath_signed = ?, filename = ?,
+                        filesize = ?, catatan = ?, uploaded_at = ?, uploaded_by = ?,
+                        verified_at = ?, verified_by = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE perjalanan_dinas_id = ? AND doc_type = ?
+                """, (
+                    data.get('doc_name'),
+                    data.get('kategori'),
+                    data.get('is_wajib', 1),
+                    data.get('is_kondisional', 0),
+                    data.get('kondisi_field'),
+                    data.get('status', 'BELUM'),
+                    data.get('filepath_signed'),
+                    data.get('filename'),
+                    data.get('filesize'),
+                    data.get('catatan'),
+                    data.get('uploaded_at'),
+                    data.get('uploaded_by'),
+                    data.get('verified_at'),
+                    data.get('verified_by'),
+                    pd_id, doc_type
+                ))
+                conn.commit()
+                return existing[0]
+            else:
+                # Insert
+                cursor.execute("""
+                    INSERT INTO checklist_perjalanan_dinas (
+                        perjalanan_dinas_id, doc_type, doc_name, kategori,
+                        is_wajib, is_kondisional, kondisi_field, status,
+                        filepath_signed, filename, filesize, catatan,
+                        uploaded_at, uploaded_by, verified_at, verified_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    pd_id, doc_type,
+                    data.get('doc_name'),
+                    data.get('kategori'),
+                    data.get('is_wajib', 1),
+                    data.get('is_kondisional', 0),
+                    data.get('kondisi_field'),
+                    data.get('status', 'BELUM'),
+                    data.get('filepath_signed'),
+                    data.get('filename'),
+                    data.get('filesize'),
+                    data.get('catatan'),
+                    data.get('uploaded_at'),
+                    data.get('uploaded_by'),
+                    data.get('verified_at'),
+                    data.get('verified_by')
+                ))
+                conn.commit()
+                return cursor.lastrowid
+
+    def update_checklist_status(self, pd_id: int, doc_type: str, status: str,
+                                 filepath: str = None, catatan: str = None) -> bool:
+        """Update checklist item status"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if filepath:
+                import os
+                cursor.execute("""
+                    UPDATE checklist_perjalanan_dinas SET
+                        status = ?, filepath_signed = ?, filename = ?,
+                        filesize = ?, catatan = ?, uploaded_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE perjalanan_dinas_id = ? AND doc_type = ?
+                """, (status, filepath, os.path.basename(filepath),
+                      os.path.getsize(filepath) if os.path.exists(filepath) else 0,
+                      catatan, pd_id, doc_type))
+            else:
+                cursor.execute("""
+                    UPDATE checklist_perjalanan_dinas SET
+                        status = ?, catatan = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE perjalanan_dinas_id = ? AND doc_type = ?
+                """, (status, catatan, pd_id, doc_type))
+
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_checklist_file(self, pd_id: int, doc_type: str) -> bool:
+        """Delete uploaded file from checklist item"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE checklist_perjalanan_dinas SET
+                    status = 'BELUM', filepath_signed = NULL, filename = NULL,
+                    filesize = NULL, uploaded_at = NULL, uploaded_by = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE perjalanan_dinas_id = ? AND doc_type = ?
+            """, (pd_id, doc_type))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def init_checklist_perjalanan_dinas(self, pd_id: int, checklist_config: List[tuple]) -> int:
+        """Initialize checklist items for a perjalanan dinas from config"""
+        count = 0
+        for item in checklist_config:
+            doc_type, doc_name, kategori, is_wajib, kondisi_field = item
+            data = {
+                'doc_name': doc_name,
+                'kategori': kategori,
+                'is_wajib': 1 if is_wajib else 0,
+                'is_kondisional': 1 if kondisi_field else 0,
+                'kondisi_field': kondisi_field,
+                'status': 'BELUM'
+            }
+            self.save_checklist_item(pd_id, doc_type, data)
+            count += 1
+        return count
+
+    def get_checklist_progress(self, pd_id: int) -> Dict:
+        """Get checklist completion progress"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Total wajib
+            cursor.execute("""
+                SELECT COUNT(*) FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND is_wajib = 1
+            """, (pd_id,))
+            total_wajib = cursor.fetchone()[0]
+
+            # Completed wajib
+            cursor.execute("""
+                SELECT COUNT(*) FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND is_wajib = 1
+                AND status IN ('SIGNED', 'UPLOADED', 'VERIFIED')
+            """, (pd_id,))
+            done_wajib = cursor.fetchone()[0]
+
+            # Total opsional
+            cursor.execute("""
+                SELECT COUNT(*) FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND is_wajib = 0
+            """, (pd_id,))
+            total_opsional = cursor.fetchone()[0]
+
+            # Completed opsional
+            cursor.execute("""
+                SELECT COUNT(*) FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND is_wajib = 0
+                AND status IN ('SIGNED', 'UPLOADED', 'VERIFIED')
+            """, (pd_id,))
+            done_opsional = cursor.fetchone()[0]
+
+            # Total uploaded
+            cursor.execute("""
+                SELECT COUNT(*) FROM checklist_perjalanan_dinas
+                WHERE perjalanan_dinas_id = ? AND filepath_signed IS NOT NULL
+            """, (pd_id,))
+            total_uploaded = cursor.fetchone()[0]
+
+            progress = 0
+            if total_wajib > 0:
+                progress = int((done_wajib / total_wajib) * 100)
+
+            return {
+                'total_wajib': total_wajib,
+                'done_wajib': done_wajib,
+                'total_opsional': total_opsional,
+                'done_opsional': done_opsional,
+                'total_uploaded': total_uploaded,
+                'progress': progress,
+                'is_complete': progress == 100
+            }
 
     # =========================================================================
     # SWAKELOLA (Self-managed Procurement)
